@@ -2,12 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ChevronLeft } from "lucide-react";
+import PersonIcon from "@/components/PersonIcon";
+import Corners from "@/components/Corners";
 
 type Person = {
   kind: "child" | "parent";
   id: string;
+  name: string;
   label: string;
-  color?: string;
 };
 
 export default function LoginScreen({ people }: { people: Person[] }) {
@@ -62,23 +65,24 @@ export default function LoginScreen({ people }: { people: Person[] }) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-12">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-800">Nhiệm Vụ &amp; Điểm</h1>
-          <p className="mt-1 text-slate-500">Chọn tên của bạn</p>
+          <p className="font-heading text-xs font-semibold uppercase tracking-[0.1em] text-accent-700">
+            Nhiệm Vụ &amp; Điểm
+          </p>
+          <h1 className="mt-1 text-[27px]">Chọn tên của bạn</h1>
         </div>
-        <div className="grid w-full max-w-sm grid-cols-2 gap-4">
+        <div className="grid w-full max-w-sm grid-cols-2 gap-3">
           {people.map((p) => (
             <button
               key={`${p.kind}-${p.id}`}
               onClick={() => choose(p)}
-              className="flex flex-col items-center gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md active:scale-95"
+              className="blueprint flex flex-col items-center gap-3 border border-divider bg-surface px-2 py-6 hover:bg-accent-100"
             >
-              <span
-                className="flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold text-white"
-                style={{ backgroundColor: p.color ?? "#64748b" }}
-              >
-                {p.label.charAt(0)}
+              <Corners />
+              <span className="flex h-[48px] w-[48px] items-center justify-center border border-divider">
+                <PersonIcon name={p.name} size={24} strokeWidth={1.5} />
               </span>
-              <span className="font-semibold text-slate-700">{p.label}</span>
+              <span className="font-heading text-base font-semibold">{p.label}</span>
+              <span className="text-[11px] text-accent-700">{p.kind === "child" ? "Con" : "Ba / Mẹ"}</span>
             </button>
           ))}
         </div>
@@ -90,35 +94,35 @@ export default function LoginScreen({ people }: { people: Person[] }) {
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-12">
       <button
         onClick={() => setSelected(null)}
-        className="self-start text-sm text-slate-500 hover:text-slate-700"
+        className="inline-flex items-center gap-1 self-start text-sm text-ink/60 hover:text-ink"
       >
-        ← Quay lại
+        <ChevronLeft size={14} strokeWidth={1.5} />
+        Quay lại
       </button>
-      <div className="text-center">
-        <span
-          className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold text-white"
-          style={{ backgroundColor: selected.color ?? "#64748b" }}
-        >
-          {selected.label.charAt(0)}
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span className="flex h-[52px] w-[52px] items-center justify-center border border-divider">
+          <PersonIcon name={selected.name} size={24} strokeWidth={1.5} />
         </span>
-        <h2 className="text-xl font-bold text-slate-800">{selected.label}</h2>
-        <p className="text-slate-500">Nhập mã PIN</p>
+        <div>
+          <h2 className="text-xl">{selected.label}</h2>
+          <p className="text-sm text-ink/65">Nhập mã PIN</p>
+        </div>
       </div>
 
-      <div className="flex gap-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <span
-            key={i}
-            className={`h-4 w-4 rounded-full border-2 border-slate-400 ${
-              i < pin.length ? "bg-slate-700 border-slate-700" : "bg-transparent"
-            }`}
-          />
-        ))}
+      <div className={`flex flex-col items-center gap-2 ${error ? "animate-[shake_0.4s]" : ""}`}>
+        <div className="flex gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <span
+              key={i}
+              className="h-[13px] w-[13px] border border-divider"
+              style={{ background: i < pin.length ? "var(--color-accent-700)" : "transparent" }}
+            />
+          ))}
+        </div>
+        {error && <p className="text-[12.5px] font-semibold text-ink">{error}</p>}
       </div>
 
-      {error && <p className="text-sm font-medium text-red-600">{error}</p>}
-
-      <div className="grid w-full max-w-[260px] grid-cols-3 gap-3">
+      <div className="grid w-full max-w-[260px] grid-cols-3 gap-2">
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
           <button
             key={d}
@@ -128,16 +132,18 @@ export default function LoginScreen({ people }: { people: Person[] }) {
               pressDigit(d);
               if (next.length === 4) submit(next);
             }}
-            className="rounded-xl bg-white py-4 text-lg font-semibold text-slate-700 shadow-sm border border-slate-200 active:scale-95 disabled:opacity-50"
+            className="blueprint border border-divider bg-surface py-4 text-lg font-semibold hover:bg-accent-100 disabled:opacity-45"
           >
+            <Corners />
             {d}
           </button>
         ))}
         <button
           disabled={loading}
           onClick={backspace}
-          className="rounded-xl bg-slate-100 py-4 text-sm font-semibold text-slate-500 active:scale-95 disabled:opacity-50"
+          className="blueprint border border-divider bg-surface py-4 text-xs font-semibold text-ink/60 hover:bg-accent-100 disabled:opacity-45"
         >
+          <Corners />
           Xóa
         </button>
         <button
@@ -147,15 +153,17 @@ export default function LoginScreen({ people }: { people: Person[] }) {
             pressDigit("0");
             if (next.length === 4) submit(next);
           }}
-          className="rounded-xl bg-white py-4 text-lg font-semibold text-slate-700 shadow-sm border border-slate-200 active:scale-95 disabled:opacity-50"
+          className="blueprint border border-divider bg-surface py-4 text-lg font-semibold hover:bg-accent-100 disabled:opacity-45"
         >
+          <Corners />
           0
         </button>
         <button
           disabled={loading || pin.length < 4}
           onClick={() => submit(pin)}
-          className="rounded-xl bg-blue-600 py-4 text-sm font-semibold text-white active:scale-95 disabled:opacity-50"
+          className="blueprint border border-accent-700 bg-accent-700 py-4 text-xs font-semibold text-canvas disabled:opacity-45"
         >
+          <Corners />
           Vào
         </button>
       </div>

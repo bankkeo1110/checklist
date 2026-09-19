@@ -2,25 +2,37 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Check, X, Clock, Plus } from "lucide-react";
 import { weekdayLabel, dayOfMonth } from "@/lib/date";
 import Stars from "@/components/Stars";
 
 type Task = { id: string; title: string; points: number; createdAtDate: string };
 type Cell = { id: string; status: string };
 
-const STATUS_STYLES: Record<string, string> = {
-  APPROVED: "bg-emerald-500 text-white",
-  CLAIMED: "bg-amber-400 text-white",
-  REJECTED: "bg-red-400 text-white",
-  MISSED: "bg-slate-300 text-slate-600",
-};
-
-const STATUS_ICON: Record<string, string> = {
-  APPROVED: "✓",
-  CLAIMED: "…",
-  REJECTED: "✕",
-  MISSED: "—",
-};
+function StatusGlyph({ status }: { status: string }) {
+  if (status === "APPROVED") {
+    return (
+      <span className="inline-flex h-9 w-9 items-center justify-center bg-accent-700 text-canvas">
+        <Check size={16} strokeWidth={2} />
+      </span>
+    );
+  }
+  if (status === "CLAIMED") {
+    return (
+      <span className="inline-flex h-9 w-9 items-center justify-center border border-accent-700 text-accent-700">
+        <Clock size={16} strokeWidth={1.5} />
+      </span>
+    );
+  }
+  if (status === "REJECTED") {
+    return (
+      <span className="inline-flex h-9 w-9 items-center justify-center border border-divider text-neutral-800">
+        <X size={14} strokeWidth={1.5} />
+      </span>
+    );
+  }
+  return <span className="inline-flex h-9 w-9 items-center justify-center text-neutral-500">—</span>;
+}
 
 export default function WeeklyGrid({
   tasks,
@@ -53,22 +65,20 @@ export default function WeeklyGrid({
   }
 
   if (tasks.length === 0) {
-    return <p className="text-sm text-slate-400">Chưa có nhiệm vụ nào được giao.</p>;
+    return <p className="text-sm text-ink/50">Chưa có nhiệm vụ nào được giao.</p>;
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-x-auto border border-divider bg-surface">
       <table className="w-full min-w-[560px] border-collapse text-sm">
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 bg-white p-3 text-left text-xs font-semibold text-slate-500">
-              Nhiệm vụ
-            </th>
+            <th className="sticky left-0 z-10 bg-surface p-3 text-left text-xs font-semibold text-ink/60" />
             {dates.map((d) => (
               <th
                 key={d}
-                className={`p-2 text-center text-xs font-semibold ${
-                  d === today ? "text-blue-600" : "text-slate-400"
+                className={`p-2 text-center font-heading text-xs font-semibold ${
+                  d === today ? "text-accent-700" : "text-ink/50"
                 }`}
               >
                 <div>{weekdayLabel(d)}</div>
@@ -79,10 +89,10 @@ export default function WeeklyGrid({
         </thead>
         <tbody>
           {tasks.map((task) => (
-            <tr key={task.id} className="border-t border-slate-100">
-              <td className="sticky left-0 z-10 max-w-[160px] bg-white p-3 align-top">
-                <p className="font-medium text-slate-700">{task.title}</p>
-                <Stars count={task.points} className="text-sm" />
+            <tr key={task.id} className="border-t border-divider">
+              <td className="sticky left-0 z-10 max-w-[160px] bg-surface p-3 align-top">
+                <p className="font-medium">{task.title}</p>
+                <Stars count={task.points} size={11} />
               </td>
               {dates.map((d) => {
                 const cell = cellsByTask[task.id]?.[d];
@@ -94,11 +104,7 @@ export default function WeeklyGrid({
                   if (status === "CLAIMED" || status === "APPROVED") {
                     return (
                       <td key={d} className="p-2 text-center">
-                        <span
-                          className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${STATUS_STYLES[status]}`}
-                        >
-                          {STATUS_ICON[status]}
-                        </span>
+                        <StatusGlyph status={status} />
                       </td>
                     );
                   }
@@ -107,10 +113,10 @@ export default function WeeklyGrid({
                       <button
                         disabled={pendingTaskId === task.id}
                         onClick={() => claim(task.id)}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-dashed border-blue-400 text-blue-500 active:scale-90 disabled:opacity-50"
+                        className="inline-flex h-9 w-9 items-center justify-center border border-accent-700 text-accent-700 active:scale-90 disabled:opacity-50"
                         aria-label={`Đánh dấu xong: ${task.title}`}
                       >
-                        {pendingTaskId === task.id ? "…" : "+"}
+                        <Plus size={16} strokeWidth={1.5} />
                       </button>
                     </td>
                   );
@@ -119,23 +125,14 @@ export default function WeeklyGrid({
                 if (isFuture || d < task.createdAtDate) {
                   return (
                     <td key={d} className="p-2 text-center">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-300">
-                        ·
-                      </span>
+                      <span className="inline-flex h-9 w-9 items-center justify-center text-neutral-400">·</span>
                     </td>
                   );
                 }
 
-                const status = cell?.status ?? "MISSED";
                 return (
                   <td key={d} className="p-2 text-center">
-                    <span
-                      className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${
-                        STATUS_STYLES[status] ?? STATUS_STYLES.MISSED
-                      }`}
-                    >
-                      {STATUS_ICON[status] ?? STATUS_ICON.MISSED}
-                    </span>
+                    <StatusGlyph status={cell?.status ?? "MISSED"} />
                   </td>
                 );
               })}

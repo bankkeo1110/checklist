@@ -8,8 +8,8 @@ export default async function BedtimeChecklistManagerPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-xl font-bold text-slate-800">Checklist trước khi ngủ</h1>
-      <p className="mb-5 text-sm text-slate-500">Thêm, sửa, xóa các mục trong checklist buổi tối.</p>
+      <h1 className="mb-1 text-xl">Checklist trước khi ngủ</h1>
+      <p className="mb-5 text-sm text-ink/60">Thêm, sửa, xóa các mục trong checklist buổi tối.</p>
       <BedtimeItemManager
         initialItems={items.map((i) => ({ id: i.id, label: i.label, active: i.active }))}
       />

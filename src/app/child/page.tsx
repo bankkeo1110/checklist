@@ -6,6 +6,7 @@ import { currentWeekStart, dateStrToUTCDate, todayDateStr, weekDates } from "@/l
 import WeeklyGrid from "@/components/child/WeeklyGrid";
 import BedtimeChecklist from "@/components/child/BedtimeChecklist";
 import PointHistoryStrip from "@/components/child/PointHistoryStrip";
+import Corners from "@/components/Corners";
 
 export const dynamic = "force-dynamic";
 
@@ -59,23 +60,22 @@ export default async function ConPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-slate-500">Tổng điểm</p>
-            <p className="text-3xl font-extrabold text-blue-600">{pointTotal}</p>
-          </div>
-          {goal?.goalText && (
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-wide text-slate-400">Mục tiêu tuần</p>
-              <p className="max-w-[180px] text-sm font-medium text-slate-700">{goal.goalText}</p>
-            </div>
-          )}
+      <section className="blueprint relative flex items-center justify-between border border-divider bg-surface p-5">
+        <Corners />
+        <div>
+          <p className="text-sm text-ink/60">Tổng điểm</p>
+          <p className="font-heading text-3xl font-bold text-accent-700">{pointTotal}</p>
         </div>
+        {goal?.goalText && (
+          <div className="text-right">
+            <p className="text-xs uppercase tracking-wide text-ink/40">Mục tiêu tuần</p>
+            <p className="max-w-[180px] text-sm font-medium">{goal.goalText}</p>
+          </div>
+        )}
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-bold text-slate-800">Nhiệm vụ tuần</h2>
+        <h2 className="mb-3 text-lg">Nhiệm vụ tuần</h2>
         <WeeklyGrid
           tasks={tasks.map((t) => ({
             id: t.id,
@@ -90,7 +90,7 @@ export default async function ConPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-bold text-slate-800">Checklist trước khi đi ngủ</h2>
+        <h2 className="mb-3 text-lg">Checklist trước khi đi ngủ</h2>
         <BedtimeChecklist
           items={bedtimeItems.map((i) => ({ id: i.id, label: i.label }))}
           checkedMap={checkedMap}
@@ -98,7 +98,7 @@ export default async function ConPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 text-lg font-bold text-slate-800">Gần đây</h2>
+        <h2 className="mb-3 text-lg">Gần đây</h2>
         <PointHistoryStrip
           entries={history.map((h) => ({
             id: h.id,

@@ -14,7 +14,7 @@ export default function ParentNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="border-b border-slate-200 bg-white">
+    <nav className="border-b border-divider bg-canvas">
       <div className="mx-auto flex max-w-4xl gap-1 overflow-x-auto px-4">
         {LINKS.map((link) => {
           const active = pathname === link.href;
@@ -22,10 +22,8 @@ export default function ParentNav() {
             <Link
               key={link.href}
               href={link.href}
-              className={`whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium ${
-                active
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
+              className={`whitespace-nowrap border-b-2 px-3 py-3 font-heading text-[13px] font-semibold ${
+                active ? "border-accent-700 text-accent-700" : "border-transparent text-ink/60 hover:text-ink"
               }`}
             >
               {link.label}

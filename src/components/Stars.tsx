@@ -1,12 +1,11 @@
+import { Star } from "lucide-react";
 import { MAX_STARS } from "@/lib/stars";
 
-export default function Stars({ count, className = "" }: { count: number; className?: string }) {
+export default function Stars({ count, size = 12 }: { count: number; size?: number }) {
   return (
-    <span className={`inline-flex text-amber-400 ${className}`} aria-label={`${count} sao`}>
+    <span className="inline-flex gap-px text-accent-700" aria-label={`${count} sao`}>
       {Array.from({ length: MAX_STARS }, (_, i) => (
-        <span key={i} className={i < count ? "text-amber-400" : "text-slate-200"}>
-          ★
-        </span>
+        <Star key={i} size={size} strokeWidth={1.5} fill={i < count ? "currentColor" : "none"} />
       ))}
     </span>
   );

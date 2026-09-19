@@ -11,7 +11,7 @@ export default async function PhuHuynhLayout({ children }: { children: React.Rea
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Header label={session.label} sublabel="Ba / Mẹ" />
+      <Header name={session.label} roleLabel="Ba / Mẹ" personName={session.name} />
       <ParentNav />
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6">{children}</main>
     </div>

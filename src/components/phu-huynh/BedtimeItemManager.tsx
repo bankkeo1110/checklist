@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Trash2 } from "lucide-react";
+import Corners from "@/components/Corners";
 
 type Item = { id: string; label: string; active: boolean };
 
@@ -53,48 +55,48 @@ export default function BedtimeItemManager({ initialItems }: { initialItems: Ite
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-slate-600">Thêm mục mới</h2>
-        <div className="flex gap-3">
-          <input
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-            placeholder="Nội dung mục checklist"
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-          />
-          <button
-            disabled={creating || !newLabel.trim()}
-            onClick={createItem}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            + Thêm
-          </button>
-        </div>
+      <div className="blueprint relative flex items-center gap-3 border border-divider bg-surface p-4">
+        <Corners />
+        <input
+          value={newLabel}
+          onChange={(e) => setNewLabel(e.target.value)}
+          placeholder="Nội dung mục checklist"
+          className="flex-1 border border-divider bg-canvas px-3 py-2 text-sm"
+        />
+        <button
+          disabled={creating || !newLabel.trim()}
+          onClick={createItem}
+          className="blueprint relative flex-none border border-accent-700 bg-accent-700 px-4 py-2 text-sm font-semibold text-canvas disabled:opacity-50"
+        >
+          <Corners />+ Thêm
+        </button>
       </div>
 
       <ul className="flex flex-col gap-2">
         {initialItems.map((item) => (
           <li
             key={item.id}
-            className={`flex items-center justify-between rounded-xl border bg-white px-4 py-3 shadow-sm ${
-              item.active ? "border-slate-200" : "border-slate-100 opacity-60"
+            className={`blueprint relative flex items-center justify-between border border-divider bg-surface px-4 py-3 ${
+              item.active ? "" : "opacity-50"
             }`}
           >
-            <span className="text-sm text-slate-700">{item.label}</span>
-            <div className="flex gap-2">
+            <Corners />
+            <span className="text-sm">{item.label}</span>
+            <div className="flex items-center gap-2">
               <button
                 disabled={busyId === item.id}
                 onClick={() => toggleActive(item)}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50"
+                className="border border-divider px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-accent-100"
               >
                 {item.active ? "Tạm ẩn" : "Kích hoạt lại"}
               </button>
               <button
                 disabled={busyId === item.id}
                 onClick={() => deleteItem(item)}
-                className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50"
+                aria-label="Xóa"
+                className="flex h-8 w-8 items-center justify-center text-ink/50 hover:bg-accent-100"
               >
-                Xóa
+                <Trash2 size={14} strokeWidth={1.5} />
               </button>
             </div>
           </li>

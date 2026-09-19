@@ -15,8 +15,8 @@ export default async function HomePage() {
   ]);
 
   const people = [
-    ...children.map((c) => ({ kind: "child" as const, id: c.id, label: c.label, color: c.color })),
-    ...parents.map((p) => ({ kind: "parent" as const, id: p.id, label: p.label })),
+    ...children.map((c) => ({ kind: "child" as const, id: c.id, name: c.name, label: c.label })),
+    ...parents.map((p) => ({ kind: "parent" as const, id: p.id, name: p.name, label: p.label })),
   ];
 
   return <LoginScreen people={people} />;
