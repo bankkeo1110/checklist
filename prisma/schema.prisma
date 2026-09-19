@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ParentName {
+  TINH
+  LOAN
+}
+
+enum ChildName {
+  OTIS
+  LIAM
+}
+
+enum TaskInstanceStatus {
+  PENDING
+  CLAIMED
+  APPROVED
+  REJECTED
+  MISSED
+}
+
+model Child {
+  id        String   @id @default(cuid())
+  name      ChildName @unique
+  label     String
+  color     String
+  pinHash   String
+  createdAt DateTime @default(now())
+
+  tasks          Task[]           @relation("TaskAssignments")
+  taskInstances  TaskInstance[]
+  ledgerEntries  PointLedger[]
+  weeklyGoals    WeeklyGoal[]
+  bedtimeLogs    BedtimeLog[]
+}
+
+model Parent {
+  id        String   @id @default(cuid())
+  name      ParentName @unique
+  label     String
+  pinHash   String
+  createdAt DateTime @default(now())
+
+  reviewedInstances TaskInstance[] @relation("ReviewedBy")
+  ledgerApprovals   PointLedger[]  @relation("ApprovedBy")
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  title     String
+  points    Int      @default(1)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedTo    Child[]        @relation("TaskAssignments")
+  taskInstances TaskInstance[]
+}
+
+model TaskInstance {
+  id     String   @id @default(cuid())
+  taskId String
+  task   Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  childId String
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  date      DateTime @db.Date
+  weekStart DateTime @db.Date
+
+  status TaskInstanceStatus @default(PENDING)
+
+  claimedAt  DateTime?
+  reviewedAt DateTime?
+
+  reviewedById String?
+  reviewedBy   Parent? @relation("ReviewedBy", fields: [reviewedById], references: [id])
+
+  note String?
+
+  ledgerEntries PointLedger[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([taskId, childId, date])
+  @@index([childId, weekStart])
+  @@index([status])
+}
+
+model PointLedger {
+  id String @id @default(cuid())
+
+  childId String
+  child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  taskInstanceId String?
+  taskInstance   TaskInstance? @relation(fields: [taskInstanceId], references: [id], onDelete: SetNull)
+
+  delta  Int
+  reason String
+
+  approvedById String?
+  approvedBy   Parent? @relation("ApprovedBy", fields: [approvedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([childId, createdAt])
+}
+
+model WeeklyGoal {
+  id        String   @id @default(cuid())
+  childId   String
+  child     Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  weekStart DateTime @db.Date
+  goalText  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([childId, weekStart])
+}
+
+model BedtimeItem {
+  id        String   @id @default(cuid())
+  label     String
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  logs BedtimeLog[]
+}
+
+model BedtimeLog {
+  id            String   @id @default(cuid())
+  childId       String
+  child         Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  bedtimeItemId String
+  bedtimeItem   BedtimeItem @relation(fields: [bedtimeItemId], references: [id], onDelete: Cascade)
+  date          DateTime @db.Date
+  checked       Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
+
+  @@unique([childId, bedtimeItemId, date])
+}
