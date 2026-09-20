@@ -9,7 +9,7 @@ export default async function ChildLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-4 py-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-6">
       <Header name={session.label} caption="Chào mừng trở lại! 🎈" personName={session.name} />
       {children}
     </div>

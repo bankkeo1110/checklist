@@ -10,7 +10,7 @@ export default async function PhuHuynhLayout({ children }: { children: React.Rea
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-5 px-4 py-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-4 py-6">
       <Header name={session.label} caption="Bảng điều khiển phụ huynh" personName={session.name} />
       <ParentNav />
       {children}
