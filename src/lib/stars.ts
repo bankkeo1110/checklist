@@ -1,5 +1,5 @@
 export const MIN_STARS = 1;
-export const MAX_STARS = 5;
+export const MAX_STARS = 999;
 export const DEFAULT_STARS = 1;
 
 export function isValidStarCount(value: number): boolean {

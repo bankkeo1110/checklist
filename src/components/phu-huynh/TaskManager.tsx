@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Star, Trash2 } from "lucide-react";
-import { DEFAULT_STARS, MAX_STARS } from "@/lib/stars";
+import { DEFAULT_STARS, MIN_STARS, MAX_STARS } from "@/lib/stars";
 import { personTheme } from "@/lib/personTheme";
 
 type Task = { id: string; title: string; points: number; active: boolean; childIds: string[] };
@@ -13,27 +13,42 @@ function StarPicker({
   value,
   onChange,
   disabled,
-  size = 26,
+  size = 22,
 }: {
   value: number;
   onChange: (n: number) => void;
   disabled?: boolean;
   size?: number;
 }) {
+  const [text, setText] = useState(String(value));
+
+  function commit() {
+    const n = parseInt(text, 10);
+    if (Number.isInteger(n) && n >= MIN_STARS && n <= MAX_STARS) {
+      if (n !== value) onChange(n);
+    } else {
+      setText(String(value));
+    }
+  }
+
   return (
-    <div className="flex items-center gap-0.5 text-yellow">
-      {Array.from({ length: MAX_STARS }, (_, i) => i + 1).map((n) => (
-        <button
-          key={n}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange(n)}
-          aria-label={`${n} sao`}
-          className="p-0.5 disabled:opacity-50"
-        >
-          <Star size={size} strokeWidth={1.6} fill={n <= value ? "currentColor" : "none"} />
-        </button>
-      ))}
+    <div className="flex items-center gap-1.5 text-yellow">
+      <Star size={size} strokeWidth={1.6} fill="currentColor" />
+      <input
+        type="number"
+        inputMode="numeric"
+        min={MIN_STARS}
+        max={MAX_STARS}
+        value={text}
+        disabled={disabled}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        aria-label="Số sao"
+        className="w-16 rounded-xl border-2 border-divider px-2 py-1 text-sm font-bold text-ink focus:border-blue focus:outline-none disabled:opacity-50"
+      />
     </div>
   );
 }
@@ -176,7 +191,7 @@ export default function TaskManager({ initialTasks, kids }: { initialTasks: Task
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-bold text-muted">Số sao</label>
-          <StarPicker value={newPoints} onChange={setNewPoints} />
+          <StarPicker key={`new-${newPoints}`} value={newPoints} onChange={setNewPoints} />
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-bold text-muted">Giao cho</label>
@@ -214,7 +229,13 @@ export default function TaskManager({ initialTasks, kids }: { initialTasks: Task
                 <Trash2 size={15} strokeWidth={2} />
               </button>
             </div>
-            <StarPicker value={task.points} disabled={busyId === task.id} onChange={(p) => updatePoints(task, p)} size={19} />
+            <StarPicker
+              key={task.points}
+              value={task.points}
+              disabled={busyId === task.id}
+              onChange={(p) => updatePoints(task, p)}
+              size={19}
+            />
             <div className="flex flex-wrap items-center gap-2">
               {kids.map((k) => (
                 <ChildChip

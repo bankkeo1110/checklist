@@ -16,7 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body?.points !== undefined) {
     const points = Number(body.points);
     if (!isValidStarCount(points)) {
-      return NextResponse.json({ error: "Số sao phải từ 1 đến 5." }, { status: 400 });
+      return NextResponse.json({ error: "Số sao phải là số nguyên dương." }, { status: 400 });
     }
     data.points = points;
   }

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   const childIds = Array.isArray(body?.childIds) ? body.childIds.filter((c: unknown) => typeof c === "string") : [];
 
   if (!title || !isValidStarCount(points) || childIds.length === 0) {
-    return NextResponse.json({ error: "Thiếu tên, số sao (1-5), hoặc con được giao." }, { status: 400 });
+    return NextResponse.json({ error: "Thiếu tên, số sao hợp lệ, hoặc con được giao." }, { status: 400 });
   }
 
   const task = await prisma.task.create({
