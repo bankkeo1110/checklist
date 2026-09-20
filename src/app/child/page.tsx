@@ -5,6 +5,7 @@ import { getChildPointTotal } from "@/lib/points";
 import { currentWeekStart, dateStrToUTCDate, todayDateStr, weekDates } from "@/lib/date";
 import WeeklyGrid from "@/components/child/WeeklyGrid";
 import BedtimeChecklist from "@/components/child/BedtimeChecklist";
+import WakeupChecklist from "@/components/child/WakeupChecklist";
 import PointHistoryStrip from "@/components/child/PointHistoryStrip";
 
 export const dynamic = "force-dynamic";
@@ -19,31 +20,36 @@ export default async function ConPage() {
   const dates = weekDates(weekStart);
   const today = todayDateStr();
 
-  const [tasks, instances, bedtimeItems, bedtimeLogs, pointTotal, goal, history] = await Promise.all([
-    prisma.task.findMany({
-      where: { active: true, assignedTo: { some: { id: session.id } } },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.taskInstance.findMany({
-      where: {
-        childId: session.id,
-        date: { gte: dateStrToUTCDate(dates[0]), lte: dateStrToUTCDate(dates[6]) },
-      },
-    }),
-    prisma.bedtimeItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-    prisma.bedtimeLog.findMany({
-      where: { childId: session.id, date: dateStrToUTCDate(today) },
-    }),
-    getChildPointTotal(session.id),
-    prisma.weeklyGoal.findUnique({
-      where: { childId_weekStart: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) } },
-    }),
-    prisma.pointLedger.findMany({
-      where: { childId: session.id },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
-  ]);
+  const [tasks, instances, bedtimeItems, bedtimeLogs, wakeupItems, wakeupLogs, pointTotal, goal, history] =
+    await Promise.all([
+      prisma.task.findMany({
+        where: { active: true, assignedTo: { some: { id: session.id } } },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.taskInstance.findMany({
+        where: {
+          childId: session.id,
+          date: { gte: dateStrToUTCDate(dates[0]), lte: dateStrToUTCDate(dates[6]) },
+        },
+      }),
+      prisma.bedtimeItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+      prisma.bedtimeLog.findMany({
+        where: { childId: session.id, date: dateStrToUTCDate(today) },
+      }),
+      prisma.wakeupItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+      prisma.wakeupLog.findMany({
+        where: { childId: session.id, date: dateStrToUTCDate(today) },
+      }),
+      getChildPointTotal(session.id),
+      prisma.weeklyGoal.findUnique({
+        where: { childId_weekStart: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) } },
+      }),
+      prisma.pointLedger.findMany({
+        where: { childId: session.id },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      }),
+    ]);
 
   const cellsByTask: Record<string, Record<string, { id: string; status: string }>> = {};
   for (const instance of instances) {
@@ -52,9 +58,14 @@ export default async function ConPage() {
     cellsByTask[instance.taskId][dateStr] = { id: instance.id, status: instance.status };
   }
 
-  const checkedMap: Record<string, boolean> = {};
+  const bedtimeCheckedMap: Record<string, boolean> = {};
   for (const log of bedtimeLogs) {
-    checkedMap[log.bedtimeItemId] = log.checked;
+    bedtimeCheckedMap[log.bedtimeItemId] = log.checked;
+  }
+
+  const wakeupCheckedMap: Record<string, boolean> = {};
+  for (const log of wakeupLogs) {
+    wakeupCheckedMap[log.wakeupItemId] = log.checked;
   }
 
   return (
@@ -76,6 +87,14 @@ export default async function ConPage() {
       </div>
 
       <section className="flex flex-col gap-2.5">
+        <h2 className="font-display text-[15px] font-bold">🌅 Checklist buổi sáng</h2>
+        <WakeupChecklist
+          items={wakeupItems.map((i) => ({ id: i.id, label: i.label }))}
+          checkedMap={wakeupCheckedMap}
+        />
+      </section>
+
+      <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🎯 Nhiệm vụ tuần</h2>
         <WeeklyGrid
           tasks={tasks.map((t) => ({
@@ -94,7 +113,7 @@ export default async function ConPage() {
         <h2 className="font-display text-[15px] font-bold">🌙 Checklist trước khi đi ngủ</h2>
         <BedtimeChecklist
           items={bedtimeItems.map((i) => ({ id: i.id, label: i.label }))}
-          checkedMap={checkedMap}
+          checkedMap={bedtimeCheckedMap}
         />
       </section>
 

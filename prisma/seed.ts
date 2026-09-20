@@ -25,6 +25,8 @@ const SEED_BEDTIME_ITEMS: string[] = [
   "Đã đánh răng / rửa mặt",
 ];
 
+const SEED_WAKEUP_ITEMS: string[] = ["Đánh răng", "Uống dầu dừa", "Quét nhà"];
+
 async function main() {
   const otis = await prisma.child.upsert({
     where: { name: "OTIS" },
@@ -33,7 +35,7 @@ async function main() {
       name: "OTIS",
       label: "Otis",
       color: "#2563eb",
-      pinHash: hashPin("1111"),
+      pinHash: hashPin("1110"),
     },
   });
 
@@ -44,7 +46,7 @@ async function main() {
       name: "LIAM",
       label: "Liam",
       color: "#16a34a",
-      pinHash: hashPin("2222"),
+      pinHash: hashPin("1110"),
     },
   });
 
@@ -53,8 +55,8 @@ async function main() {
     update: {},
     create: {
       name: "TINH",
-      label: "Ba (Tình)",
-      pinHash: hashPin("1234"),
+      label: "Ba (Tính)",
+      pinHash: hashPin("2105"),
     },
   });
 
@@ -64,7 +66,7 @@ async function main() {
     create: {
       name: "LOAN",
       label: "Mẹ (Loan)",
-      pinHash: hashPin("5678"),
+      pinHash: hashPin("2510"),
     },
   });
 
@@ -89,8 +91,17 @@ async function main() {
     });
   }
 
+  for (let i = 0; i < SEED_WAKEUP_ITEMS.length; i++) {
+    const label = SEED_WAKEUP_ITEMS[i];
+    const existing = await prisma.wakeupItem.findFirst({ where: { label } });
+    if (existing) continue;
+    await prisma.wakeupItem.create({
+      data: { label, sortOrder: i },
+    });
+  }
+
   console.log("Seed complete.");
-  console.log("PINs — Otis: 1111, Liam: 2222, Ba (Tình): 1234, Mẹ (Loan): 5678");
+  console.log("PINs — Otis: 1110, Liam: 1110, Ba (Tính): 2105, Mẹ (Loan): 2510");
 }
 
 main()

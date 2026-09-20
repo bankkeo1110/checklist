@@ -38,6 +38,7 @@ model Child {
   ledgerEntries  PointLedger[]
   weeklyGoals    WeeklyGoal[]
   bedtimeLogs    BedtimeLog[]
+  wakeupLogs     WakeupLog[]
 }
 
 model Parent {
@@ -147,4 +148,27 @@ model BedtimeLog {
   updatedAt     DateTime @updatedAt
 
   @@unique([childId, bedtimeItemId, date])
+}
+
+model WakeupItem {
+  id        String   @id @default(cuid())
+  label     String
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  logs WakeupLog[]
+}
+
+model WakeupLog {
+  id           String   @id @default(cuid())
+  childId      String
+  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  wakeupItemId String
+  wakeupItem   WakeupItem @relation(fields: [wakeupItemId], references: [id], onDelete: Cascade)
+  date         DateTime @db.Date
+  checked      Boolean  @default(false)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([childId, wakeupItemId, date])
 }
