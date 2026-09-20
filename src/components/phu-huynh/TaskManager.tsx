@@ -4,22 +4,24 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Star, Trash2 } from "lucide-react";
 import { DEFAULT_STARS, MAX_STARS } from "@/lib/stars";
-import Corners from "@/components/Corners";
+import { personTheme } from "@/lib/personTheme";
 
 type Task = { id: string; title: string; points: number; active: boolean; childIds: string[] };
-type Kid = { id: string; label: string };
+type Kid = { id: string; label: string; name: string };
 
 function StarPicker({
   value,
   onChange,
   disabled,
+  size = 26,
 }: {
   value: number;
   onChange: (n: number) => void;
   disabled?: boolean;
+  size?: number;
 }) {
   return (
-    <div className="flex items-center gap-0.5 text-accent-700">
+    <div className="flex items-center gap-0.5 text-yellow">
       {Array.from({ length: MAX_STARS }, (_, i) => i + 1).map((n) => (
         <button
           key={n}
@@ -29,10 +31,39 @@ function StarPicker({
           aria-label={`${n} sao`}
           className="p-0.5 disabled:opacity-50"
         >
-          <Star size={20} strokeWidth={1.5} fill={n <= value ? "currentColor" : "none"} />
+          <Star size={size} strokeWidth={1.6} fill={n <= value ? "currentColor" : "none"} />
         </button>
       ))}
     </div>
+  );
+}
+
+function ChildChip({
+  kid,
+  active,
+  onClick,
+  disabled,
+}: {
+  kid: Kid;
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  const theme = personTheme(kid.name);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-full px-3.5 py-1.5 text-xs font-bold disabled:opacity-50"
+      style={
+        active
+          ? { background: theme.tint, color: theme.text }
+          : { background: "var(--color-divider)", color: "var(--color-muted)" }
+      }
+    >
+      {kid.label}
+    </button>
   );
 }
 
@@ -131,96 +162,77 @@ export default function TaskManager({ initialTasks, kids }: { initialTasks: Task
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="blueprint relative border border-divider bg-surface p-4">
-        <Corners />
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-accent-700">Thêm nhiệm vụ mới</h2>
-        <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-4 shadow-md">
+        <p className="font-display text-[15px] font-bold">✨ Thêm nhiệm vụ mới</p>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-muted">Tên nhiệm vụ</label>
           <input
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Tên nhiệm vụ"
-            className="border border-divider bg-canvas px-3 py-2 text-sm"
+            placeholder="Ví dụ: Đọc sách 30 phút"
+            className="rounded-2xl border-2 border-divider px-3.5 py-2.5 text-sm font-semibold focus:border-blue focus:outline-none"
           />
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-ink/60">Số sao:</span>
-              <StarPicker value={newPoints} onChange={setNewPoints} />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-ink/60">Giao cho:</span>
-              {kids.map((k) => (
-                <button
-                  key={k.id}
-                  onClick={() => toggleNewChild(k.id)}
-                  className={`px-3 py-1 text-xs font-semibold ${
-                    newChildIds.includes(k.id)
-                      ? "bg-accent-100 text-accent-800"
-                      : "border border-accent-700 text-accent-700"
-                  }`}
-                >
-                  {k.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          {error && <p className="text-sm text-ink">{error}</p>}
-          <button
-            disabled={creating || !newTitle.trim() || newChildIds.length === 0}
-            onClick={createTask}
-            className="blueprint relative self-start border border-accent-700 bg-accent-700 px-4 py-2 text-sm font-semibold text-canvas disabled:opacity-50"
-          >
-            <Corners />
-            {creating ? "Đang thêm…" : "+ Thêm nhiệm vụ"}
-          </button>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-muted">Số sao</label>
+          <StarPicker value={newPoints} onChange={setNewPoints} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-muted">Giao cho</label>
+          <div className="flex gap-2">
+            {kids.map((k) => (
+              <ChildChip key={k.id} kid={k} active={newChildIds.includes(k.id)} onClick={() => toggleNewChild(k.id)} />
+            ))}
+          </div>
+        </div>
+        {error && <p className="text-sm font-semibold text-coral-text">{error}</p>}
+        <button
+          disabled={creating || !newTitle.trim() || newChildIds.length === 0}
+          onClick={createTask}
+          className="rounded-2xl py-3 text-[14.5px] font-extrabold text-white shadow-md disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg,#FF9F45,#FF6B6B)" }}
+        >
+          {creating ? "Đang thêm…" : "+ Thêm nhiệm vụ"}
+        </button>
       </div>
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-2.5">
         {initialTasks.map((task) => (
           <li
             key={task.id}
-            className={`blueprint relative border border-divider bg-surface p-4 ${task.active ? "" : "opacity-50"}`}
+            className={`flex flex-col gap-2.5 rounded-[20px] bg-white p-3.5 shadow-md ${task.active ? "" : "opacity-50"}`}
           >
-            <Corners />
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="font-medium">{task.title}</p>
-              <StarPicker value={task.points} disabled={busyId === task.id} onChange={(p) => updatePoints(task, p)} />
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-bold">{task.title}</p>
+              <button
+                disabled={busyId === task.id}
+                onClick={() => deleteTask(task)}
+                aria-label="Xóa"
+                className="flex-none p-0.5 text-[#c7c3cc] hover:text-muted"
+              >
+                <Trash2 size={15} strokeWidth={2} />
+              </button>
             </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {kids.map((k) => (
-                  <button
-                    key={k.id}
-                    disabled={busyId === task.id}
-                    onClick={() => toggleAssignment(task, k.id)}
-                    className={`px-3 py-1 text-xs font-semibold ${
-                      task.childIds.includes(k.id)
-                        ? "bg-accent-100 text-accent-800"
-                        : "border border-accent-700 text-accent-700"
-                    }`}
-                  >
-                    {k.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
+            <StarPicker value={task.points} disabled={busyId === task.id} onChange={(p) => updatePoints(task, p)} size={19} />
+            <div className="flex flex-wrap items-center gap-2">
+              {kids.map((k) => (
+                <ChildChip
+                  key={k.id}
+                  kid={k}
+                  active={task.childIds.includes(k.id)}
                   disabled={busyId === task.id}
-                  onClick={() => toggleActive(task)}
-                  className="border border-divider px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-accent-100"
-                >
-                  {task.active ? "Tạm ẩn" : "Kích hoạt lại"}
-                </button>
-                <button
-                  disabled={busyId === task.id}
-                  onClick={() => deleteTask(task)}
-                  aria-label="Xóa"
-                  className="flex h-8 w-8 items-center justify-center text-ink/50 hover:bg-accent-100"
-                >
-                  <Trash2 size={14} strokeWidth={1.5} />
-                </button>
-              </div>
+                  onClick={() => toggleAssignment(task, k.id)}
+                />
+              ))}
+              <span className="flex-1" />
+              <button
+                disabled={busyId === task.id}
+                onClick={() => toggleActive(task)}
+                className="rounded-full bg-divider px-3 py-1.5 text-[11.5px] font-bold text-muted"
+              >
+                {task.active ? "Tạm ẩn" : "Kích hoạt lại"}
+              </button>
             </div>
           </li>
         ))}

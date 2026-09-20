@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import Corners from "@/components/Corners";
 
 export default function PointAdjustForm({ childId }: { childId: string }) {
   const router = useRouter();
@@ -39,33 +38,32 @@ export default function PointAdjustForm({ childId }: { childId: string }) {
   }
 
   return (
-    <div className="blueprint relative border border-divider bg-surface p-4">
-      <Corners />
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent-700">Điều chỉnh điểm thủ công</p>
-      <div className="flex flex-col gap-2 sm:flex-row">
+    <div className="flex flex-col gap-2.5 rounded-[20px] bg-white p-4 shadow-md">
+      <p className="text-[11.5px] font-bold uppercase tracking-wide text-muted">Điều chỉnh điểm thủ công</p>
+      <div className="flex gap-2">
         <input
           value={delta}
           onChange={(e) => setDelta(e.target.value)}
           type="number"
           placeholder="+/- điểm"
-          className="w-full border border-divider bg-canvas px-3 py-2 text-sm sm:w-28"
+          className="w-24 rounded-xl border-2 border-divider px-3 py-2 text-[13.5px] font-semibold focus:border-blue focus:outline-none"
         />
         <input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Lý do"
-          className="flex-1 border border-divider bg-canvas px-3 py-2 text-sm"
+          className="flex-1 rounded-xl border-2 border-divider px-3 py-2 text-[13.5px] font-semibold focus:border-blue focus:outline-none"
         />
-        <button
-          disabled={saving}
-          onClick={submit}
-          className="blueprint relative border border-accent-700 bg-accent-700 px-4 py-2 text-sm font-semibold text-canvas disabled:opacity-50"
-        >
-          <Corners />
-          Áp dụng
-        </button>
       </div>
-      {error && <p className="mt-2 text-sm text-ink">{error}</p>}
+      <button
+        disabled={saving}
+        onClick={submit}
+        className="self-start rounded-2xl px-4 py-2.5 text-[13.5px] font-extrabold text-white disabled:opacity-50"
+        style={{ background: "linear-gradient(135deg,#B983FF,#9C6BE0)" }}
+      >
+        Áp dụng
+      </button>
+      {error && <p className="text-sm font-semibold text-coral-text">{error}</p>}
     </div>
   );
 }

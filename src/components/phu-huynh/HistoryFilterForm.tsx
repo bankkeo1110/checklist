@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import Corners from "@/components/Corners";
 
 export default function HistoryFilterForm({
   childId,
@@ -31,31 +30,30 @@ export default function HistoryFilterForm({
   }
 
   return (
-    <div className="blueprint relative flex flex-wrap items-end gap-3 border border-divider bg-surface p-4">
-      <Corners />
-      <div>
-        <label className="block text-xs text-ink/60">Từ ngày</label>
+    <div className="flex flex-wrap items-end gap-3 rounded-[20px] bg-white p-4 shadow-md">
+      <div className="flex flex-col gap-1">
+        <label className="text-[11px] font-bold text-muted">Từ ngày</label>
         <input
           type="date"
           value={fromVal}
           onChange={(e) => setFromVal(e.target.value)}
-          className="border border-divider bg-canvas px-2 py-1.5 text-sm"
+          className="rounded-xl border-2 border-divider px-2.5 py-2 text-[12.5px] font-semibold"
         />
       </div>
-      <div>
-        <label className="block text-xs text-ink/60">Đến ngày</label>
+      <div className="flex flex-col gap-1">
+        <label className="text-[11px] font-bold text-muted">Đến ngày</label>
         <input
           type="date"
           value={toVal}
           onChange={(e) => setToVal(e.target.value)}
-          className="border border-divider bg-canvas px-2 py-1.5 text-sm"
+          className="rounded-xl border-2 border-divider px-2.5 py-2 text-[12.5px] font-semibold"
         />
       </div>
-      <button onClick={apply} className="border border-accent-700 bg-accent-700 px-4 py-1.5 text-sm font-semibold text-canvas">
+      <button onClick={apply} className="rounded-2xl bg-blue px-4 py-2 text-[13px] font-extrabold text-white">
         Lọc
       </button>
       {(from || to) && (
-        <button onClick={clear} className="text-sm text-ink/40 hover:text-ink">
+        <button onClick={clear} className="pb-2 text-[12px] font-bold text-muted hover:text-ink">
           Xóa lọc
         </button>
       )}

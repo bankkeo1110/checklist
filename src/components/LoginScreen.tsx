@@ -2,9 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ChevronLeft } from "lucide-react";
-import PersonIcon from "@/components/PersonIcon";
-import Corners from "@/components/Corners";
+import { ChevronLeft, Star, X } from "lucide-react";
+import PersonBadge from "@/components/PersonBadge";
+import { personTheme } from "@/lib/personTheme";
 
 type Person = {
   kind: "child" | "parent";
@@ -63,28 +63,37 @@ export default function LoginScreen({ people }: { people: Person[] }) {
 
   if (!selected) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-12">
-        <div className="text-center">
-          <p className="font-heading text-xs font-semibold uppercase tracking-[0.1em] text-accent-700">
-            Nhiệm Vụ &amp; Điểm
-          </p>
-          <h1 className="mt-1 text-[27px]">Chọn tên của bạn</h1>
+      <div className="flex flex-1 flex-col items-center justify-center gap-7 px-6 py-12">
+        <div className="flex flex-col items-center gap-1.5 text-center">
+          <span
+            className="mb-1 flex h-16 w-16 animate-[floatBlob_4s_ease-in-out_infinite] items-center justify-center rounded-[22px] text-white shadow-lg"
+            style={{ background: "linear-gradient(145deg,#FF9F45,#FF6B6B)" }}
+          >
+            <Star size={32} strokeWidth={0} fill="currentColor" />
+          </span>
+          <h1 className="font-display text-[26px] font-extrabold">Nhiệm Vụ &amp; Điểm</h1>
+          <p className="text-[15px] font-semibold text-muted">Ai đang dùng máy nè? 👋</p>
         </div>
-        <div className="grid w-full max-w-sm grid-cols-2 gap-3">
-          {people.map((p) => (
-            <button
-              key={`${p.kind}-${p.id}`}
-              onClick={() => choose(p)}
-              className="blueprint flex flex-col items-center gap-3 border border-divider bg-surface px-2 py-6 hover:bg-accent-100"
-            >
-              <Corners />
-              <span className="flex h-[48px] w-[48px] items-center justify-center border border-divider">
-                <PersonIcon name={p.name} size={24} strokeWidth={1.5} />
-              </span>
-              <span className="font-heading text-base font-semibold">{p.label}</span>
-              <span className="text-[11px] text-accent-700">{p.kind === "child" ? "Con" : "Ba / Mẹ"}</span>
-            </button>
-          ))}
+        <div className="grid w-full max-w-sm grid-cols-2 gap-3.5">
+          {people.map((p) => {
+            const theme = personTheme(p.name);
+            return (
+              <button
+                key={`${p.kind}-${p.id}`}
+                onClick={() => choose(p)}
+                className="flex flex-col items-center gap-2.5 rounded-3xl bg-white px-2.5 py-6 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:scale-[0.97]"
+              >
+                <PersonBadge name={p.name} size={56} iconSize={26} radius={18} />
+                <span className="font-display text-[17px] font-bold">{p.label}</span>
+                <span
+                  className="rounded-full px-2.5 py-0.5 text-[11.5px] font-bold"
+                  style={{ background: theme.tint, color: theme.text }}
+                >
+                  {p.kind === "child" ? "Con" : "Ba / Mẹ"}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     );
@@ -94,35 +103,41 @@ export default function LoginScreen({ people }: { people: Person[] }) {
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-12">
       <button
         onClick={() => setSelected(null)}
-        className="inline-flex items-center gap-1 self-start text-sm text-ink/60 hover:text-ink"
+        className="inline-flex items-center gap-1.5 self-start text-sm font-bold text-muted hover:text-ink"
       >
-        <ChevronLeft size={14} strokeWidth={1.5} />
+        <ChevronLeft size={16} strokeWidth={2.2} />
         Quay lại
       </button>
-      <div className="flex flex-col items-center gap-3 text-center">
-        <span className="flex h-[52px] w-[52px] items-center justify-center border border-divider">
-          <PersonIcon name={selected.name} size={24} strokeWidth={1.5} />
-        </span>
+      <div className="flex flex-col items-center gap-2.5 text-center">
+        <PersonBadge name={selected.name} size={76} iconSize={32} radius={26} />
         <div>
-          <h2 className="text-xl">{selected.label}</h2>
-          <p className="text-sm text-ink/65">Nhập mã PIN</p>
+          <h2 className="font-display text-xl font-bold">{selected.label}</h2>
+          <p className="text-[13.5px] font-semibold text-muted">Nhập mã PIN nha</p>
         </div>
       </div>
 
-      <div className={`flex flex-col items-center gap-2 ${error ? "animate-[shake_0.4s]" : ""}`}>
-        <div className="flex gap-3">
+      <div className={`flex flex-col items-center gap-3 ${error ? "animate-[shake_0.4s]" : ""}`}>
+        <div className="flex gap-3.5">
           {Array.from({ length: 4 }).map((_, i) => (
             <span
               key={i}
-              className="h-[13px] w-[13px] border border-divider"
-              style={{ background: i < pin.length ? "var(--color-accent-700)" : "transparent" }}
+              className="h-4 w-4 rounded-full border-[2.5px]"
+              style={{
+                background: i < pin.length ? "var(--color-blue)" : "white",
+                borderColor: i < pin.length ? "var(--color-blue)" : "#e4e1e8",
+              }}
             />
           ))}
         </div>
-        {error && <p className="text-[12.5px] font-semibold text-ink">{error}</p>}
+        {error && (
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-[#ffecec] px-3.5 py-1.5 text-[13px] font-bold text-coral">
+            <X size={14} strokeWidth={2.2} />
+            {error}
+          </p>
+        )}
       </div>
 
-      <div className="grid w-full max-w-[260px] grid-cols-3 gap-2">
+      <div className="grid w-full max-w-[260px] grid-cols-3 gap-2.5">
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
           <button
             key={d}
@@ -132,18 +147,16 @@ export default function LoginScreen({ people }: { people: Person[] }) {
               pressDigit(d);
               if (next.length === 4) submit(next);
             }}
-            className="blueprint border border-divider bg-surface py-4 text-lg font-semibold hover:bg-accent-100 disabled:opacity-45"
+            className="h-[60px] rounded-[18px] bg-white text-lg font-bold shadow-md active:scale-[0.94] disabled:opacity-50"
           >
-            <Corners />
             {d}
           </button>
         ))}
         <button
           disabled={loading}
           onClick={backspace}
-          className="blueprint border border-divider bg-surface py-4 text-xs font-semibold text-ink/60 hover:bg-accent-100 disabled:opacity-45"
+          className="h-[60px] rounded-[18px] bg-divider text-xs font-bold text-muted active:scale-[0.94] disabled:opacity-50"
         >
-          <Corners />
           Xóa
         </button>
         <button
@@ -153,17 +166,15 @@ export default function LoginScreen({ people }: { people: Person[] }) {
             pressDigit("0");
             if (next.length === 4) submit(next);
           }}
-          className="blueprint border border-divider bg-surface py-4 text-lg font-semibold hover:bg-accent-100 disabled:opacity-45"
+          className="h-[60px] rounded-[18px] bg-white text-lg font-bold shadow-md active:scale-[0.94] disabled:opacity-50"
         >
-          <Corners />
           0
         </button>
         <button
           disabled={loading || pin.length < 4}
           onClick={() => submit(pin)}
-          className="blueprint border border-accent-700 bg-accent-700 py-4 text-xs font-semibold text-canvas disabled:opacity-45"
+          className="h-[60px] rounded-[18px] bg-blue text-xs font-bold text-white active:scale-[0.94] disabled:opacity-50"
         >
-          <Corners />
           Vào
         </button>
       </div>

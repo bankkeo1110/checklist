@@ -40,11 +40,11 @@ export default function BedtimeChecklist({
   }
 
   if (items.length === 0) {
-    return <p className="text-sm text-ink/50">Chưa có mục nào trong checklist.</p>;
+    return <p className="text-sm font-semibold text-muted">Chưa có mục nào trong checklist.</p>;
   }
 
   return (
-    <ul className="divide-y divide-divider border border-divider bg-surface">
+    <ul className="flex flex-col gap-2">
       {items.map((item) => {
         const checked = !!merged[item.id];
         return (
@@ -52,16 +52,18 @@ export default function BedtimeChecklist({
             <button
               onClick={() => toggle(item)}
               disabled={pendingId === item.id}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left disabled:opacity-60"
+              className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-md disabled:opacity-60"
             >
               <span
-                className={`flex h-4 w-4 flex-none items-center justify-center border ${
-                  checked ? "border-accent-700 bg-accent-700 text-canvas" : "border-divider text-transparent"
+                className={`flex h-[22px] w-[22px] flex-none items-center justify-center rounded-lg border-2 ${
+                  checked ? "border-blue bg-blue" : "border-[#e4e1e8]"
                 }`}
               >
-                <Check size={11} strokeWidth={3} />
+                {checked && <Check size={13} strokeWidth={3} className="text-white" />}
               </span>
-              <span className={`text-sm ${checked ? "text-ink/40 line-through" : ""}`}>{item.label}</span>
+              <span className={`text-[14.5px] font-bold ${checked ? "text-muted line-through" : ""}`}>
+                {item.label}
+              </span>
             </button>
           </li>
         );

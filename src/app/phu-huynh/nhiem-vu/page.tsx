@@ -10,9 +10,9 @@ export default async function TaskManagerPage() {
   ]);
 
   return (
-    <div>
-      <h1 className="mb-1 text-xl">Quản lý nhiệm vụ</h1>
-      <p className="mb-5 text-sm text-ink/60">Thêm, sửa, xóa nhiệm vụ tuần và giao cho con.</p>
+    <div className="flex flex-col gap-1">
+      <h1 className="text-xl font-bold">Quản lý nhiệm vụ</h1>
+      <p className="mb-3 text-sm font-semibold text-muted">Thêm, sửa, xóa nhiệm vụ tuần và giao cho con.</p>
       <TaskManager
         initialTasks={tasks.map((t) => ({
           id: t.id,
@@ -21,7 +21,7 @@ export default async function TaskManagerPage() {
           active: t.active,
           childIds: t.assignedTo.map((c) => c.id),
         }))}
-        kids={children.map((c) => ({ id: c.id, label: c.label }))}
+        kids={children.map((c) => ({ id: c.id, label: c.label, name: c.name }))}
       />
     </div>
   );

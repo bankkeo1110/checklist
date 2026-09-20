@@ -19,9 +19,9 @@ export default async function PhuHuynhInboxPage() {
   }));
 
   return (
-    <div>
-      <h1 className="mb-1 text-xl">Chờ duyệt</h1>
-      <p className="mb-5 text-sm text-ink/60">
+    <div className="flex flex-col gap-1">
+      <h1 className="text-xl font-bold">Chờ duyệt</h1>
+      <p className="mb-3 text-sm font-semibold text-muted">
         {items.length === 0 ? "Không có mục nào đang chờ." : `${items.length} mục đang chờ duyệt, cũ nhất trước.`}
       </p>
       <ApprovalInbox items={items} />

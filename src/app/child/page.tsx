@@ -6,7 +6,6 @@ import { currentWeekStart, dateStrToUTCDate, todayDateStr, weekDates } from "@/l
 import WeeklyGrid from "@/components/child/WeeklyGrid";
 import BedtimeChecklist from "@/components/child/BedtimeChecklist";
 import PointHistoryStrip from "@/components/child/PointHistoryStrip";
-import Corners from "@/components/Corners";
 
 export const dynamic = "force-dynamic";
 
@@ -59,23 +58,25 @@ export default async function ConPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="blueprint relative flex items-center justify-between border border-divider bg-surface p-5">
-        <Corners />
-        <div>
-          <p className="text-sm text-ink/60">Tổng điểm</p>
-          <p className="font-heading text-3xl font-bold text-accent-700">{pointTotal}</p>
+    <div className="flex flex-col gap-5">
+      <div className="flex gap-3">
+        <div
+          className="flex-1 rounded-[22px] p-4 text-white shadow-lg"
+          style={{ background: "linear-gradient(150deg,#FFC93C,#FF9F45)" }}
+        >
+          <p className="text-xs font-bold uppercase tracking-wide opacity-90">Tổng điểm</p>
+          <p className="font-display text-[34px] font-extrabold leading-tight">⭐ {pointTotal}</p>
         </div>
         {goal?.goalText && (
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-wide text-ink/40">Mục tiêu tuần</p>
-            <p className="max-w-[180px] text-sm font-medium">{goal.goalText}</p>
+          <div className="flex-1 rounded-[22px] bg-white p-4 shadow-md">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Mục tiêu tuần</p>
+            <p className="mt-1 text-[14.5px] font-bold">{goal.goalText}</p>
           </div>
         )}
-      </section>
+      </div>
 
-      <section>
-        <h2 className="mb-3 text-lg">Nhiệm vụ tuần</h2>
+      <section className="flex flex-col gap-2.5">
+        <h2 className="font-display text-[15px] font-bold">🎯 Nhiệm vụ tuần</h2>
         <WeeklyGrid
           tasks={tasks.map((t) => ({
             id: t.id,
@@ -89,16 +90,16 @@ export default async function ConPage() {
         />
       </section>
 
-      <section>
-        <h2 className="mb-3 text-lg">Checklist trước khi đi ngủ</h2>
+      <section className="flex flex-col gap-2.5">
+        <h2 className="font-display text-[15px] font-bold">🌙 Checklist trước khi đi ngủ</h2>
         <BedtimeChecklist
           items={bedtimeItems.map((i) => ({ id: i.id, label: i.label }))}
           checkedMap={checkedMap}
         />
       </section>
 
-      <section>
-        <h2 className="mb-3 text-lg">Gần đây</h2>
+      <section className="flex flex-col gap-2.5">
+        <h2 className="font-display text-[15px] font-bold">📋 Gần đây</h2>
         <PointHistoryStrip
           entries={history.map((h) => ({
             id: h.id,

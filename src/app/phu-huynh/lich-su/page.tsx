@@ -5,7 +5,7 @@ import { currentWeekStart, dateStrToUTCDate } from "@/lib/date";
 import GoalEditor from "@/components/phu-huynh/GoalEditor";
 import PointAdjustForm from "@/components/phu-huynh/PointAdjustForm";
 import HistoryFilterForm from "@/components/phu-huynh/HistoryFilterForm";
-import Corners from "@/components/Corners";
+import { personTheme } from "@/lib/personTheme";
 
 export const dynamic = "force-dynamic";
 
@@ -37,29 +37,34 @@ export default async function LichSuPage({
   ]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <div>
-        <h1 className="mb-3 text-xl">Lịch sử điểm &amp; Mục tiêu</h1>
-        <div className="inline-flex border border-divider">
-          {children.map((c, i) => (
-            <Link
-              key={c.id}
-              href={`/phu-huynh/lich-su?child=${c.id}`}
-              className={`px-4 py-1.5 text-sm font-semibold ${
-                c.id === selected.id ? "bg-accent-700 text-canvas" : "hover:bg-accent-100"
-              } ${i > 0 ? "border-l border-divider" : ""}`}
-            >
-              {c.label}
-            </Link>
-          ))}
+        <h1 className="mb-3 font-display text-xl font-bold">Lịch sử điểm &amp; Mục tiêu</h1>
+        <div className="flex gap-1.5 rounded-2xl bg-white p-1.5 shadow-md">
+          {children.map((c) => {
+            const active = c.id === selected.id;
+            const theme = personTheme(c.name);
+            return (
+              <Link
+                key={c.id}
+                href={`/phu-huynh/lich-su?child=${c.id}`}
+                className="flex-1 rounded-xl py-2 text-center text-[13px] font-bold"
+                style={active ? { background: theme.solid, color: "white" } : { color: "var(--color-muted)" }}
+              >
+                {c.label}
+              </Link>
+            );
+          })}
         </div>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div className="blueprint relative border border-divider bg-surface p-4">
-          <Corners />
-          <p className="text-sm text-ink/60">Tổng điểm hiện tại</p>
-          <p className="font-heading text-3xl font-bold text-accent-700">{total}</p>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div
+          className="rounded-[20px] p-4 text-white shadow-lg"
+          style={{ background: "linear-gradient(150deg,#FFC93C,#FF9F45)" }}
+        >
+          <p className="text-[11.5px] font-bold uppercase tracking-wide opacity-90">Tổng điểm hiện tại</p>
+          <p className="font-display text-[28px] font-extrabold">{total}</p>
         </div>
         <GoalEditor childId={selected.id} weekStart={weekStart} initialGoalText={goal?.goalText ?? ""} />
       </div>
@@ -68,32 +73,40 @@ export default async function LichSuPage({
 
       <HistoryFilterForm childId={selected.id} from={sp.from ?? ""} to={sp.to ?? ""} />
 
-      <ul className="flex flex-col gap-2">
-        {entries.length === 0 && <p className="text-sm text-ink/40">Không có mục nào.</p>}
-        {entries.map((e) => (
-          <li key={e.id} className="flex items-center justify-between border border-divider bg-surface px-4 py-2.5">
-            <div>
-              <p className="text-sm">{e.reason}</p>
-              <p className="text-xs text-ink/40">
-                {e.createdAt.toLocaleString("vi-VN", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
-            </div>
-            <span
-              className={`shrink-0 px-2.5 py-1 text-sm font-bold ${
-                e.delta >= 0 ? "bg-accent-100 text-accent-800" : "bg-neutral-100 text-neutral-800"
-              }`}
-            >
-              {e.delta > 0 ? `+${e.delta}` : e.delta}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <div className="rounded-2xl bg-white px-4 shadow-md">
+        {entries.length === 0 ? (
+          <p className="py-4 text-sm font-semibold text-muted">Không có mục nào.</p>
+        ) : (
+          <ul className="divide-y divide-divider">
+            {entries.map((e) => (
+              <li key={e.id} className="flex items-center justify-between py-2.5">
+                <div>
+                  <p className="text-[13.5px] font-bold">{e.reason}</p>
+                  <p className="text-[11.5px] font-semibold text-muted">
+                    {e.createdAt.toLocaleString("vi-VN", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                </div>
+                <span
+                  className="shrink-0 rounded-full px-3 py-1 text-[12.5px] font-extrabold"
+                  style={
+                    e.delta >= 0
+                      ? { background: "var(--color-green-tint)", color: "var(--color-green-text)" }
+                      : { background: "var(--color-divider)", color: "var(--color-muted)" }
+                  }
+                >
+                  {e.delta > 0 ? `+${e.delta}` : e.delta}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

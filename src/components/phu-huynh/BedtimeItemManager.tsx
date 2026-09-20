@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
-import Corners from "@/components/Corners";
 
 type Item = { id: string; label: string; active: boolean };
 
@@ -54,21 +53,21 @@ export default function BedtimeItemManager({ initialItems }: { initialItems: Ite
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="blueprint relative flex items-center gap-3 border border-divider bg-surface p-4">
-        <Corners />
+    <div className="flex flex-col gap-3.5">
+      <div className="flex items-center gap-2.5 rounded-[20px] bg-white p-3 shadow-md">
         <input
           value={newLabel}
           onChange={(e) => setNewLabel(e.target.value)}
           placeholder="Nội dung mục checklist"
-          className="flex-1 border border-divider bg-canvas px-3 py-2 text-sm"
+          className="flex-1 rounded-2xl border-2 border-divider px-3.5 py-2.5 text-sm font-semibold focus:border-blue focus:outline-none"
         />
         <button
           disabled={creating || !newLabel.trim()}
           onClick={createItem}
-          className="blueprint relative flex-none border border-accent-700 bg-accent-700 px-4 py-2 text-sm font-semibold text-canvas disabled:opacity-50"
+          className="flex-none rounded-2xl px-4 py-2.5 text-[13.5px] font-extrabold text-white disabled:opacity-50"
+          style={{ background: "linear-gradient(135deg,#4D96FF,#6BA8FF)" }}
         >
-          <Corners />+ Thêm
+          + Thêm
         </button>
       </div>
 
@@ -76,29 +75,26 @@ export default function BedtimeItemManager({ initialItems }: { initialItems: Ite
         {initialItems.map((item) => (
           <li
             key={item.id}
-            className={`blueprint relative flex items-center justify-between border border-divider bg-surface px-4 py-3 ${
+            className={`flex items-center gap-2.5 rounded-2xl bg-white px-3.5 py-3 shadow-md ${
               item.active ? "" : "opacity-50"
             }`}
           >
-            <Corners />
-            <span className="text-sm">{item.label}</span>
-            <div className="flex items-center gap-2">
-              <button
-                disabled={busyId === item.id}
-                onClick={() => toggleActive(item)}
-                className="border border-divider px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-accent-100"
-              >
-                {item.active ? "Tạm ẩn" : "Kích hoạt lại"}
-              </button>
-              <button
-                disabled={busyId === item.id}
-                onClick={() => deleteItem(item)}
-                aria-label="Xóa"
-                className="flex h-8 w-8 items-center justify-center text-ink/50 hover:bg-accent-100"
-              >
-                <Trash2 size={14} strokeWidth={1.5} />
-              </button>
-            </div>
+            <span className="flex-1 text-sm font-bold">{item.label}</span>
+            <button
+              disabled={busyId === item.id}
+              onClick={() => toggleActive(item)}
+              className="rounded-full bg-divider px-3 py-1.5 text-[11.5px] font-bold text-muted"
+            >
+              {item.active ? "Tạm ẩn" : "Kích hoạt lại"}
+            </button>
+            <button
+              disabled={busyId === item.id}
+              onClick={() => deleteItem(item)}
+              aria-label="Xóa"
+              className="p-0.5 text-[#c7c3cc] hover:text-muted"
+            >
+              <Trash2 size={15} strokeWidth={2} />
+            </button>
           </li>
         ))}
       </ul>
