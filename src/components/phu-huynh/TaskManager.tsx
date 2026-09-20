@@ -2,56 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Star, Trash2 } from "lucide-react";
-import { DEFAULT_STARS, MIN_STARS, MAX_STARS } from "@/lib/stars";
+import { Trash2 } from "lucide-react";
+import { DEFAULT_STARS } from "@/lib/stars";
 import { personTheme } from "@/lib/personTheme";
+import Spinner from "@/components/Spinner";
+import StarPicker from "@/components/StarPicker";
 
 type Task = { id: string; title: string; points: number; active: boolean; childIds: string[] };
 type Kid = { id: string; label: string; name: string };
-
-function StarPicker({
-  value,
-  onChange,
-  disabled,
-  size = 22,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-  disabled?: boolean;
-  size?: number;
-}) {
-  const [text, setText] = useState(String(value));
-
-  function commit() {
-    const n = parseInt(text, 10);
-    if (Number.isInteger(n) && n >= MIN_STARS && n <= MAX_STARS) {
-      if (n !== value) onChange(n);
-    } else {
-      setText(String(value));
-    }
-  }
-
-  return (
-    <div className="flex items-center gap-1.5 text-yellow">
-      <Star size={size} strokeWidth={1.6} fill="currentColor" />
-      <input
-        type="number"
-        inputMode="numeric"
-        min={MIN_STARS}
-        max={MAX_STARS}
-        value={text}
-        disabled={disabled}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-        }}
-        aria-label="Số sao"
-        className="w-16 rounded-xl border-2 border-divider px-2 py-1 text-sm font-bold text-ink focus:border-blue focus:outline-none disabled:opacity-50"
-      />
-    </div>
-  );
-}
 
 function ChildChip({
   kid,
@@ -205,9 +163,10 @@ export default function TaskManager({ initialTasks, kids }: { initialTasks: Task
         <button
           disabled={creating || !newTitle.trim() || newChildIds.length === 0}
           onClick={createTask}
-          className="rounded-2xl py-3 text-[14.5px] font-extrabold text-white shadow-md disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-2xl py-3 text-[14.5px] font-extrabold text-white shadow-md disabled:opacity-70"
           style={{ background: "linear-gradient(135deg,#FF9F45,#FF6B6B)" }}
         >
+          {creating && <Spinner size={16} />}
           {creating ? "Đang thêm…" : "+ Thêm nhiệm vụ"}
         </button>
       </div>
@@ -226,7 +185,7 @@ export default function TaskManager({ initialTasks, kids }: { initialTasks: Task
                 aria-label="Xóa"
                 className="flex-none p-0.5 text-[#c7c3cc] hover:text-muted"
               >
-                <Trash2 size={15} strokeWidth={2} />
+                {busyId === task.id ? <Spinner size={15} /> : <Trash2 size={15} strokeWidth={2} />}
               </button>
             </div>
             <StarPicker
@@ -250,8 +209,9 @@ export default function TaskManager({ initialTasks, kids }: { initialTasks: Task
               <button
                 disabled={busyId === task.id}
                 onClick={() => toggleActive(task)}
-                className="rounded-full bg-divider px-3 py-1.5 text-[11.5px] font-bold text-muted"
+                className="flex items-center gap-1.5 rounded-full bg-divider px-3 py-1.5 text-[11.5px] font-bold text-muted"
               >
+                {busyId === task.id && <Spinner size={12} />}
                 {task.active ? "Tạm ẩn" : "Kích hoạt lại"}
               </button>
             </div>

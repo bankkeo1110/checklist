@@ -89,7 +89,7 @@ export default async function ConPage() {
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🌅 Checklist buổi sáng</h2>
         <WakeupChecklist
-          items={wakeupItems.map((i) => ({ id: i.id, label: i.label }))}
+          items={wakeupItems.map((i) => ({ id: i.id, label: i.label, points: i.points }))}
           checkedMap={wakeupCheckedMap}
         />
       </section>
@@ -112,7 +112,7 @@ export default async function ConPage() {
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🌙 Checklist trước khi đi ngủ</h2>
         <BedtimeChecklist
-          items={bedtimeItems.map((i) => ({ id: i.id, label: i.label }))}
+          items={bedtimeItems.map((i) => ({ id: i.id, label: i.label, points: i.points }))}
           checkedMap={bedtimeCheckedMap}
         />
       </section>

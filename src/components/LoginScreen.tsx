@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ChevronLeft, Star, X } from "lucide-react";
 import PersonBadge from "@/components/PersonBadge";
+import Spinner from "@/components/Spinner";
 import { personTheme } from "@/lib/personTheme";
 
 type Person = {
@@ -129,6 +130,12 @@ export default function LoginScreen({ people }: { people: Person[] }) {
             />
           ))}
         </div>
+        {loading && (
+          <p className="inline-flex items-center gap-1.5 text-[13px] font-bold text-muted">
+            <Spinner size={14} />
+            Đang kiểm tra…
+          </p>
+        )}
         {error && (
           <p className="inline-flex items-center gap-1.5 rounded-full bg-[#ffecec] px-3.5 py-1.5 text-[13px] font-bold text-coral">
             <X size={14} strokeWidth={2.2} />
@@ -173,9 +180,9 @@ export default function LoginScreen({ people }: { people: Person[] }) {
         <button
           disabled={loading || pin.length < 4}
           onClick={() => submit(pin)}
-          className="h-[60px] rounded-[18px] bg-blue text-xs font-bold text-white active:scale-[0.94] disabled:opacity-50"
+          className="flex h-[60px] items-center justify-center rounded-[18px] bg-blue text-xs font-bold text-white active:scale-[0.94] disabled:opacity-70"
         >
-          Vào
+          {loading ? <Spinner size={16} /> : "Vào"}
         </button>
       </div>
     </div>

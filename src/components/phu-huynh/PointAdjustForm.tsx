@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Spinner from "@/components/Spinner";
 
 export default function PointAdjustForm({ childId }: { childId: string }) {
   const router = useRouter();
@@ -58,9 +59,10 @@ export default function PointAdjustForm({ childId }: { childId: string }) {
       <button
         disabled={saving}
         onClick={submit}
-        className="self-start rounded-2xl px-4 py-2.5 text-[13.5px] font-extrabold text-white disabled:opacity-50"
+        className="flex items-center gap-1.5 self-start rounded-2xl px-4 py-2.5 text-[13.5px] font-extrabold text-white disabled:opacity-70"
         style={{ background: "linear-gradient(135deg,#B983FF,#9C6BE0)" }}
       >
+        {saving && <Spinner size={14} />}
         Áp dụng
       </button>
       {error && <p className="text-sm font-semibold text-coral-text">{error}</p>}

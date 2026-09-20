@@ -104,6 +104,12 @@ model PointLedger {
   taskInstanceId String?
   taskInstance   TaskInstance? @relation(fields: [taskInstanceId], references: [id], onDelete: SetNull)
 
+  bedtimeLogId String?
+  bedtimeLog   BedtimeLog? @relation(fields: [bedtimeLogId], references: [id], onDelete: SetNull)
+
+  wakeupLogId String?
+  wakeupLog   WakeupLog? @relation(fields: [wakeupLogId], references: [id], onDelete: SetNull)
+
   delta  Int
   reason String
 
@@ -130,6 +136,7 @@ model WeeklyGoal {
 model BedtimeItem {
   id        String   @id @default(cuid())
   label     String
+  points    Int      @default(1)
   active    Boolean  @default(true)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
@@ -147,12 +154,15 @@ model BedtimeLog {
   checked       Boolean  @default(false)
   updatedAt     DateTime @updatedAt
 
+  ledgerEntries PointLedger[]
+
   @@unique([childId, bedtimeItemId, date])
 }
 
 model WakeupItem {
   id        String   @id @default(cuid())
   label     String
+  points    Int      @default(1)
   active    Boolean  @default(true)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
@@ -169,6 +179,8 @@ model WakeupLog {
   date         DateTime @db.Date
   checked      Boolean  @default(false)
   updatedAt    DateTime @updatedAt
+
+  ledgerEntries PointLedger[]
 
   @@unique([childId, wakeupItemId, date])
 }

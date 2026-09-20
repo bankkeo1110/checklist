@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Check } from "lucide-react";
+import Spinner from "@/components/Spinner";
+import Stars from "@/components/Stars";
 
-type Item = { id: string; label: string };
+type Item = { id: string; label: string; points: number };
 
 export default function WakeupChecklist({
   items,
@@ -47,23 +49,29 @@ export default function WakeupChecklist({
     <ul className="flex flex-col gap-2">
       {items.map((item) => {
         const checked = !!merged[item.id];
+        const pending = pendingId === item.id;
         return (
           <li key={item.id}>
             <button
               onClick={() => toggle(item)}
-              disabled={pendingId === item.id}
-              className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-md disabled:opacity-60"
+              disabled={pending}
+              className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-md disabled:opacity-80"
             >
               <span
                 className={`flex h-[22px] w-[22px] flex-none items-center justify-center rounded-lg border-2 ${
                   checked ? "border-orange bg-orange" : "border-[#e4e1e8]"
                 }`}
               >
-                {checked && <Check size={13} strokeWidth={3} className="text-white" />}
+                {pending ? (
+                  <Spinner size={12} className={checked ? "text-white" : "text-muted"} />
+                ) : (
+                  checked && <Check size={13} strokeWidth={3} className="text-white" />
+                )}
               </span>
-              <span className={`text-[14.5px] font-bold ${checked ? "text-muted line-through" : ""}`}>
+              <span className={`flex-1 text-[14.5px] font-bold ${checked ? "text-muted line-through" : ""}`}>
                 {item.label}
               </span>
+              <Stars count={item.points} size={12} />
             </button>
           </li>
         );

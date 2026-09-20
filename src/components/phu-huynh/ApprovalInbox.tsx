@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
 import PersonBadge from "@/components/PersonBadge";
 import Stars from "@/components/Stars";
+import Spinner from "@/components/Spinner";
 
 type Item = {
   id: string;
@@ -41,11 +42,13 @@ function makeConfetti(): Particle[] {
 export default function ApprovalInbox({ items }: { items: Item[] }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"approve" | "reject" | null>(null);
   const [confettiId, setConfettiId] = useState<string | null>(null);
   const [particles, setParticles] = useState<Particle[]>([]);
 
   async function review(id: string, action: "approve" | "reject") {
     setPendingId(id);
+    setPendingAction(action);
     if (action === "approve") {
       setParticles(makeConfetti());
       setConfettiId(id);
@@ -60,6 +63,7 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
       if (res.ok) router.refresh();
     } finally {
       setPendingId(null);
+      setPendingAction(null);
     }
   }
 
@@ -90,17 +94,17 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
             <button
               disabled={pendingId === item.id}
               onClick={() => review(item.id, "reject")}
-              className="flex-1 rounded-2xl bg-divider py-2.5 text-[13.5px] font-extrabold text-muted disabled:opacity-50"
+              className="flex flex-1 items-center justify-center rounded-2xl bg-divider py-2.5 text-[13.5px] font-extrabold text-muted disabled:opacity-70"
             >
-              Từ chối
+              {pendingId === item.id && pendingAction === "reject" ? <Spinner size={16} /> : "Từ chối"}
             </button>
             <button
               disabled={pendingId === item.id}
               onClick={() => review(item.id, "approve")}
-              className="flex-1 rounded-2xl py-2.5 text-[13.5px] font-extrabold text-white shadow-md disabled:opacity-50"
+              className="flex flex-1 items-center justify-center rounded-2xl py-2.5 text-[13.5px] font-extrabold text-white shadow-md disabled:opacity-70"
               style={{ background: "linear-gradient(135deg,#6BCB77,#4FB35B)" }}
             >
-              Duyệt ✓
+              {pendingId === item.id && pendingAction === "approve" ? <Spinner size={16} /> : "Duyệt ✓"}
             </button>
           </div>
           {confettiId === item.id &&

@@ -20,14 +20,14 @@ export default async function DailyChecklistManagerPage() {
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🌅 Checklist buổi sáng</h2>
         <WakeupItemManager
-          initialItems={wakeupItems.map((i) => ({ id: i.id, label: i.label, active: i.active }))}
+          initialItems={wakeupItems.map((i) => ({ id: i.id, label: i.label, points: i.points, active: i.active }))}
         />
       </section>
 
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🌙 Checklist trước khi ngủ</h2>
         <BedtimeItemManager
-          initialItems={bedtimeItems.map((i) => ({ id: i.id, label: i.label, active: i.active }))}
+          initialItems={bedtimeItems.map((i) => ({ id: i.id, label: i.label, points: i.points, active: i.active }))}
         />
       </section>
     </div>

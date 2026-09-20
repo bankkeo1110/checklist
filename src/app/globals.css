@@ -57,6 +57,11 @@ h1, h2, h3, h4, h5, h6 {
 :focus-visible { outline: 2px solid var(--color-blue); outline-offset: 2px; }
 ::selection { background: color-mix(in srgb, var(--color-blue) 30%, transparent); }
 
+/* Native <button> defaults to an arrow cursor, not a pointer — unlike <a> —
+   so every clickable button in the app needs this to look clickable. */
+button:not(:disabled) { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+
 @keyframes confetti-fly {
   to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
 }

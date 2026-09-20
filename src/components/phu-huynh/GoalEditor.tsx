@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Spinner from "@/components/Spinner";
 
 export default function GoalEditor({
   childId,
@@ -50,8 +51,9 @@ export default function GoalEditor({
         <button
           disabled={saving}
           onClick={save}
-          className="rounded-full bg-divider px-3 py-1.5 text-[11.5px] font-extrabold text-blue disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-full bg-divider px-3 py-1.5 text-[11.5px] font-extrabold text-blue disabled:opacity-70"
         >
+          {saving && <Spinner size={12} />}
           {saving ? "Đang lưu…" : "Lưu mục tiêu"}
         </button>
         {saved && <span className="text-[11.5px] font-extrabold text-green">Đã lưu ✓</span>}

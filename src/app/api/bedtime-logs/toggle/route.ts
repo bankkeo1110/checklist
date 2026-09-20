@@ -22,21 +22,40 @@ export async function POST(req: NextRequest) {
   }
 
   const today = todayDateStr();
-  await prisma.bedtimeLog.upsert({
-    where: {
-      childId_bedtimeItemId_date: {
+
+  await prisma.$transaction(async (tx) => {
+    const log = await tx.bedtimeLog.upsert({
+      where: {
+        childId_bedtimeItemId_date: {
+          childId: session.id,
+          bedtimeItemId,
+          date: dateStrToUTCDate(today),
+        },
+      },
+      update: { checked },
+      create: {
         childId: session.id,
         bedtimeItemId,
         date: dateStrToUTCDate(today),
+        checked,
       },
-    },
-    update: { checked },
-    create: {
-      childId: session.id,
-      bedtimeItemId,
-      date: dateStrToUTCDate(today),
-      checked,
-    },
+    });
+
+    if (checked) {
+      const existing = await tx.pointLedger.findFirst({ where: { bedtimeLogId: log.id } });
+      if (!existing) {
+        await tx.pointLedger.create({
+          data: {
+            childId: session.id,
+            bedtimeLogId: log.id,
+            delta: item.points,
+            reason: `Hoàn thành: ${item.label} (${today})`,
+          },
+        });
+      }
+    } else {
+      await tx.pointLedger.deleteMany({ where: { bedtimeLogId: log.id } });
+    }
   });
 
   return NextResponse.json({ ok: true });

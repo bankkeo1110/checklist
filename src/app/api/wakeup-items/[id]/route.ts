@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { isValidStarCount } from "@/lib/stars";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -10,9 +11,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const body = await req.json().catch(() => null);
 
-  const data: { label?: string; active?: boolean } = {};
+  const data: { label?: string; active?: boolean; points?: number } = {};
   if (typeof body?.label === "string" && body.label.trim()) data.label = body.label.trim();
   if (typeof body?.active === "boolean") data.active = body.active;
+  if (body?.points !== undefined) {
+    const points = Number(body.points);
+    if (!isValidStarCount(points)) {
+      return NextResponse.json({ error: "Số sao phải là số nguyên dương." }, { status: 400 });
+    }
+    data.points = points;
+  }
 
   const item = await prisma.wakeupItem.update({ where: { id }, data });
   return NextResponse.json({ item });
