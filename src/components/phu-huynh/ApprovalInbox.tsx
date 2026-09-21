@@ -43,8 +43,17 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"approve" | "reject" | null>(null);
+  const [feedbackId, setFeedbackId] = useState<string | null>(null);
+  const [feedbackAction, setFeedbackAction] = useState<"approve" | "reject" | null>(null);
+  const [feedback, setFeedback] = useState("");
   const [confettiId, setConfettiId] = useState<string | null>(null);
   const [particles, setParticles] = useState<Particle[]>([]);
+
+  function openReview(id: string, action: "approve" | "reject") {
+    setFeedbackId(id);
+    setFeedbackAction(action);
+    setFeedback("");
+  }
 
   async function review(id: string, action: "approve" | "reject") {
     setPendingId(id);
@@ -58,12 +67,15 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
       const res = await fetch(`/api/task-instances/${id}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, note: feedback.trim() || undefined }),
       });
       if (res.ok) router.refresh();
     } finally {
       setPendingId(null);
       setPendingAction(null);
+      setFeedbackId(null);
+      setFeedbackAction(null);
+      setFeedback("");
     }
   }
 
@@ -93,20 +105,42 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
           <div className="flex gap-2.5">
             <button
               disabled={pendingId === item.id}
-              onClick={() => review(item.id, "reject")}
+              onClick={() => openReview(item.id, "reject")}
               className="flex flex-1 items-center justify-center rounded-2xl bg-divider py-2.5 text-[13.5px] font-extrabold text-muted disabled:opacity-70"
             >
               {pendingId === item.id && pendingAction === "reject" ? <Spinner size={16} /> : "Từ chối"}
             </button>
             <button
               disabled={pendingId === item.id}
-              onClick={() => review(item.id, "approve")}
+              onClick={() => openReview(item.id, "approve")}
               className="flex flex-1 items-center justify-center rounded-2xl py-2.5 text-[13.5px] font-extrabold text-white shadow-md disabled:opacity-70"
               style={{ background: "linear-gradient(135deg,#6BCB77,#4FB35B)" }}
             >
               {pendingId === item.id && pendingAction === "approve" ? <Spinner size={16} /> : "Duyệt ✓"}
             </button>
           </div>
+          {feedbackId === item.id && (
+            <div className="flex flex-col gap-2 rounded-2xl bg-divider p-3">
+              <label className="text-xs font-bold text-muted" htmlFor={`feedback-${item.id}`}>
+                {feedbackAction === "approve" ? "Lời nhắn cho con (không bắt buộc)" : "Lý do từ chối (không bắt buộc)"}
+              </label>
+              <textarea
+                id={`feedback-${item.id}`}
+                value={feedback}
+                onChange={(event) => setFeedback(event.target.value)}
+                placeholder="Viết lời nhắn cho con..."
+                rows={2}
+                className="resize-none rounded-xl border-2 border-white bg-white px-3 py-2 text-sm font-semibold focus:border-blue focus:outline-none"
+              />
+              <button
+                disabled={pendingId === item.id}
+                onClick={() => review(item.id, feedbackAction ?? "reject")}
+                className="rounded-xl bg-blue py-2 text-[13px] font-extrabold text-white disabled:opacity-70"
+              >
+                {pendingId === item.id ? <Spinner size={15} /> : feedbackAction === "approve" ? "Xác nhận duyệt" : "Xác nhận từ chối"}
+              </button>
+            </div>
+          )}
           {confettiId === item.id &&
             particles.map((p, i) => (
               <span

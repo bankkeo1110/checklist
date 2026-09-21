@@ -47,7 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         childId: instance.childId,
         taskInstanceId: id,
         delta,
-        reason: `${approved ? "Đã duyệt" : "Từ chối"}: ${instance.task.title} (${dateStr})`,
+        reason: `${approved ? "Đã duyệt" : "Từ chối"}: ${instance.task.title} (${dateStr})${note ? ` — ${note}` : ""}`,
         approvedById: session.id,
       },
     }),
