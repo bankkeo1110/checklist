@@ -5,13 +5,13 @@ import ParentNav from "@/components/phu-huynh/ParentNav";
 import ParentDashboard from "@/components/phu-huynh/ParentDashboard";
 import { prisma } from "@/lib/prisma";
 
-export default async function PhuHuynhLayout({ children }: { children: React.ReactNode }) {
+export default async function PhuHuynhLayout({ children: pageContent }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session || session.kind !== "parent") {
     redirect("/");
   }
 
-  const [children, trackedInstances] = await Promise.all([
+  const [kids, trackedInstances] = await Promise.all([
     prisma.child.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.taskInstance.findMany({
       where: { status: { in: ["CLAIMED", "APPROVED"] } },
@@ -19,7 +19,7 @@ export default async function PhuHuynhLayout({ children }: { children: React.Rea
     }),
   ]);
   const starsByChild = new Map<string, { approved: number; pending: number }>();
-  for (const child of children) starsByChild.set(child.id, { approved: 0, pending: 0 });
+  for (const child of kids) starsByChild.set(child.id, { approved: 0, pending: 0 });
   for (const instance of trackedInstances) {
     const stars = starsByChild.get(instance.childId);
     if (!stars) continue;
@@ -30,7 +30,7 @@ export default async function PhuHuynhLayout({ children }: { children: React.Rea
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-4 py-6">
       <Header name={session.label} caption="Bảng điều khiển phụ huynh" personName={session.name} />
       <ParentDashboard
-        children={children.map((child) => ({
+        children={kids.map((child) => ({
           id: child.id,
           label: child.label,
           approved: starsByChild.get(child.id)?.approved ?? 0,
@@ -38,7 +38,7 @@ export default async function PhuHuynhLayout({ children }: { children: React.Rea
         }))}
       />
       <ParentNav />
-      {children}
+      {pageContent}
     </div>
   );
 }
