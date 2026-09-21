@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import ApprovalInbox from "@/components/phu-huynh/ApprovalInbox";
+import ParentDashboard from "@/components/phu-huynh/ParentDashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -39,20 +40,14 @@ export default async function PhuHuynhInboxPage() {
       <p className="mb-3 text-sm font-semibold text-muted">
         {items.length === 0 ? "Không có mục nào đang chờ." : `${items.length} mục đang chờ duyệt, cũ nhất trước.`}
       </p>
-      <div className="mb-4 grid gap-2 sm:grid-cols-2">
-        {children.map((child) => {
-          const stars = starsByChild.get(child.id) ?? { approved: 0, pending: 0 };
-          return (
-            <div key={child.id} className="rounded-[20px] bg-white p-3.5 shadow-md">
-              <p className="font-display text-[15px] font-bold">{child.label}</p>
-              <div className="mt-1 flex gap-4 text-[12.5px] font-bold">
-                <span className="text-green-text">⭐ {stars.approved} đã duyệt</span>
-                <span className="text-orange">⭐ {stars.pending} chờ duyệt</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <ParentDashboard
+        children={children.map((child) => ({
+          id: child.id,
+          label: child.label,
+          approved: starsByChild.get(child.id)?.approved ?? 0,
+          pending: starsByChild.get(child.id)?.pending ?? 0,
+        }))}
+      />
       <ApprovalInbox items={items} />
     </div>
   );
