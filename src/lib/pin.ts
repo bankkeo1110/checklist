@@ -15,3 +15,5 @@ export function verifyPin(pin: string, stored: string): boolean {
   if (actual.length !== expected.length) return false;
   return crypto.timingSafeEqual(actual, expected);
 }
+
+export const DEFAULT_CHILD_PIN = "1110";
