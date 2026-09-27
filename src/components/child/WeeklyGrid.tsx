@@ -82,9 +82,10 @@ export default function WeeklyGrid({
   return (
     <div className="overflow-x-auto rounded-[22px] bg-white p-3.5 shadow-md">
       {/* One shared grid for the header row and every task row, so columns
-          always line up regardless of how long a task title is — a row-per-grid
-          approach lets a long title's column grow independently of the others. */}
-      <div className="grid min-w-[380px] grid-cols-[1.3fr_repeat(7,1fr)] gap-x-1 gap-y-2">
+          always line up. The name column sizes to the longest task title
+          (max-content) instead of a fixed fraction, so titles never get cut
+          off; the day columns keep a floor wide enough for a 38px checkbox. */}
+      <div className="grid min-w-[560px] grid-cols-[max-content_repeat(7,minmax(38px,1fr))] gap-x-2 gap-y-2">
         <div />
         {dates.map((d) => (
           <div
@@ -99,8 +100,8 @@ export default function WeeklyGrid({
 
         {tasks.map((task) => (
           <Fragment key={task.id}>
-            <div className="flex min-w-0 items-center gap-1 pr-1 text-[12.5px] font-bold">
-              <span className="min-w-0 truncate">{task.title}</span>
+            <div className="flex items-center gap-1.5 whitespace-nowrap pr-2 text-[12.5px] font-bold">
+              <span>{task.title}</span>
               <Stars count={task.points} size={11} />
             </div>
             {dates.map((d) => {
