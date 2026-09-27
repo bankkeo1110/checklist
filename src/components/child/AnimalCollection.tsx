@@ -17,6 +17,7 @@ export default function AnimalCollection({
   const [optimisticOpened, setOptimisticOpened] = useState<number[]>([]);
   const [openingThreshold, setOpeningThreshold] = useState<number | null>(null);
   const [justOpened, setJustOpened] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const openedSet = new Set([...openedThresholds, ...optimisticOpened]);
   const openedTiers = ANIMAL_TIERS.filter((t) => openedSet.has(t.threshold));
@@ -43,11 +44,19 @@ export default function AnimalCollection({
         setTimeout(() => setJustOpened((j) => (j === threshold ? null : j)), 600);
         router.refresh();
       } else {
-        window.alert(data?.error ?? "Chưa đủ sao để mở con vật này.");
+        showNotice(data?.error ?? "Chưa đủ sao để mở con vật này.");
       }
     } finally {
       setOpeningThreshold(null);
     }
+  }
+
+  // window.alert/confirm không hiện được trong một số trình duyệt/webview
+  // di động (âm thầm trả về false hoặc không hiện gì) — dùng banner trong
+  // app để chắc chắn bé luôn thấy thông báo.
+  function showNotice(message: string) {
+    setNotice(message);
+    setTimeout(() => setNotice((n) => (n === message ? null : n)), 3500);
   }
 
   // Ô còn khóa vẫn bấm được, nhưng chỉ để báo còn thiếu bao nhiêu sao — không
@@ -55,7 +64,7 @@ export default function AnimalCollection({
   function handleTierClick(tier: (typeof ANIMAL_TIERS)[number], opened: boolean, ready: boolean) {
     if (opened) return;
     if (!ready) {
-      window.alert(`Chưa đủ sao để mở ${tier.emoji} ${tier.name} — cần ${tier.threshold} sao, đang có ${pointTotal}. Cố gắng hơn nhé! 💪`);
+      showNotice(`Chưa đủ sao để mở ${tier.emoji} ${tier.name} — cần ${tier.threshold} sao, đang có ${pointTotal}. Cố gắng hơn nhé! 💪`);
       return;
     }
     openTier(tier.threshold);
@@ -73,6 +82,11 @@ export default function AnimalCollection({
 
   return (
     <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-4 shadow-md">
+      {notice && (
+        <div className="animate-[popStar_0.3s_ease-out] rounded-2xl bg-[#fff1e2] px-3.5 py-2.5 text-[13px] font-bold text-orange">
+          {notice}
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <span
           className="flex h-14 w-14 flex-none items-center justify-center rounded-2xl text-[32px]"

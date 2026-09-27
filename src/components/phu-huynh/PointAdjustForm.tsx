@@ -10,6 +10,7 @@ export default function PointAdjustForm({ childId, currentTotal }: { childId: st
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function applyAdjustment(deltaNum: number, reasonText: string) {
@@ -46,17 +47,7 @@ export default function PointAdjustForm({ childId, currentTotal }: { childId: st
     }
   }
 
-  async function resetAll() {
-    if (
-      !window.confirm(
-        `Reset TOÀN BỘ lịch sử của con này về ban đầu:\n` +
-          `• Điểm về 0 (hiện đang là ${currentTotal})\n` +
-          `• Xóa hết lịch sử nhiệm vụ tuần, checklist sáng/tối, nhận xét của cô\n` +
-          `• Khóa lại hết các con vật đã mở\n\n` +
-          `Không thể hoàn tác. Tiếp tục?`,
-      )
-    )
-      return;
+  async function confirmResetAll() {
     setResetting(true);
     setError(null);
     try {
@@ -70,6 +61,7 @@ export default function PointAdjustForm({ childId, currentTotal }: { childId: st
         setError(data.error ?? "Không thực hiện được.");
         return;
       }
+      setConfirmingReset(false);
       router.refresh();
     } finally {
       setResetting(false);
@@ -106,14 +98,42 @@ export default function PointAdjustForm({ childId, currentTotal }: { childId: st
         </button>
         <button
           disabled={resetting}
-          onClick={resetAll}
+          onClick={() => setConfirmingReset(true)}
           className="flex items-center gap-1.5 rounded-2xl bg-divider px-4 py-2.5 text-[13.5px] font-extrabold text-muted disabled:opacity-50"
         >
-          {resetting && <Spinner size={14} />}
           Reset toàn bộ về ban đầu
         </button>
       </div>
       {error && <p className="text-sm font-semibold text-coral-text">{error}</p>}
+
+      {confirmingReset && (
+        <div className="flex flex-col gap-2 rounded-2xl border-2 border-coral-tint bg-coral-tint p-3.5">
+          <p className="text-[13.5px] font-extrabold text-coral-text">Reset TOÀN BỘ lịch sử của con này về ban đầu?</p>
+          <ul className="list-disc pl-5 text-[12.5px] font-semibold text-coral-text">
+            <li>Điểm về 0 (hiện đang là {currentTotal})</li>
+            <li>Xóa hết lịch sử nhiệm vụ tuần, checklist sáng/tối, nhận xét của cô</li>
+            <li>Khóa lại hết các con vật đã mở</li>
+          </ul>
+          <p className="text-[12.5px] font-bold text-coral-text">Không thể hoàn tác.</p>
+          <div className="flex gap-2">
+            <button
+              disabled={resetting}
+              onClick={confirmResetAll}
+              className="flex items-center gap-1.5 rounded-xl bg-coral px-4 py-2 text-[13px] font-extrabold text-white disabled:opacity-70"
+            >
+              {resetting && <Spinner size={14} />}
+              Xác nhận reset
+            </button>
+            <button
+              disabled={resetting}
+              onClick={() => setConfirmingReset(false)}
+              className="rounded-xl bg-white px-4 py-2 text-[13px] font-extrabold text-muted disabled:opacity-50"
+            >
+              Huỷ
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
