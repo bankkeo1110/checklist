@@ -15,7 +15,7 @@ export default function ParentNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex gap-1.5 overflow-x-auto rounded-2xl bg-white p-1.5 shadow-md">
+    <nav className="flex flex-wrap gap-1.5 rounded-2xl bg-white p-1.5 shadow-md">
       {LINKS.map((link) => {
         const active = pathname === link.href;
         return (
