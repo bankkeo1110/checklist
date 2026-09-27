@@ -39,6 +39,7 @@ model Child {
   weeklyGoals    WeeklyGoal[]
   bedtimeLogs    BedtimeLog[]
   wakeupLogs     WakeupLog[]
+  subjectLogs    SubjectLog[]
 }
 
 model Parent {
@@ -109,6 +110,9 @@ model PointLedger {
 
   wakeupLogId String?
   wakeupLog   WakeupLog? @relation(fields: [wakeupLogId], references: [id], onDelete: SetNull)
+
+  subjectLogId String?
+  subjectLog   SubjectLog? @relation(fields: [subjectLogId], references: [id], onDelete: SetNull)
 
   delta  Int
   reason String
@@ -183,4 +187,34 @@ model WakeupLog {
   ledgerEntries PointLedger[]
 
   @@unique([childId, wakeupItemId, date])
+}
+
+// Weekly subject feedback from the teacher (Social Studies, Reading, Writing…).
+// Unlike Task/TaskInstance (daily) or Wakeup/Bedtime (also daily), this only
+// needs one checkbox per subject per week, so logs key on weekStart instead
+// of a calendar date.
+model SubjectItem {
+  id        String   @id @default(cuid())
+  label     String
+  points    Int      @default(1)
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  logs SubjectLog[]
+}
+
+model SubjectLog {
+  id            String   @id @default(cuid())
+  childId       String
+  child         Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  subjectItemId String
+  subjectItem   SubjectItem @relation(fields: [subjectItemId], references: [id], onDelete: Cascade)
+  weekStart     DateTime @db.Date
+  checked       Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
+
+  ledgerEntries PointLedger[]
+
+  @@unique([childId, subjectItemId, weekStart])
 }

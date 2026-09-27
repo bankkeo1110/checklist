@@ -6,6 +6,7 @@ import { currentWeekStart, dateStrToUTCDate, todayDateStr, weekDates } from "@/l
 import WeeklyGrid from "@/components/child/WeeklyGrid";
 import BedtimeChecklist from "@/components/child/BedtimeChecklist";
 import WakeupChecklist from "@/components/child/WakeupChecklist";
+import SubjectFeedback from "@/components/child/SubjectFeedback";
 import PointHistoryStrip from "@/components/child/PointHistoryStrip";
 
 export const dynamic = "force-dynamic";
@@ -20,36 +21,51 @@ export default async function ConPage() {
   const dates = weekDates(weekStart);
   const today = todayDateStr();
 
-  const [tasks, instances, bedtimeItems, bedtimeLogs, wakeupItems, wakeupLogs, pointTotal, goal, history] =
-    await Promise.all([
-      prisma.task.findMany({
-        where: { active: true, assignedTo: { some: { id: session.id } } },
-        orderBy: { createdAt: "asc" },
-      }),
-      prisma.taskInstance.findMany({
-        where: {
-          childId: session.id,
-          date: { gte: dateStrToUTCDate(dates[0]), lte: dateStrToUTCDate(dates[6]) },
-        },
-      }),
-      prisma.bedtimeItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-      prisma.bedtimeLog.findMany({
-        where: { childId: session.id, date: dateStrToUTCDate(today) },
-      }),
-      prisma.wakeupItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
-      prisma.wakeupLog.findMany({
-        where: { childId: session.id, date: dateStrToUTCDate(today) },
-      }),
-      getChildPointTotal(session.id),
-      prisma.weeklyGoal.findUnique({
-        where: { childId_weekStart: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) } },
-      }),
-      prisma.pointLedger.findMany({
-        where: { childId: session.id },
-        orderBy: { createdAt: "desc" },
-        take: 8,
-      }),
-    ]);
+  const [
+    tasks,
+    instances,
+    bedtimeItems,
+    bedtimeLogs,
+    wakeupItems,
+    wakeupLogs,
+    subjectItems,
+    subjectLogs,
+    pointTotal,
+    goal,
+    history,
+  ] = await Promise.all([
+    prisma.task.findMany({
+      where: { active: true, assignedTo: { some: { id: session.id } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.taskInstance.findMany({
+      where: {
+        childId: session.id,
+        date: { gte: dateStrToUTCDate(dates[0]), lte: dateStrToUTCDate(dates[6]) },
+      },
+    }),
+    prisma.bedtimeItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+    prisma.bedtimeLog.findMany({
+      where: { childId: session.id, date: dateStrToUTCDate(today) },
+    }),
+    prisma.wakeupItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+    prisma.wakeupLog.findMany({
+      where: { childId: session.id, date: dateStrToUTCDate(today) },
+    }),
+    prisma.subjectItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
+    prisma.subjectLog.findMany({
+      where: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) },
+    }),
+    getChildPointTotal(session.id),
+    prisma.weeklyGoal.findUnique({
+      where: { childId_weekStart: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) } },
+    }),
+    prisma.pointLedger.findMany({
+      where: { childId: session.id },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    }),
+  ]);
 
   const cellsByTask: Record<string, Record<string, { id: string; status: string }>> = {};
   for (const instance of instances) {
@@ -66,6 +82,11 @@ export default async function ConPage() {
   const wakeupCheckedMap: Record<string, boolean> = {};
   for (const log of wakeupLogs) {
     wakeupCheckedMap[log.wakeupItemId] = log.checked;
+  }
+
+  const subjectCheckedMap: Record<string, boolean> = {};
+  for (const log of subjectLogs) {
+    subjectCheckedMap[log.subjectItemId] = log.checked;
   }
 
   return (
@@ -106,6 +127,14 @@ export default async function ConPage() {
           dates={dates}
           today={today}
           cellsByTask={cellsByTask}
+        />
+      </section>
+
+      <section className="flex flex-col gap-2.5">
+        <h2 className="font-display text-[15px] font-bold">📚 Nhận xét của cô</h2>
+        <SubjectFeedback
+          items={subjectItems.map((i) => ({ id: i.id, label: i.label, points: i.points }))}
+          checkedMap={subjectCheckedMap}
         />
       </section>
 
