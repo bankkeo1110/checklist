@@ -15,6 +15,7 @@ enum ParentName {
 enum ChildName {
   OTIS
   LIAM
+  TEST
 }
 
 enum TaskInstanceStatus {

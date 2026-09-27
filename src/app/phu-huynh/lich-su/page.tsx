@@ -69,7 +69,7 @@ export default async function LichSuPage({
         <GoalEditor childId={selected.id} weekStart={weekStart} initialGoalText={goal?.goalText ?? ""} />
       </div>
 
-      <PointAdjustForm childId={selected.id} />
+      <PointAdjustForm childId={selected.id} currentTotal={total} />
 
       <HistoryFilterForm childId={selected.id} from={sp.from ?? ""} to={sp.to ?? ""} />
 

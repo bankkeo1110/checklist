@@ -56,21 +56,22 @@ export default function WeeklyGrid({
   cellsByTask: Record<string, Record<string, Cell>>;
 }) {
   const router = useRouter();
-  const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
 
-  async function claim(taskId: string) {
-    setPendingTaskId(taskId);
+  async function claim(taskId: string, date: string) {
+    const key = `${taskId}:${date}`;
+    setPendingKey(key);
     try {
       const res = await fetch("/api/task-instances/claim", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ taskId }),
+        body: JSON.stringify({ taskId, date }),
       });
       if (res.ok) {
         router.refresh();
       }
     } finally {
-      setPendingTaskId(null);
+      setPendingKey(null);
     }
   }
 
@@ -104,34 +105,11 @@ export default function WeeklyGrid({
             </div>
             {dates.map((d) => {
               const cell = cellsByTask[task.id]?.[d];
-              const isToday = d === today;
               const isFuture = d > today;
-              const isPending = pendingTaskId === task.id;
+              const isBeforeAssigned = d < task.createdAtDate;
+              const isPending = pendingKey === `${task.id}:${d}`;
 
-              if (isToday) {
-                const status = cell?.status;
-                if (status === "CLAIMED" || status === "APPROVED") {
-                  return (
-                    <div key={`${task.id}-${d}`} className="flex justify-center">
-                      <StatusCell status={status} />
-                    </div>
-                  );
-                }
-                return (
-                  <div key={`${task.id}-${d}`} className="flex justify-center">
-                    <button
-                      disabled={isPending}
-                      onClick={() => claim(task.id)}
-                      aria-label={`Đánh dấu xong: ${task.title}`}
-                      className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border-2 border-[#e4e1e8] bg-white transition hover:border-orange disabled:opacity-70"
-                    >
-                      {isPending && <Spinner size={15} className="text-orange" />}
-                    </button>
-                  </div>
-                );
-              }
-
-              if (isFuture || d < task.createdAtDate) {
+              if (isFuture || isBeforeAssigned) {
                 return (
                   <div key={`${task.id}-${d}`} className="flex justify-center">
                     <span className="flex h-[38px] w-[38px] items-center justify-center rounded-lg bg-[#f7f5f9] text-[14px] text-[#e4e1e8]">
@@ -141,9 +119,35 @@ export default function WeeklyGrid({
                 );
               }
 
+              const status = cell?.status;
+              if (status === "CLAIMED" || status === "APPROVED") {
+                return (
+                  <div key={`${task.id}-${d}`} className="flex justify-center">
+                    <StatusCell status={status} />
+                  </div>
+                );
+              }
+
+              // Bé check được cho hôm nay và các ngày đã qua trong tuần (kể
+              // cả ngày đã bị tự động đánh "chưa check-in" hoặc bị từ chối) —
+              // bấm lại là gửi xin duyệt lại từ đầu. Viền màu nhạt nhắc lại
+              // vì sao ô này vẫn trống, để bé không tưởng nhầm là chưa từng bấm.
+              const hintClass =
+                status === "REJECTED"
+                  ? "border-[#f3c9c2] bg-[#fdf4f2]"
+                  : status === "MISSED"
+                    ? "border-[#e9e6ed] bg-[#f9f8fa]"
+                    : "border-[#e4e1e8] bg-white";
               return (
                 <div key={`${task.id}-${d}`} className="flex justify-center">
-                  <StatusCell status={cell?.status ?? "MISSED"} />
+                  <button
+                    disabled={isPending}
+                    onClick={() => claim(task.id, d)}
+                    aria-label={`Đánh dấu xong: ${task.title} (${weekdayLabel(d)})`}
+                    className={`flex h-[38px] w-[38px] items-center justify-center rounded-lg border-2 transition hover:border-orange disabled:opacity-70 ${hintClass}`}
+                  >
+                    {isPending && <Spinner size={15} className="text-orange" />}
+                  </button>
                 </div>
               );
             })}

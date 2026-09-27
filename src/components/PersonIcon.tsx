@@ -1,4 +1,4 @@
-import { Rocket, Gamepad2, Hammer, Leaf, type LucideProps } from "lucide-react";
+import { Rocket, Gamepad2, Hammer, Leaf, FlaskConical, type LucideProps } from "lucide-react";
 
 export default function PersonIcon({ name, ...props }: { name: string } & LucideProps) {
   switch (name) {
@@ -10,6 +10,8 @@ export default function PersonIcon({ name, ...props }: { name: string } & Lucide
       return <Hammer {...props} />;
     case "LOAN":
       return <Leaf {...props} />;
+    case "TEST":
+      return <FlaskConical {...props} />;
     default:
       return <Rocket {...props} />;
   }

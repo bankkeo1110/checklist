@@ -40,6 +40,14 @@ const PERSON_THEME: Record<string, PersonTheme> = {
     tint: "#F3EAFF",
     text: "#8A4FDB",
   },
+  TEST: {
+    solid: "#8A8592",
+    solidLight: "#A6A1AD",
+    gradient: "linear-gradient(150deg,#8A8592,#A6A1AD)",
+    shadow: "rgba(138,133,146,.5)",
+    tint: "#F1EEF3",
+    text: "#6B6674",
+  },
 };
 
 export function personTheme(name: string): PersonTheme {
