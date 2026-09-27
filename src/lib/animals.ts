@@ -16,15 +16,3 @@ export const ANIMAL_TIERS: AnimalTier[] = [
   { threshold: 300, emoji: "🐉", name: "Rồng" },
   { threshold: 500, emoji: "🦄", name: "Kỳ lân" },
 ];
-
-export function getCurrentTier(earnedTotal: number): AnimalTier | null {
-  let current: AnimalTier | null = null;
-  for (const tier of ANIMAL_TIERS) {
-    if (earnedTotal >= tier.threshold) current = tier;
-  }
-  return current;
-}
-
-export function getNextTier(earnedTotal: number): AnimalTier | null {
-  return ANIMAL_TIERS.find((tier) => earnedTotal < tier.threshold) ?? null;
-}

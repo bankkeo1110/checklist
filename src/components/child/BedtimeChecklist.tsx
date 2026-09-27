@@ -18,6 +18,7 @@ export default function BedtimeChecklist({
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [optimistic, setOptimistic] = useState<Record<string, boolean>>({});
+  const [burstId, setBurstId] = useState<string | null>(null);
 
   const merged = { ...checkedMap, ...optimistic };
 
@@ -25,6 +26,10 @@ export default function BedtimeChecklist({
     const next = !merged[item.id];
     setOptimistic((o) => ({ ...o, [item.id]: next }));
     setPendingId(item.id);
+    if (next) {
+      setBurstId(item.id);
+      setTimeout(() => setBurstId((b) => (b === item.id ? null : b)), 1000);
+    }
     try {
       const res = await fetch("/api/bedtime-logs/toggle", {
         method: "POST",
@@ -51,7 +56,7 @@ export default function BedtimeChecklist({
         const checked = !!merged[item.id];
         const pending = pendingId === item.id;
         return (
-          <li key={item.id}>
+          <li key={item.id} className="relative">
             <button
               onClick={() => toggle(item)}
               disabled={pending}
@@ -73,6 +78,11 @@ export default function BedtimeChecklist({
               </span>
               <Stars count={item.points} size={12} />
             </button>
+            {burstId === item.id && (
+              <span className="pointer-events-none absolute right-3 top-1 text-[13px] font-extrabold text-blue animate-[starBurst_1s_ease-out_forwards]">
+                +{item.points} ⭐
+              </span>
+            )}
           </li>
         );
       })}

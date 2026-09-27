@@ -33,6 +33,7 @@ export default async function ConPage() {
     subjectLogs,
     pointTotal,
     earnedTotal,
+    animalUnlocks,
     goal,
     history,
   ] = await Promise.all([
@@ -60,6 +61,7 @@ export default async function ConPage() {
     }),
     getChildPointTotal(session.id),
     getChildEarnedTotal(session.id),
+    prisma.animalUnlock.findMany({ where: { childId: session.id }, select: { threshold: true } }),
     prisma.weeklyGoal.findUnique({
       where: { childId_weekStart: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) } },
     }),
@@ -94,7 +96,10 @@ export default async function ConPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex gap-3">
+      <div
+        className="sticky top-0 z-20 -mx-4 flex gap-3 px-4 pb-3 pt-1"
+        style={{ background: "var(--color-canvas)" }}
+      >
         <div
           className="flex-1 rounded-[22px] p-4 text-white shadow-lg"
           style={{ background: "linear-gradient(150deg,#FFC93C,#FF9F45)" }}
@@ -112,7 +117,7 @@ export default async function ConPage() {
 
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🐾 Bộ sưu tập thú cưng</h2>
-        <AnimalCollection earnedTotal={earnedTotal} />
+        <AnimalCollection earnedTotal={earnedTotal} openedThresholds={animalUnlocks.map((u) => u.threshold)} />
       </section>
 
       <section className="flex flex-col gap-2.5">

@@ -40,6 +40,7 @@ model Child {
   bedtimeLogs    BedtimeLog[]
   wakeupLogs     WakeupLog[]
   subjectLogs    SubjectLog[]
+  animalUnlocks  AnimalUnlock[]
 }
 
 model Parent {
@@ -217,4 +218,18 @@ model SubjectLog {
   ledgerEntries PointLedger[]
 
   @@unique([childId, subjectItemId, weekStart])
+}
+
+// A tier a kid has manually opened in the animal collection. Reaching the
+// star threshold only makes a tier eligible ("ready to open" in the UI) —
+// this row is what actually reveals it, so the unlock stays a deliberate,
+// celebratory tap rather than something that silently changes color.
+model AnimalUnlock {
+  id         String   @id @default(cuid())
+  childId    String
+  child      Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  threshold  Int
+  unlockedAt DateTime @default(now())
+
+  @@unique([childId, threshold])
 }
