@@ -7,7 +7,7 @@ import { weekdayLabel } from "@/lib/date";
 import Stars from "@/components/Stars";
 import Spinner from "@/components/Spinner";
 
-type Task = { id: string; title: string; points: number; createdAtDate: string };
+type Task = { id: string; title: string; points: number };
 type Cell = { id: string; status: string };
 
 // Checkbox-styled status square: bé bấm ô trống để xin duyệt (CLAIMED), ba mẹ
@@ -123,10 +123,12 @@ export default function WeeklyGrid({
               const key = `${task.id}:${d}`;
               const cell = cellsByTask[task.id]?.[d];
               const isFuture = d > today;
-              const isBeforeAssigned = d < task.createdAtDate;
               const isPending = pendingKey === key;
 
-              if (isFuture || isBeforeAssigned) {
+              // Bất kỳ ngày nào trong tuần hiện tại (trừ ngày tương lai) đều
+              // check được, kể cả nhiệm vụ vừa mới thêm giữa tuần — nhiệm vụ
+              // đã thuộc kế hoạch tuần này thì áp dụng cho cả tuần đó.
+              if (isFuture) {
                 return (
                   <div key={`${task.id}-${d}`} className="flex justify-center">
                     <span className="flex h-[38px] w-[38px] items-center justify-center rounded-lg bg-[#f7f5f9] text-[14px] text-[#e4e1e8]">

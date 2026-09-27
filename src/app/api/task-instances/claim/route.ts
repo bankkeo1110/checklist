@@ -28,9 +28,6 @@ export async function POST(req: NextRequest) {
   if (!task) {
     return NextResponse.json({ error: "Không tìm thấy nhiệm vụ." }, { status: 404 });
   }
-  if (date < task.createdAt.toISOString().slice(0, 10)) {
-    return NextResponse.json({ error: "Ngày không hợp lệ." }, { status: 400 });
-  }
 
   const existing = await prisma.taskInstance.findUnique({
     where: { taskId_childId_date: { taskId, childId: session.id, date: dateStrToUTCDate(date) } },

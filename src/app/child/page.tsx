@@ -134,7 +134,6 @@ export default async function ConPage() {
             id: t.id,
             title: t.title,
             points: t.points,
-            createdAtDate: t.createdAt.toISOString().slice(0, 10),
           }))}
           dates={dates}
           today={today}
