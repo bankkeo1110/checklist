@@ -25,22 +25,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Không tìm thấy con." }, { status: 404 });
   }
 
-  await prisma.$transaction([
-    prisma.pointLedger.deleteMany({ where: { childId } }),
-    prisma.animalUnlock.deleteMany({ where: { childId } }),
-    prisma.taskInstance.deleteMany({ where: { childId } }),
-    prisma.bedtimeLog.deleteMany({ where: { childId } }),
-    prisma.wakeupLog.deleteMany({ where: { childId } }),
-    prisma.subjectLog.deleteMany({ where: { childId } }),
-    prisma.pointLedger.create({
-      data: {
-        childId,
-        delta: 0,
-        reason: "Reset toàn bộ lịch sử (điểm, nhiệm vụ, checklist, thú cưng)",
-        approvedById: session.id,
-      },
-    }),
-  ]);
+  // Plain sequential deletes, not wrapped in $transaction([...]) — that array
+  // form runs under one interactive transaction with Prisma's 5s default
+  // timeout, and against a child with a lot of history this measured 7-8s
+  // against the real database, silently failing the whole reset. None of
+  // these deletes need atomicity with each other (deleteMany is idempotent,
+  // so a retry after a partial failure just finishes the job).
+  await prisma.pointLedger.deleteMany({ where: { childId } });
+  await prisma.animalUnlock.deleteMany({ where: { childId } });
+  await prisma.taskInstance.deleteMany({ where: { childId } });
+  await prisma.bedtimeLog.deleteMany({ where: { childId } });
+  await prisma.wakeupLog.deleteMany({ where: { childId } });
+  await prisma.subjectLog.deleteMany({ where: { childId } });
+  await prisma.pointLedger.create({
+    data: {
+      childId,
+      delta: 0,
+      reason: "Reset toàn bộ lịch sử (điểm, nhiệm vụ, checklist, thú cưng)",
+      approvedById: session.id,
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }
