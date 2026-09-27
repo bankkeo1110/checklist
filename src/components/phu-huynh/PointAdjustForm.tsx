@@ -49,7 +49,11 @@ export default function PointAdjustForm({ childId, currentTotal }: { childId: st
   async function resetAll() {
     if (
       !window.confirm(
-        `Reset TOÀN BỘ: đưa điểm về 0 (hiện đang là ${currentTotal}) và khóa lại hết các con vật đã mở? Không thể hoàn tác.`,
+        `Reset TOÀN BỘ lịch sử của con này về ban đầu:\n` +
+          `• Điểm về 0 (hiện đang là ${currentTotal})\n` +
+          `• Xóa hết lịch sử nhiệm vụ tuần, checklist sáng/tối, nhận xét của cô\n` +
+          `• Khóa lại hết các con vật đã mở\n\n` +
+          `Không thể hoàn tác. Tiếp tục?`,
       )
     )
       return;
@@ -106,7 +110,7 @@ export default function PointAdjustForm({ childId, currentTotal }: { childId: st
           className="flex items-center gap-1.5 rounded-2xl bg-divider px-4 py-2.5 text-[13.5px] font-extrabold text-muted disabled:opacity-50"
         >
           {resetting && <Spinner size={14} />}
-          Reset toàn bộ (điểm + thú cưng)
+          Reset toàn bộ về ban đầu
         </button>
       </div>
       {error && <p className="text-sm font-semibold text-coral-text">{error}</p>}
