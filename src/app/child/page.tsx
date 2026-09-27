@@ -1,12 +1,13 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { reconcileMissedDaysForChild } from "@/lib/reconcile";
-import { getChildPointTotal } from "@/lib/points";
+import { getChildPointTotal, getChildEarnedTotal } from "@/lib/points";
 import { currentWeekStart, dateStrToUTCDate, todayDateStr, weekDates } from "@/lib/date";
 import WeeklyGrid from "@/components/child/WeeklyGrid";
 import BedtimeChecklist from "@/components/child/BedtimeChecklist";
 import WakeupChecklist from "@/components/child/WakeupChecklist";
 import SubjectFeedback from "@/components/child/SubjectFeedback";
+import AnimalCollection from "@/components/child/AnimalCollection";
 import PointHistoryStrip from "@/components/child/PointHistoryStrip";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export default async function ConPage() {
     subjectItems,
     subjectLogs,
     pointTotal,
+    earnedTotal,
     goal,
     history,
   ] = await Promise.all([
@@ -57,6 +59,7 @@ export default async function ConPage() {
       where: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) },
     }),
     getChildPointTotal(session.id),
+    getChildEarnedTotal(session.id),
     prisma.weeklyGoal.findUnique({
       where: { childId_weekStart: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) } },
     }),
@@ -106,6 +109,11 @@ export default async function ConPage() {
           </div>
         )}
       </div>
+
+      <section className="flex flex-col gap-2.5">
+        <h2 className="font-display text-[15px] font-bold">🐾 Bộ sưu tập thú cưng</h2>
+        <AnimalCollection earnedTotal={earnedTotal} />
+      </section>
 
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🌅 Checklist buổi sáng</h2>
