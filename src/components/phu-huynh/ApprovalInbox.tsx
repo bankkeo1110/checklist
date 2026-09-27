@@ -44,38 +44,60 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"approve" | "reject" | null>(null);
   const [feedbackId, setFeedbackId] = useState<string | null>(null);
-  const [feedbackAction, setFeedbackAction] = useState<"approve" | "reject" | null>(null);
   const [feedback, setFeedback] = useState("");
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [confettiId, setConfettiId] = useState<string | null>(null);
   const [particles, setParticles] = useState<Particle[]>([]);
 
-  function openReview(id: string, action: "approve" | "reject") {
+  function openReject(id: string) {
     setFeedbackId(id);
-    setFeedbackAction(action);
     setFeedback("");
+    setFeedbackError(null);
   }
 
-  async function review(id: string, action: "approve" | "reject") {
+  async function approve(id: string) {
     setPendingId(id);
-    setPendingAction(action);
-    if (action === "approve") {
-      setParticles(makeConfetti());
-      setConfettiId(id);
-      setTimeout(() => setConfettiId(null), 950);
-    }
+    setPendingAction("approve");
+    setParticles(makeConfetti());
+    setConfettiId(id);
+    setTimeout(() => setConfettiId(null), 950);
     try {
       const res = await fetch(`/api/task-instances/${id}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, note: feedback.trim() || undefined }),
+        body: JSON.stringify({ action: "approve" }),
       });
       if (res.ok) router.refresh();
     } finally {
       setPendingId(null);
       setPendingAction(null);
+    }
+  }
+
+  async function confirmReject(id: string) {
+    if (!feedback.trim()) {
+      setFeedbackError("Cần nhập lý do từ chối.");
+      return;
+    }
+    setPendingId(id);
+    setPendingAction("reject");
+    try {
+      const res = await fetch(`/api/task-instances/${id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", note: feedback.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setFeedbackError(data.error ?? "Không thực hiện được.");
+        return;
+      }
+      router.refresh();
       setFeedbackId(null);
-      setFeedbackAction(null);
       setFeedback("");
+    } finally {
+      setPendingId(null);
+      setPendingAction(null);
     }
   }
 
@@ -105,14 +127,14 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
           <div className="flex gap-2.5">
             <button
               disabled={pendingId === item.id}
-              onClick={() => openReview(item.id, "reject")}
+              onClick={() => openReject(item.id)}
               className="flex flex-1 items-center justify-center rounded-2xl bg-divider py-2.5 text-[13.5px] font-extrabold text-muted disabled:opacity-70"
             >
               {pendingId === item.id && pendingAction === "reject" ? <Spinner size={16} /> : "Từ chối"}
             </button>
             <button
               disabled={pendingId === item.id}
-              onClick={() => openReview(item.id, "approve")}
+              onClick={() => approve(item.id)}
               className="flex flex-1 items-center justify-center rounded-2xl py-2.5 text-[13.5px] font-extrabold text-white shadow-md disabled:opacity-70"
               style={{ background: "linear-gradient(135deg,#6BCB77,#4FB35B)" }}
             >
@@ -122,22 +144,26 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
           {feedbackId === item.id && (
             <div className="flex flex-col gap-2 rounded-2xl bg-divider p-3">
               <label className="text-xs font-bold text-muted" htmlFor={`feedback-${item.id}`}>
-                {feedbackAction === "approve" ? "Lời nhắn cho con (không bắt buộc)" : "Lý do từ chối (không bắt buộc)"}
+                Lý do từ chối (bắt buộc)
               </label>
               <textarea
                 id={`feedback-${item.id}`}
                 value={feedback}
-                onChange={(event) => setFeedback(event.target.value)}
-                placeholder="Viết lời nhắn cho con..."
+                onChange={(event) => {
+                  setFeedback(event.target.value);
+                  if (feedbackError) setFeedbackError(null);
+                }}
+                placeholder="Viết lý do từ chối cho con..."
                 rows={2}
                 className="resize-none rounded-xl border-2 border-white bg-white px-3 py-2 text-sm font-semibold focus:border-blue focus:outline-none"
               />
+              {feedbackError && <p className="text-[12.5px] font-semibold text-coral-text">{feedbackError}</p>}
               <button
                 disabled={pendingId === item.id}
-                onClick={() => review(item.id, feedbackAction ?? "reject")}
+                onClick={() => confirmReject(item.id)}
                 className="rounded-xl bg-blue py-2 text-[13px] font-extrabold text-white disabled:opacity-70"
               >
-                {pendingId === item.id ? <Spinner size={15} /> : feedbackAction === "approve" ? "Xác nhận duyệt" : "Xác nhận từ chối"}
+                {pendingId === item.id ? <Spinner size={15} /> : "OK — Từ chối"}
               </button>
             </div>
           )}

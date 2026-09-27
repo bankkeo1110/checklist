@@ -46,13 +46,27 @@ export default function PointAdjustForm({ childId, currentTotal }: { childId: st
     }
   }
 
-  async function resetToZero() {
-    if (currentTotal === 0) return;
-    if (!window.confirm(`Đưa tổng điểm về 0? (hiện đang là ${currentTotal})`)) return;
+  async function resetAll() {
+    if (
+      !window.confirm(
+        `Reset TOÀN BỘ: đưa điểm về 0 (hiện đang là ${currentTotal}) và khóa lại hết các con vật đã mở? Không thể hoàn tác.`,
+      )
+    )
+      return;
     setResetting(true);
     setError(null);
     try {
-      await applyAdjustment(-currentTotal, "Reset điểm về 0");
+      const res = await fetch("/api/points/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ childId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error ?? "Không thực hiện được.");
+        return;
+      }
+      router.refresh();
     } finally {
       setResetting(false);
     }
@@ -87,12 +101,12 @@ export default function PointAdjustForm({ childId, currentTotal }: { childId: st
           Áp dụng
         </button>
         <button
-          disabled={resetting || currentTotal === 0}
-          onClick={resetToZero}
+          disabled={resetting}
+          onClick={resetAll}
           className="flex items-center gap-1.5 rounded-2xl bg-divider px-4 py-2.5 text-[13.5px] font-extrabold text-muted disabled:opacity-50"
         >
           {resetting && <Spinner size={14} />}
-          Reset về 0
+          Reset toàn bộ (điểm + thú cưng)
         </button>
       </div>
       {error && <p className="text-sm font-semibold text-coral-text">{error}</p>}
