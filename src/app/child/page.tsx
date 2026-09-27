@@ -1,7 +1,7 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { reconcileMissedDaysForChild } from "@/lib/reconcile";
-import { getChildPointTotal, getChildEarnedTotal } from "@/lib/points";
+import { getChildPointTotal } from "@/lib/points";
 import { currentWeekStart, dateStrToUTCDate, todayDateStr, weekDates } from "@/lib/date";
 import WeeklyGrid from "@/components/child/WeeklyGrid";
 import BedtimeChecklist from "@/components/child/BedtimeChecklist";
@@ -33,7 +33,6 @@ export default async function ConPage() {
     subjectItems,
     subjectLogs,
     pointTotal,
-    earnedTotal,
     animalUnlocks,
     goal,
     history,
@@ -61,7 +60,6 @@ export default async function ConPage() {
       where: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) },
     }),
     getChildPointTotal(session.id),
-    getChildEarnedTotal(session.id),
     prisma.animalUnlock.findMany({ where: { childId: session.id }, select: { threshold: true } }),
     prisma.weeklyGoal.findUnique({
       where: { childId_weekStart: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) } },
@@ -118,7 +116,7 @@ export default async function ConPage() {
 
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🐾 Bộ sưu tập thú cưng</h2>
-        <AnimalCollection earnedTotal={earnedTotal} openedThresholds={animalUnlocks.map((u) => u.threshold)} />
+        <AnimalCollection pointTotal={pointTotal} openedThresholds={animalUnlocks.map((u) => u.threshold)} />
       </section>
 
       <section className="flex flex-col gap-2.5">

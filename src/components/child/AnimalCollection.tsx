@@ -7,10 +7,10 @@ import Spinner from "@/components/Spinner";
 import { ANIMAL_TIERS } from "@/lib/animals";
 
 export default function AnimalCollection({
-  earnedTotal,
+  pointTotal,
   openedThresholds,
 }: {
-  earnedTotal: number;
+  pointTotal: number;
   openedThresholds: number[];
 }) {
   const router = useRouter();
@@ -21,12 +21,12 @@ export default function AnimalCollection({
   const openedSet = new Set([...openedThresholds, ...optimisticOpened]);
   const openedTiers = ANIMAL_TIERS.filter((t) => openedSet.has(t.threshold));
   const currentOpened = openedTiers.length ? openedTiers[openedTiers.length - 1] : null;
-  const nextLocked = ANIMAL_TIERS.find((t) => earnedTotal < t.threshold) ?? null;
-  const pendingOpen = ANIMAL_TIERS.filter((t) => earnedTotal >= t.threshold && !openedSet.has(t.threshold));
+  const nextLocked = ANIMAL_TIERS.find((t) => pointTotal < t.threshold) ?? null;
+  const pendingOpen = ANIMAL_TIERS.filter((t) => pointTotal >= t.threshold && !openedSet.has(t.threshold));
 
   const base = currentOpened?.threshold ?? 0;
   const target = nextLocked?.threshold ?? base;
-  const progressPct = nextLocked ? Math.min(100, Math.max(0, Math.round(((earnedTotal - base) / (target - base)) * 100))) : 100;
+  const progressPct = nextLocked ? Math.min(100, Math.max(0, Math.round(((pointTotal - base) / (target - base)) * 100))) : 100;
 
   async function openTier(threshold: number) {
     setOpeningThreshold(threshold);
@@ -36,15 +36,29 @@ export default function AnimalCollection({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ threshold }),
       });
+      const data = await res.json().catch(() => null);
       if (res.ok) {
         setOptimisticOpened((o) => [...o, threshold]);
         setJustOpened(threshold);
         setTimeout(() => setJustOpened((j) => (j === threshold ? null : j)), 600);
         router.refresh();
+      } else {
+        window.alert(data?.error ?? "Chưa đủ sao để mở con vật này.");
       }
     } finally {
       setOpeningThreshold(null);
     }
+  }
+
+  // Ô còn khóa vẫn bấm được, nhưng chỉ để báo còn thiếu bao nhiêu sao — không
+  // gọi API, tránh 1 request thừa cho việc chắc chắn sẽ bị từ chối.
+  function handleTierClick(tier: (typeof ANIMAL_TIERS)[number], opened: boolean, ready: boolean) {
+    if (opened) return;
+    if (!ready) {
+      window.alert(`Chưa đủ sao để mở ${tier.emoji} ${tier.name} — cần ${tier.threshold} sao, đang có ${pointTotal}. Cố gắng hơn nhé! 💪`);
+      return;
+    }
+    openTier(tier.threshold);
   }
 
   let subtitle: string;
@@ -52,7 +66,7 @@ export default function AnimalCollection({
     const p = pendingOpen[0];
     subtitle = `🎁 Đã đủ sao để mở ${p.emoji} ${p.name}! Bấm vào ổ khóa bên dưới nhé`;
   } else if (nextLocked) {
-    subtitle = `Còn ${nextLocked.threshold - earnedTotal} sao nữa để mở ${nextLocked.emoji} ${nextLocked.name}`;
+    subtitle = `Còn ${nextLocked.threshold - pointTotal} sao nữa để mở ${nextLocked.emoji} ${nextLocked.name}`;
   } else {
     subtitle = "Đã mở hết bộ sưu tập! 🎉";
   }
@@ -82,15 +96,15 @@ export default function AnimalCollection({
       <div className="flex flex-wrap gap-2.5">
         {ANIMAL_TIERS.map((tier) => {
           const opened = openedSet.has(tier.threshold);
-          const ready = !opened && earnedTotal >= tier.threshold;
+          const ready = !opened && pointTotal >= tier.threshold;
           const isOpening = openingThreshold === tier.threshold;
           const justPopped = justOpened === tier.threshold;
           return (
             <div key={tier.threshold} className="flex w-[46px] flex-none flex-col items-center gap-1">
               <button
                 type="button"
-                disabled={!ready || isOpening}
-                onClick={() => openTier(tier.threshold)}
+                disabled={opened || isOpening}
+                onClick={() => handleTierClick(tier, opened, ready)}
                 aria-label={opened ? tier.name : ready ? `Mở ${tier.name}` : `Cần ${tier.threshold} sao`}
                 className={`flex h-11 w-11 items-center justify-center rounded-2xl text-[20px] transition ${
                   ready ? "animate-[lockGlow_1.6s_ease-in-out_infinite]" : opened ? "" : "opacity-50 grayscale"

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { getChildEarnedTotal } from "@/lib/points";
+import { getChildPointTotal } from "@/lib/points";
 import { ANIMAL_TIERS } from "@/lib/animals";
 
 export async function POST(req: NextRequest) {
@@ -17,9 +17,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Mức không hợp lệ." }, { status: 400 });
   }
 
-  const earnedTotal = await getChildEarnedTotal(session.id);
-  if (earnedTotal < threshold) {
-    return NextResponse.json({ error: "Chưa đủ sao để mở con vật này." }, { status: 403 });
+  // Dùng tổng điểm hiện tại (giống số hiển thị ở "Tổng điểm") chứ không phải
+  // tổng đã từng kiếm được — nếu không, điểm bị trừ do bỏ lỡ ngày vẫn cho mở
+  // được con vật, gây khó hiểu vì số hiện trên màn hình không khớp.
+  const currentTotal = await getChildPointTotal(session.id);
+  if (currentTotal < threshold) {
+    return NextResponse.json({ error: `Chưa đủ sao để mở con vật này — cần ${threshold} sao, cố gắng hơn nhé!` }, { status: 403 });
   }
 
   await prisma.animalUnlock.upsert({

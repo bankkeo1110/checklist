@@ -8,17 +8,6 @@ export async function getChildPointTotal(childId: string): Promise<number> {
   return result._sum.delta ?? 0;
 }
 
-// Lifetime stars earned, ignoring later deductions (missed days, rejections)
-// so an animal reward unlocked once stays unlocked even if the current point
-// balance later dips.
-export async function getChildEarnedTotal(childId: string): Promise<number> {
-  const result = await prisma.pointLedger.aggregate({
-    where: { childId, delta: { gt: 0 } },
-    _sum: { delta: true },
-  });
-  return result._sum.delta ?? 0;
-}
-
 export async function getChildPointTotals(): Promise<Record<string, number>> {
   const rows = await prisma.pointLedger.groupBy({
     by: ["childId"],
