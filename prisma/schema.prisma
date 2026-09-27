@@ -34,6 +34,12 @@ model Child {
   pinHash   String
   createdAt DateTime @default(now())
 
+  // Set by a full "Reset toàn bộ" — reconcileMissedDaysForChild won't
+  // backfill missed-day penalties for any date before this, so a reset
+  // actually starts clean instead of immediately re-deriving the same old
+  // "didn't check in" history for tasks that existed before the reset.
+  historyResetAt DateTime? @db.Date
+
   tasks          Task[]           @relation("TaskAssignments")
   taskInstances  TaskInstance[]
   ledgerEntries  PointLedger[]

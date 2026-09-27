@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { dateStrToUTCDate, todayDateStr } from "@/lib/date";
 
 // Full reset: wipes everything derived from activity for this child — the
 // weekly-grid claims, the daily/weekly checklist check-ins, the point
@@ -37,6 +38,13 @@ export async function POST(req: NextRequest) {
   await prisma.bedtimeLog.deleteMany({ where: { childId } });
   await prisma.wakeupLog.deleteMany({ where: { childId } });
   await prisma.subjectLog.deleteMany({ where: { childId } });
+  // Moves reconcileMissedDaysForChild's floor to today, so the very next
+  // page load doesn't immediately re-derive the same "didn't check in"
+  // penalties for every day since each task was created and undo the reset.
+  await prisma.child.update({
+    where: { id: childId },
+    data: { historyResetAt: dateStrToUTCDate(todayDateStr()) },
+  });
   await prisma.pointLedger.create({
     data: {
       childId,

@@ -21,13 +21,21 @@ type MissedDay = { taskId: string; date: string; points: number; title: string }
  */
 export async function reconcileMissedDaysForChild(childId: string): Promise<void> {
   const today = todayDateStr();
-  const earliest = addDaysToDateStr(today, -LOOKBACK_DAYS);
+  const lookbackFloor = addDaysToDateStr(today, -LOOKBACK_DAYS);
 
-  const tasks = await prisma.task.findMany({
-    where: { active: true, assignedTo: { some: { id: childId } } },
-    select: { id: true, points: true, title: true, createdAt: true },
-  });
+  const [tasks, child] = await Promise.all([
+    prisma.task.findMany({
+      where: { active: true, assignedTo: { some: { id: childId } } },
+      select: { id: true, points: true, title: true, createdAt: true },
+    }),
+    prisma.child.findUnique({ where: { id: childId }, select: { historyResetAt: true } }),
+  ]);
   if (tasks.length === 0) return;
+
+  // A full reset moves the floor forward to the reset date, so nothing
+  // before it ever gets backfilled as missed again.
+  const historyResetAtStr = child?.historyResetAt?.toISOString().slice(0, 10);
+  const earliest = historyResetAtStr && historyResetAtStr > lookbackFloor ? historyResetAtStr : lookbackFloor;
 
   const missed: MissedDay[] = [];
 
