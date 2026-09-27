@@ -57,10 +57,18 @@ export default function WeeklyGrid({
 }) {
   const router = useRouter();
   const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [optimisticClaims, setOptimisticClaims] = useState<Record<string, boolean>>({});
+  const [burstTaskId, setBurstTaskId] = useState<string | null>(null);
 
   async function claim(taskId: string, date: string) {
     const key = `${taskId}:${date}`;
     setPendingKey(key);
+    // Bật ngay đồng hồ chờ duyệt + một dòng nhắn nhỏ, thay vì chờ round-trip
+    // API rồi router.refresh() mới thấy gì đó đổi — bé bấm cái là thấy phản
+    // hồi liền. Không hiện "+star" ở đây vì điểm chỉ cộng sau khi ba mẹ duyệt.
+    setOptimisticClaims((o) => ({ ...o, [key]: true }));
+    setBurstTaskId(taskId);
+    setTimeout(() => setBurstTaskId((b) => (b === taskId ? null : b)), 1000);
     try {
       const res = await fetch("/api/task-instances/claim", {
         method: "POST",
@@ -69,6 +77,8 @@ export default function WeeklyGrid({
       });
       if (res.ok) {
         router.refresh();
+      } else {
+        setOptimisticClaims((o) => ({ ...o, [key]: false }));
       }
     } finally {
       setPendingKey(null);
@@ -100,15 +110,21 @@ export default function WeeklyGrid({
 
         {tasks.map((task) => (
           <Fragment key={task.id}>
-            <div className="flex items-center gap-1.5 whitespace-nowrap pr-2 text-[12.5px] font-bold">
+            <div className="relative flex items-center gap-1.5 whitespace-nowrap pr-2 text-[12.5px] font-bold">
               <span>{task.title}</span>
               <Stars count={task.points} size={11} />
+              {burstTaskId === task.id && (
+                <span className="pointer-events-none absolute -top-4 left-0 whitespace-nowrap text-[11.5px] font-extrabold text-orange animate-[starBurst_1s_ease-out_forwards]">
+                  Đã gửi, chờ duyệt ⏳
+                </span>
+              )}
             </div>
             {dates.map((d) => {
+              const key = `${task.id}:${d}`;
               const cell = cellsByTask[task.id]?.[d];
               const isFuture = d > today;
               const isBeforeAssigned = d < task.createdAtDate;
-              const isPending = pendingKey === `${task.id}:${d}`;
+              const isPending = pendingKey === key;
 
               if (isFuture || isBeforeAssigned) {
                 return (
@@ -120,7 +136,7 @@ export default function WeeklyGrid({
                 );
               }
 
-              const status = cell?.status;
+              const status = optimisticClaims[key] ? "CLAIMED" : cell?.status;
               if (status === "CLAIMED" || status === "APPROVED") {
                 return (
                   <div key={`${task.id}-${d}`} className="flex justify-center">

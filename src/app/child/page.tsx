@@ -9,6 +9,7 @@ import WakeupChecklist from "@/components/child/WakeupChecklist";
 import SubjectFeedback from "@/components/child/SubjectFeedback";
 import AnimalCollection from "@/components/child/AnimalCollection";
 import PointHistoryStrip from "@/components/child/PointHistoryStrip";
+import ChangePinForm from "@/components/child/ChangePinForm";
 
 export const dynamic = "force-dynamic";
 
@@ -170,6 +171,8 @@ export default async function ConPage() {
           }))}
         />
       </section>
+
+      <ChangePinForm />
     </div>
   );
 }
