@@ -8,6 +8,7 @@ import BedtimeChecklist from "@/components/child/BedtimeChecklist";
 import WakeupChecklist from "@/components/child/WakeupChecklist";
 import SubjectFeedback from "@/components/child/SubjectFeedback";
 import AnimalCollection from "@/components/child/AnimalCollection";
+import DragonBallCollection from "@/components/child/DragonBallCollection";
 import PointHistoryStrip from "@/components/child/PointHistoryStrip";
 import ChangePinForm from "@/components/child/ChangePinForm";
 
@@ -34,6 +35,7 @@ export default async function ConPage() {
     subjectLogs,
     pointTotal,
     animalUnlocks,
+    dragonBallUnlocks,
     goal,
     history,
   ] = await Promise.all([
@@ -61,6 +63,7 @@ export default async function ConPage() {
     }),
     getChildPointTotal(session.id),
     prisma.animalUnlock.findMany({ where: { childId: session.id }, select: { threshold: true } }),
+    prisma.dragonBallUnlock.findMany({ where: { childId: session.id }, select: { threshold: true } }),
     prisma.weeklyGoal.findUnique({
       where: { childId_weekStart: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) } },
     }),
@@ -117,6 +120,11 @@ export default async function ConPage() {
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🐾 Bộ sưu tập thú cưng</h2>
         <AnimalCollection pointTotal={pointTotal} openedThresholds={animalUnlocks.map((u) => u.threshold)} />
+      </section>
+
+      <section className="flex flex-col gap-2.5">
+        <h2 className="font-display text-[15px] font-bold">🐉 Cấp độ Dragon Ball</h2>
+        <DragonBallCollection pointTotal={pointTotal} openedThresholds={dragonBallUnlocks.map((u) => u.threshold)} />
       </section>
 
       <section className="flex flex-col gap-2.5">

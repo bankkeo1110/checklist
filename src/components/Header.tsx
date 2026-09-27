@@ -8,10 +8,12 @@ export default function Header({
   name,
   caption,
   personName,
+  avatarEmoji,
 }: {
   name: string;
   caption: string;
   personName: string;
+  avatarEmoji?: string;
 }) {
   const router = useRouter();
 
@@ -23,7 +25,7 @@ export default function Header({
 
   return (
     <div className="flex items-center gap-2.5">
-      <PersonBadge name={personName} size={44} iconSize={18} radius={14} />
+      <PersonBadge name={personName} size={44} iconSize={18} radius={14} emoji={avatarEmoji} />
       <div className="min-w-0 flex-1">
         <p className="truncate font-display text-[17px] font-bold">{name}</p>
         <p className="text-xs font-semibold text-muted">{caption}</p>

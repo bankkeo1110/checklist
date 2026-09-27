@@ -6,11 +6,14 @@ export default function PersonBadge({
   size = 44,
   iconSize = 18,
   radius = 14,
+  emoji,
 }: {
   name: string;
   size?: number;
   iconSize?: number;
   radius?: number;
+  /** Dragon Ball avatar tier emoji, if the child has opened one — takes over from the default PersonIcon. */
+  emoji?: string;
 }) {
   const theme = personTheme(name);
   return (
@@ -24,7 +27,11 @@ export default function PersonBadge({
         boxShadow: `0 6px 14px -6px ${theme.shadow}`,
       }}
     >
-      <PersonIcon name={name} size={iconSize} strokeWidth={1.8} />
+      {emoji ? (
+        <span style={{ fontSize: iconSize * 1.3, lineHeight: 1 }}>{emoji}</span>
+      ) : (
+        <PersonIcon name={name} size={iconSize} strokeWidth={1.8} />
+      )}
     </span>
   );
 }

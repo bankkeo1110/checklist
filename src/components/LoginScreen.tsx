@@ -12,6 +12,7 @@ type Person = {
   id: string;
   name: string;
   label: string;
+  avatarEmoji?: string;
 };
 
 export default function LoginScreen({ people }: { people: Person[] }) {
@@ -84,7 +85,7 @@ export default function LoginScreen({ people }: { people: Person[] }) {
                 onClick={() => choose(p)}
                 className="flex flex-col items-center gap-2.5 rounded-3xl bg-white px-2.5 py-6 shadow-md transition hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:scale-[0.97]"
               >
-                <PersonBadge name={p.name} size={56} iconSize={26} radius={18} />
+                <PersonBadge name={p.name} size={56} iconSize={26} radius={18} emoji={p.avatarEmoji} />
                 <span className="font-display text-[17px] font-bold">{p.label}</span>
                 <span
                   className="rounded-full px-2.5 py-0.5 text-[11.5px] font-bold"
@@ -110,7 +111,7 @@ export default function LoginScreen({ people }: { people: Person[] }) {
         Quay lại
       </button>
       <div className="flex flex-col items-center gap-2.5 text-center">
-        <PersonBadge name={selected.name} size={76} iconSize={32} radius={26} />
+        <PersonBadge name={selected.name} size={76} iconSize={32} radius={26} emoji={selected.avatarEmoji} />
         <div>
           <h2 className="font-display text-xl font-bold">{selected.label}</h2>
           <p className="text-[13.5px] font-semibold text-muted">Nhập mã PIN nha</p>

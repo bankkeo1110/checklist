@@ -48,6 +48,7 @@ model Child {
   wakeupLogs     WakeupLog[]
   subjectLogs    SubjectLog[]
   animalUnlocks  AnimalUnlock[]
+  dragonBallUnlocks DragonBallUnlock[]
 }
 
 model Parent {
@@ -232,6 +233,18 @@ model SubjectLog {
 // this row is what actually reveals it, so the unlock stays a deliberate,
 // celebratory tap rather than something that silently changes color.
 model AnimalUnlock {
+  id         String   @id @default(cuid())
+  childId    String
+  child      Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  threshold  Int
+  unlockedAt DateTime @default(now())
+
+  @@unique([childId, threshold])
+}
+
+// Same open-it-yourself mechanic as AnimalUnlock, but the tier reached also
+// becomes the child's avatar (Header, login screen) — see lib/dragonball.ts.
+model DragonBallUnlock {
   id         String   @id @default(cuid())
   childId    String
   child      Child    @relation(fields: [childId], references: [id], onDelete: Cascade)

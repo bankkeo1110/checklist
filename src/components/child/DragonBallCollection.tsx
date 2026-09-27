@@ -1,0 +1,144 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Lock, Unlock } from "lucide-react";
+import Spinner from "@/components/Spinner";
+import { DRAGON_BALL_TIERS } from "@/lib/dragonball";
+
+export default function DragonBallCollection({
+  pointTotal,
+  openedThresholds,
+}: {
+  pointTotal: number;
+  openedThresholds: number[];
+}) {
+  const router = useRouter();
+  const [optimisticOpened, setOptimisticOpened] = useState<number[]>([]);
+  const [openingThreshold, setOpeningThreshold] = useState<number | null>(null);
+  const [justOpened, setJustOpened] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const openedSet = new Set([...openedThresholds, ...optimisticOpened]);
+  const openedTiers = DRAGON_BALL_TIERS.filter((t) => openedSet.has(t.threshold));
+  const currentOpened = openedTiers.length ? openedTiers[openedTiers.length - 1] : null;
+  const nextLocked = DRAGON_BALL_TIERS.find((t) => pointTotal < t.threshold) ?? null;
+  const pendingOpen = DRAGON_BALL_TIERS.filter((t) => pointTotal >= t.threshold && !openedSet.has(t.threshold));
+
+  const base = currentOpened?.threshold ?? 0;
+  const target = nextLocked?.threshold ?? base;
+  const progressPct = nextLocked ? Math.min(100, Math.max(0, Math.round(((pointTotal - base) / (target - base)) * 100))) : 100;
+
+  async function openTier(threshold: number) {
+    setOpeningThreshold(threshold);
+    try {
+      const res = await fetch("/api/dragonball-unlocks/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threshold }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok) {
+        setOptimisticOpened((o) => [...o, threshold]);
+        setJustOpened(threshold);
+        setTimeout(() => setJustOpened((j) => (j === threshold ? null : j)), 600);
+        router.refresh();
+      } else {
+        showNotice(data?.error ?? "Chưa đủ sao để lên cấp này.");
+      }
+    } finally {
+      setOpeningThreshold(null);
+    }
+  }
+
+  function showNotice(message: string) {
+    setNotice(message);
+    setTimeout(() => setNotice((n) => (n === message ? null : n)), 3500);
+  }
+
+  // Ô còn khóa vẫn bấm được, nhưng chỉ để báo còn thiếu bao nhiêu sao — không
+  // gọi API, tránh 1 request thừa cho việc chắc chắn sẽ bị từ chối.
+  function handleTierClick(tier: (typeof DRAGON_BALL_TIERS)[number], opened: boolean, ready: boolean) {
+    if (opened) return;
+    if (!ready) {
+      showNotice(`Chưa đủ sao để lên ${tier.emoji} ${tier.name} — cần ${tier.threshold} sao, đang có ${pointTotal}. Cố lên nào! 💪`);
+      return;
+    }
+    openTier(tier.threshold);
+  }
+
+  let subtitle: string;
+  if (pendingOpen.length > 0) {
+    const p = pendingOpen[0];
+    subtitle = `🎁 Đã đủ sao để lên ${p.emoji} ${p.name}! Bấm vào ổ khóa bên dưới nhé`;
+  } else if (nextLocked) {
+    subtitle = `Còn ${nextLocked.threshold - pointTotal} sao nữa để lên ${nextLocked.emoji} ${nextLocked.name}`;
+  } else {
+    subtitle = "Đã đạt cấp độ cao nhất! 🎉";
+  }
+
+  return (
+    <div className="flex flex-col gap-3.5 rounded-[22px] bg-white p-4 shadow-md">
+      {notice && (
+        <div className="animate-[popStar_0.3s_ease-out] rounded-2xl bg-[#fff1e2] px-3.5 py-2.5 text-[13px] font-bold text-orange">
+          {notice}
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <span
+          className="flex h-14 w-14 flex-none items-center justify-center rounded-2xl text-[32px]"
+          style={{ background: "#fff1e2" }}
+        >
+          {currentOpened ? currentOpened.emoji : "🐣"}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-[15px] font-bold">{currentOpened ? currentOpened.name : "Chưa lên cấp"}</p>
+          <p className="text-[12.5px] font-semibold text-muted">{subtitle}</p>
+        </div>
+      </div>
+
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-divider">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${progressPct}%`, background: "linear-gradient(90deg,#FF9F45,#FF6B6B)" }}
+        />
+      </div>
+
+      <div className="flex flex-wrap gap-2.5">
+        {DRAGON_BALL_TIERS.map((tier) => {
+          const opened = openedSet.has(tier.threshold);
+          const ready = !opened && pointTotal >= tier.threshold;
+          const isOpening = openingThreshold === tier.threshold;
+          const justPopped = justOpened === tier.threshold;
+          return (
+            <div key={tier.threshold} className="flex w-[46px] flex-none flex-col items-center gap-1">
+              <button
+                type="button"
+                disabled={opened || isOpening}
+                onClick={() => handleTierClick(tier, opened, ready)}
+                aria-label={opened ? tier.name : ready ? `Lên ${tier.name}` : `Cần ${tier.threshold} sao`}
+                className={`flex h-11 w-11 items-center justify-center rounded-2xl text-[20px] transition ${
+                  ready ? "animate-[lockGlow_1.6s_ease-in-out_infinite]" : opened ? "" : "opacity-50 grayscale"
+                } ${justPopped ? "animate-[popStar_0.5s_ease-out]" : ""}`}
+                style={{
+                  background: opened ? "#fff1e2" : ready ? "#fff8e1" : "var(--color-divider)",
+                }}
+              >
+                {isOpening ? (
+                  <Spinner size={15} className="text-muted" />
+                ) : opened ? (
+                  tier.emoji
+                ) : ready ? (
+                  <Unlock size={16} className="text-orange" />
+                ) : (
+                  <Lock size={15} className="text-muted" />
+                )}
+              </button>
+              <span className="text-[10.5px] font-bold text-muted">{tier.threshold}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
