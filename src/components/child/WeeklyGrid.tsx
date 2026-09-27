@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, useState } from "react";
-import { Check, X, Clock, Plus } from "lucide-react";
+import { Check, X, Clock } from "lucide-react";
 import { weekdayLabel } from "@/lib/date";
 import Stars from "@/components/Stars";
 import Spinner from "@/components/Spinner";
@@ -10,30 +10,35 @@ import Spinner from "@/components/Spinner";
 type Task = { id: string; title: string; points: number; createdAtDate: string };
 type Cell = { id: string; status: string };
 
+// Checkbox-styled status square: bé bấm ô trống để xin duyệt (CLAIMED), ba mẹ
+// duyệt/từ chối mới ra kết quả cuối — bé không tự bỏ tích được sau khi bấm.
 function StatusCell({ status }: { status: string }) {
   if (status === "APPROVED") {
     return (
-      <span className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-green">
+      <span className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border-2 border-green bg-green">
         <Check size={17} strokeWidth={2.5} className="text-white" />
       </span>
     );
   }
   if (status === "CLAIMED") {
     return (
-      <span className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-blue-tint">
-        <Clock size={15} strokeWidth={1.8} className="text-blue" />
+      <span className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border-2 border-orange bg-[#fff1e2] text-orange">
+        <Clock size={15} strokeWidth={1.8} />
       </span>
     );
   }
   if (status === "REJECTED") {
     return (
-      <span className="flex h-[38px] w-[38px] items-center justify-center rounded-xl" style={{ background: "#fbedec" }}>
+      <span
+        className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border-2"
+        style={{ borderColor: "#e7a79e", background: "#fbedec" }}
+      >
         <X size={14} strokeWidth={2} style={{ color: "#c4736b" }} />
       </span>
     );
   }
   return (
-    <span className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-[#f7f5f9] text-[14px] text-[#c7c3cc]">
+    <span className="flex h-[38px] w-[38px] items-center justify-center rounded-lg bg-[#f7f5f9] text-[14px] text-[#c7c3cc]">
       ·
     </span>
   );
@@ -118,9 +123,9 @@ export default function WeeklyGrid({
                       disabled={isPending}
                       onClick={() => claim(task.id)}
                       aria-label={`Đánh dấu xong: ${task.title}`}
-                      className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-[#fff1e2] text-orange transition hover:bg-[#ffe4c4] disabled:opacity-70"
+                      className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border-2 border-[#e4e1e8] bg-white transition hover:border-orange disabled:opacity-70"
                     >
-                      {isPending ? <Spinner size={16} /> : <Plus size={18} strokeWidth={2.4} />}
+                      {isPending && <Spinner size={15} className="text-orange" />}
                     </button>
                   </div>
                 );
@@ -129,7 +134,7 @@ export default function WeeklyGrid({
               if (isFuture || d < task.createdAtDate) {
                 return (
                   <div key={`${task.id}-${d}`} className="flex justify-center">
-                    <span className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-[#f7f5f9] text-[14px] text-[#e4e1e8]">
+                    <span className="flex h-[38px] w-[38px] items-center justify-center rounded-lg bg-[#f7f5f9] text-[14px] text-[#e4e1e8]">
                       ·
                     </span>
                   </div>
