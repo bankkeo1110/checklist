@@ -253,3 +253,52 @@ model DragonBallUnlock {
 
   @@unique([childId, threshold])
 }
+
+// ─── Chat ───────────────────────────────────────────────────────────────
+// Members and senders are either a Child or a Parent, so they're stored as
+// (kind, personId) rather than foreign keys — deleting a test child doesn't
+// get blocked by its chat history. See lib/chat.ts.
+
+enum PersonKind {
+  CHILD
+  PARENT
+}
+
+model Conversation {
+  id            String   @id @default(cuid())
+  title         String?
+  // "family" for the default whole-family group (created on demand).
+  slug          String?  @unique
+  // Sorted "KIND:id|KIND:id" of the two people in a 1-1 chat, so each pair
+  // only ever gets one conversation.
+  directKey     String?  @unique
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+
+  members  ConversationMember[]
+  messages ChatMessage[]
+}
+
+model ConversationMember {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  kind           PersonKind
+  personId       String
+  lastReadAt     DateTime     @default(now())
+
+  @@unique([conversationId, kind, personId])
+  @@index([kind, personId])
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderKind     PersonKind
+  senderId       String
+  body           String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
