@@ -98,13 +98,61 @@ function unreadWhere(conversationId: string, lastReadAt: Date, kind: PersonKind,
   };
 }
 
-export async function getUnreadTotal(session: SessionPayload): Promise<number> {
+export type UnreadSummary = {
+  unread: number;
+  /** Newest unread message, for the new-message toast / browser notification. */
+  latest: {
+    id: string;
+    conversationId: string;
+    title: string;
+    avatarName: string | null;
+    senderLabel: string;
+    body: string;
+    createdAt: string;
+  } | null;
+};
+
+export async function getUnreadSummary(session: SessionPayload): Promise<UnreadSummary> {
   const kind = sessionKind(session);
-  const memberships = await prisma.conversationMember.findMany({ where: { kind, personId: session.id } });
-  const counts = await Promise.all(
-    memberships.map((m) => prisma.chatMessage.count({ where: unreadWhere(m.conversationId, m.lastReadAt, kind, session.id) })),
+  const memberships = await prisma.conversationMember.findMany({
+    where: { kind, personId: session.id },
+    include: { conversation: true },
+  });
+  const perConversation = await Promise.all(
+    memberships.map(async (m) => {
+      const where = unreadWhere(m.conversationId, m.lastReadAt, kind, session.id);
+      const [count, newest] = await Promise.all([
+        prisma.chatMessage.count({ where }),
+        prisma.chatMessage.findFirst({ where, orderBy: { createdAt: "desc" } }),
+      ]);
+      return { membership: m, count, newest };
+    }),
   );
-  return counts.reduce((a, b) => a + b, 0);
+
+  const unread = perConversation.reduce((sum, c) => sum + c.count, 0);
+  let best: (typeof perConversation)[number] | null = null;
+  for (const c of perConversation) {
+    if (c.newest && (!best?.newest || c.newest.createdAt > best.newest.createdAt)) best = c;
+  }
+  const newest = best?.newest;
+  if (!best || !newest) return { unread, latest: null };
+  const { conversation } = best.membership;
+
+  const people = await listPeople();
+  const sender = people.find((p) => p.kind === newest.senderKind && p.id === newest.senderId);
+  const isGroup = !conversation.directKey;
+  return {
+    unread,
+    latest: {
+      id: newest.id,
+      conversationId: conversation.id,
+      title: isGroup ? (conversation.title ?? FAMILY_TITLE) : (sender?.label ?? "?"),
+      avatarName: isGroup ? null : (sender?.name ?? null),
+      senderLabel: sender?.label ?? "?",
+      body: newest.body,
+      createdAt: newest.createdAt.toISOString(),
+    },
+  };
 }
 
 export async function getInbox(session: SessionPayload): Promise<InboxRow[]> {

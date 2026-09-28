@@ -90,3 +90,15 @@ button:disabled { cursor: not-allowed; }
   0%, 100% { box-shadow: 0 0 0 2px var(--color-yellow); }
   50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-yellow) 45%, transparent); }
 }
+/* Chat tab pulses while there are unread messages (box-shadow only, so it
+   doesn't fight the tab's translate positioning). */
+@keyframes chatAttention {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-coral) 55%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-coral) 0%, transparent); }
+}
+.chat-attention {
+  animation: chatAttention 1.6s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-attention { animation: none; }
+}
