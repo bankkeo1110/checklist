@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import Header from "@/components/Header";
+import ChatDock from "@/components/chat/ChatDock";
 import ParentNav from "@/components/phu-huynh/ParentNav";
 import ParentDashboard from "@/components/phu-huynh/ParentDashboard";
 import { prisma } from "@/lib/prisma";
@@ -39,6 +40,7 @@ export default async function PhuHuynhLayout({ children: pageContent }: { childr
       />
       <ParentNav />
       {pageContent}
+      <ChatDock />
     </div>
   );
 }

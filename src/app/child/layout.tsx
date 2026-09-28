@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getOpenedDragonBallTier } from "@/lib/dragonball";
 import Header from "@/components/Header";
+import ChatDock from "@/components/chat/ChatDock";
 
 export default async function ChildLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -25,6 +26,7 @@ export default async function ChildLayout({ children }: { children: React.ReactN
         avatarEmoji={avatarTier?.emoji}
       />
       {children}
+      <ChatDock />
     </div>
   );
 }

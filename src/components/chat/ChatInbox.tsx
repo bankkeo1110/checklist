@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { InboxRow } from "@/lib/chat";
 import Spinner from "@/components/Spinner";
@@ -10,25 +8,42 @@ import { formatInboxStamp } from "@/components/chat/format";
 
 const POLL_MS = 10_000;
 
-export default function ChatInbox({ initialRows }: { initialRows: InboxRow[] }) {
-  const router = useRouter();
-  const [rows, setRows] = useState(initialRows);
+export default function ChatInbox({ onOpen }: { onOpen: (row: InboxRow, conversationId: string) => void }) {
+  const [rows, setRows] = useState<InboxRow[] | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(async () => {
+    let cancelled = false;
+    async function load() {
       try {
         const res = await fetch("/api/chat/conversations", { cache: "no-store" });
-        if (res.ok) setRows((await res.json()).rows);
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(data.error ?? "Không tải được tin nhắn.");
+          setRows((current) => current ?? []);
+          return;
+        }
+        setError(null);
+        setRows(data.rows);
       } catch {
-        // Keep showing the last list.
+        if (!cancelled) setRows((current) => current ?? []);
       }
-    }, POLL_MS);
-    return () => clearInterval(timer);
+    }
+    load();
+    const timer = setInterval(load, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, []);
 
-  async function startDirect(row: InboxRow) {
+  async function open(row: InboxRow) {
+    if (row.conversationId) {
+      onOpen(row, row.conversationId);
+      return;
+    }
     if (!row.target) return;
     setOpening(row.key);
     setError(null);
@@ -41,67 +56,64 @@ export default function ChatInbox({ initialRows }: { initialRows: InboxRow[] }) 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "Không mở được cuộc trò chuyện.");
-        setOpening(null);
         return;
       }
-      router.push(`/chat/${data.id}`);
+      onOpen(row, data.id);
     } catch {
       setError("Không kết nối được. Thử lại nhé.");
+    } finally {
       setOpening(null);
     }
   }
 
-  function content(row: InboxRow) {
+  if (rows === null) {
     return (
-      <>
-        <ChatAvatar avatarName={row.avatarName} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <p className={`min-w-0 flex-1 truncate font-display text-[15px] ${row.unread ? "font-extrabold" : "font-bold"}`}>
-              {row.title}
-            </p>
-            {row.lastMessage && (
-              <span className="flex-none text-[11.5px] font-semibold text-muted">
-                {formatInboxStamp(row.lastMessage.createdAt)}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <p className={`min-w-0 flex-1 truncate text-[13px] ${row.unread ? "font-bold text-ink" : "font-semibold text-muted"}`}>
-              {row.lastMessage
-                ? `${row.lastMessage.mine ? "Bạn" : row.lastMessage.senderLabel}: ${row.lastMessage.body}`
-                : "Chưa có tin nhắn — bấm để nhắn"}
-            </p>
-            {row.unread > 0 && (
-              <span className="flex h-[20px] min-w-[20px] flex-none items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-extrabold text-white">
-                {row.unread > 99 ? "99+" : row.unread}
-              </span>
-            )}
-            {opening === row.key && <Spinner size={14} />}
-          </div>
-        </div>
-      </>
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner size={20} />
+      </div>
     );
   }
 
-  const rowClass = "flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-divider/60";
-
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-col divide-y divide-divider overflow-hidden rounded-[20px] bg-white shadow-md">
-        {rows.map((row) =>
-          row.conversationId ? (
-            <Link key={row.key} href={`/chat/${row.conversationId}`} className={rowClass}>
-              {content(row)}
-            </Link>
-          ) : (
-            <button key={row.key} disabled={opening !== null} onClick={() => startDirect(row)} className={`${rowClass} cursor-pointer`}>
-              {content(row)}
-            </button>
-          ),
-        )}
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      {error && <p className="px-4 py-2 text-sm font-semibold text-coral-text">{error}</p>}
+      <div className="flex flex-col divide-y divide-divider">
+        {rows.map((row) => (
+          <button
+            key={row.key}
+            disabled={opening !== null}
+            onClick={() => open(row)}
+            className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left hover:bg-divider/60"
+          >
+            <ChatAvatar avatarName={row.avatarName} size={40} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2">
+                <p className={`min-w-0 flex-1 truncate font-display text-[14.5px] ${row.unread ? "font-extrabold" : "font-bold"}`}>
+                  {row.title}
+                </p>
+                {row.lastMessage && (
+                  <span className="flex-none text-[11px] font-semibold text-muted">
+                    {formatInboxStamp(row.lastMessage.createdAt)}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <p className={`min-w-0 flex-1 truncate text-[12.5px] ${row.unread ? "font-bold text-ink" : "font-semibold text-muted"}`}>
+                  {row.lastMessage
+                    ? `${row.lastMessage.mine ? "Bạn" : row.lastMessage.senderLabel}: ${row.lastMessage.body}`
+                    : "Chưa có tin nhắn — bấm để nhắn"}
+                </p>
+                {row.unread > 0 && (
+                  <span className="flex h-[19px] min-w-[19px] flex-none items-center justify-center rounded-full bg-coral px-1.5 text-[11px] font-extrabold text-white">
+                    {row.unread > 99 ? "99+" : row.unread}
+                  </span>
+                )}
+                {opening === row.key && <Spinner size={14} />}
+              </div>
+            </div>
+          </button>
+        ))}
       </div>
-      {error && <p className="text-sm font-semibold text-coral-text">{error}</p>}
     </div>
   );
 }

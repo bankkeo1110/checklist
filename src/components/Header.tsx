@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import PersonBadge from "@/components/PersonBadge";
-import ChatButton from "@/components/chat/ChatButton";
 
 export default function Header({
   name,
@@ -31,7 +30,6 @@ export default function Header({
         <p className="truncate font-display text-[17px] font-bold">{name}</p>
         <p className="text-xs font-semibold text-muted">{caption}</p>
       </div>
-      <ChatButton />
       <button
         onClick={logout}
         aria-label="Đăng xuất"

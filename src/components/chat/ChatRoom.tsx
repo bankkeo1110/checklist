@@ -21,19 +21,21 @@ function mergeMessages(current: ChatMessageView[], incoming: ChatMessageView[]) 
 export default function ChatRoom({
   conversationId,
   isGroup,
-  initialMessages,
+  onRead,
 }: {
   conversationId: string;
   isGroup: boolean;
-  initialMessages: ChatMessageView[];
+  /** Called after messages are fetched (which marks them read), so unread badges can refresh. */
+  onRead?: () => void;
 }) {
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState<ChatMessageView[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
-  const lastStamp = useRef(initialMessages.at(-1)?.createdAt);
+  const lastStamp = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     lastStamp.current = messages.at(-1)?.createdAt;
@@ -45,11 +47,14 @@ export default function ChatRoom({
       const res = await fetch(`/api/chat/conversations/${conversationId}/messages${after}`, { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
-      setMessages((current) => mergeMessages(current, data.messages ?? []));
+      const incoming: ChatMessageView[] = data.messages ?? [];
+      setMessages((current) => mergeMessages(current, incoming));
+      setLoaded(true);
+      if (incoming.length > 0) onRead?.();
     } catch {
       // Try again on the next tick.
     }
-  }, [conversationId]);
+  }, [conversationId, onRead]);
 
   useEffect(() => {
     poll(); // also marks the conversation as read
@@ -95,13 +100,14 @@ export default function ChatRoom({
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <div
-        ref={listRef}
-        onScroll={onScroll}
-        className="flex h-[calc(100dvh-270px)] min-h-[320px] flex-col gap-1 overflow-y-auto rounded-[20px] bg-white p-3 shadow-md"
-      >
-        {messages.length === 0 && (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div ref={listRef} onScroll={onScroll} className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-3">
+        {!loaded && (
+          <div className="m-auto">
+            <Spinner size={20} />
+          </div>
+        )}
+        {loaded && messages.length === 0 && (
           <p className="m-auto text-center text-sm font-semibold text-muted">Chưa có tin nhắn nào. Gửi lời chào nhé! 👋</p>
         )}
         {messages.map((m, i) => {
@@ -145,7 +151,7 @@ export default function ChatRoom({
           e.preventDefault();
           send();
         }}
-        className="flex items-end gap-2"
+        className="flex items-end gap-2 border-t border-divider p-3"
       >
         <textarea
           value={draft}
@@ -169,7 +175,7 @@ export default function ChatRoom({
           {sending ? <Spinner size={16} /> : <SendHorizontal size={19} strokeWidth={2.2} />}
         </button>
       </form>
-      {error && <p className="text-sm font-semibold text-coral-text">{error}</p>}
+      {error && <p className="px-3 pb-2 text-sm font-semibold text-coral-text">{error}</p>}
     </div>
   );
 }
