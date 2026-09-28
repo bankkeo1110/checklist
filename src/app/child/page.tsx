@@ -14,6 +14,8 @@ import ChangePinForm from "@/components/child/ChangePinForm";
 
 export const dynamic = "force-dynamic";
 
+const RECENT_HISTORY = 8;
+
 export default async function ConPage() {
   const session = await getSession();
   if (!session || session.kind !== "child") return null;
@@ -67,10 +69,11 @@ export default async function ConPage() {
     prisma.weeklyGoal.findUnique({
       where: { childId_weekStart: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) } },
     }),
+    // One extra row tells PointHistoryStrip whether to show "Xem thêm".
     prisma.pointLedger.findMany({
       where: { childId: session.id },
-      orderBy: { createdAt: "desc" },
-      take: 8,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: RECENT_HISTORY + 1,
     }),
   ]);
 
@@ -168,7 +171,8 @@ export default async function ConPage() {
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">📋 Gần đây</h2>
         <PointHistoryStrip
-          entries={history.map((h) => ({
+          initialHasMore={history.length > RECENT_HISTORY}
+          initialEntries={history.slice(0, RECENT_HISTORY).map((h) => ({
             id: h.id,
             delta: h.delta,
             reason: h.reason,

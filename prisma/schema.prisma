@@ -297,7 +297,10 @@ model ChatMessage {
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   senderKind     PersonKind
   senderId       String
+  // For a sticker, body holds the sticker's emoji (so previews/notifications
+  // read naturally) and stickerId its key in lib/stickers.ts.
   body           String
+  stickerId      String?
   createdAt      DateTime     @default(now())
 
   @@index([conversationId, createdAt])

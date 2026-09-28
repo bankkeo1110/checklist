@@ -11,6 +11,7 @@ export type ChatPerson = { kind: PersonKind; id: string; name: string; label: st
 export type ChatMessageView = {
   id: string;
   body: string;
+  stickerId: string | null;
   createdAt: string;
   senderName: string;
   senderLabel: string;
@@ -245,6 +246,7 @@ export async function getMessages(
     return {
       id: m.id,
       body: m.body,
+      stickerId: m.stickerId,
       createdAt: m.createdAt.toISOString(),
       senderName: sender?.name ?? "",
       senderLabel: sender?.label ?? "?",

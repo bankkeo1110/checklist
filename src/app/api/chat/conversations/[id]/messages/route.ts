@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { MAX_MESSAGE_LENGTH, getMembership, getMessages, markRead, sessionKind } from "@/lib/chat";
+import { findSticker } from "@/lib/stickers";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -33,7 +34,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const body = await req.json().catch(() => null);
-  const text = typeof body?.body === "string" ? body.body.trim() : "";
+  const sticker = typeof body?.stickerId === "string" ? findSticker(body.stickerId) : undefined;
+  if (body?.stickerId !== undefined && !sticker) {
+    return NextResponse.json({ error: "Sticker không hợp lệ." }, { status: 400 });
+  }
+  const text = sticker ? sticker.emoji : typeof body?.body === "string" ? body.body.trim() : "";
   if (!text) {
     return NextResponse.json({ error: "Tin nhắn trống." }, { status: 400 });
   }
@@ -42,7 +47,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const message = await prisma.chatMessage.create({
-    data: { conversationId: id, senderKind: sessionKind(session), senderId: session.id, body: text },
+    data: { conversationId: id, senderKind: sessionKind(session), senderId: session.id, body: text, stickerId: sticker?.id ?? null },
   });
   await Promise.all([
     prisma.conversation.update({ where: { id }, data: { lastMessageAt: message.createdAt } }),
@@ -53,6 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     message: {
       id: message.id,
       body: message.body,
+      stickerId: message.stickerId,
       createdAt: message.createdAt.toISOString(),
       senderName: session.name,
       senderLabel: session.label,

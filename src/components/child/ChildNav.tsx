@@ -4,15 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import MathFunLink from "@/components/MathFunLink";
 
-const LINKS = [
-  { href: "/phu-huynh", label: "Duyệt" },
-  { href: "/phu-huynh/nhiem-vu", label: "Quản lý nhiệm vụ" },
-  { href: "/phu-huynh/checklist", label: "Checklist hằng ngày" },
-  { href: "/phu-huynh/lich-su", label: "Lịch sử & Mục tiêu" },
-  { href: "/phu-huynh/ma-pin", label: "Mã PIN" },
-];
+const LINKS = [{ href: "/child", label: "🏠 Trang của con" }];
 
-export default function ParentNav() {
+export default function ChildNav() {
   const pathname = usePathname();
 
   return (

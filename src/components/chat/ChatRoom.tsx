@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SendHorizontal } from "lucide-react";
+import { SendHorizontal, Smile, X } from "lucide-react";
 import type { ChatMessageView } from "@/lib/chat";
 import PersonBadge from "@/components/PersonBadge";
 import Spinner from "@/components/Spinner";
 import { dayKey, formatDayLabel, formatTime } from "@/components/chat/format";
+import StickerImage from "@/components/chat/StickerImage";
+import { STICKERS } from "@/lib/stickers";
 
 const POLL_MS = 3_000;
 const MAX_LENGTH = 1000;
@@ -32,6 +34,7 @@ export default function ChatRoom({
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [showStickers, setShowStickers] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -73,16 +76,14 @@ export default function ChatRoom({
     stickToBottom.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
   }
 
-  async function send() {
-    const text = draft.trim();
-    if (!text || sending) return;
+  async function post(payload: { body: string } | { stickerId: string }) {
     setSending(true);
     setError(null);
     try {
       const res = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: text }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -91,12 +92,24 @@ export default function ChatRoom({
       }
       stickToBottom.current = true;
       setMessages((current) => mergeMessages(current, [data.message]));
-      setDraft("");
+      if ("body" in payload) setDraft("");
+      else setShowStickers(false);
     } catch {
       setError("Không kết nối được. Thử lại nhé.");
     } finally {
       setSending(false);
     }
+  }
+
+  function send() {
+    const text = draft.trim();
+    if (!text || sending) return;
+    post({ body: text });
+  }
+
+  function sendSticker(stickerId: string) {
+    if (sending) return;
+    post({ stickerId });
   }
 
   return (
@@ -131,13 +144,17 @@ export default function ChatRoom({
                   {firstOfRun && !m.mine && isGroup && (
                     <span className="mb-0.5 px-1 text-[11px] font-bold text-muted">{m.senderLabel}</span>
                   )}
-                  <div
-                    className={`whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] font-semibold ${
-                      m.mine ? "rounded-br-md bg-blue text-white" : "rounded-bl-md bg-divider text-ink"
-                    }`}
-                  >
-                    {m.body}
-                  </div>
+                  {m.stickerId ? (
+                    <StickerImage id={m.stickerId} size={96} />
+                  ) : (
+                    <div
+                      className={`whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[14px] font-semibold ${
+                        m.mine ? "rounded-br-md bg-blue text-white" : "rounded-bl-md bg-divider text-ink"
+                      }`}
+                    >
+                      {m.body}
+                    </div>
+                  )}
                   <span className="mt-0.5 px-1 text-[10.5px] font-semibold text-muted">{formatTime(m.createdAt)}</span>
                 </div>
               </div>
@@ -146,6 +163,25 @@ export default function ChatRoom({
         })}
       </div>
 
+      {showStickers && (
+        <div className="max-h-[220px] overflow-y-auto border-t border-divider p-2">
+          <div className="grid grid-cols-6 gap-1">
+            {STICKERS.map((sticker) => (
+              <button
+                key={sticker.id}
+                type="button"
+                disabled={sending}
+                onClick={() => sendSticker(sticker.id)}
+                aria-label={`Gửi sticker ${sticker.emoji}`}
+                className="flex aspect-square cursor-pointer items-center justify-center rounded-xl hover:bg-divider disabled:opacity-50"
+              >
+                <StickerImage id={sticker.id} size={40} animated={false} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -153,6 +189,17 @@ export default function ChatRoom({
         }}
         className="flex items-end gap-2 border-t border-divider p-3"
       >
+        <button
+          type="button"
+          onClick={() => setShowStickers((v) => !v)}
+          aria-label={showStickers ? "Đóng sticker" : "Chọn sticker"}
+          aria-pressed={showStickers}
+          className={`flex h-[46px] w-[40px] flex-none cursor-pointer items-center justify-center rounded-2xl ${
+            showStickers ? "bg-yellow/30 text-orange" : "text-muted hover:bg-divider"
+          }`}
+        >
+          {showStickers ? <X size={20} /> : <Smile size={22} strokeWidth={2} />}
+        </button>
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value.slice(0, MAX_LENGTH))}

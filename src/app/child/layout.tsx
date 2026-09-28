@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getOpenedDragonBallTier } from "@/lib/dragonball";
 import Header from "@/components/Header";
 import ChatDock from "@/components/chat/ChatDock";
+import ChildNav from "@/components/child/ChildNav";
 
 export default async function ChildLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -25,6 +26,7 @@ export default async function ChildLayout({ children }: { children: React.ReactN
         personName={session.name}
         avatarEmoji={avatarTier?.emoji}
       />
+      <ChildNav />
       {children}
       <ChatDock />
     </div>

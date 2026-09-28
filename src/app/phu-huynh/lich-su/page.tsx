@@ -9,10 +9,12 @@ import { personTheme } from "@/lib/personTheme";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 20;
+
 export default async function LichSuPage({
   searchParams,
 }: {
-  searchParams: Promise<{ child?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ child?: string; from?: string; to?: string; page?: string }>;
 }) {
   const sp = await searchParams;
   const children = await prisma.child.findMany({ orderBy: { createdAt: "asc" } });
@@ -28,8 +30,25 @@ export default async function LichSuPage({
   }
 
   const weekStart = currentWeekStart();
+  const entryCount = await prisma.pointLedger.count({ where });
+  const pageCount = Math.max(1, Math.ceil(entryCount / PAGE_SIZE));
+  const page = Math.min(Math.max(Number.parseInt(sp.page ?? "1", 10) || 1, 1), pageCount);
+
+  function pageHref(target: number) {
+    const params = new URLSearchParams({ child: selected.id });
+    if (sp.from) params.set("from", sp.from);
+    if (sp.to) params.set("to", sp.to);
+    if (target > 1) params.set("page", String(target));
+    return `/phu-huynh/lich-su?${params.toString()}`;
+  }
+
   const [entries, total, goal] = await Promise.all([
-    prisma.pointLedger.findMany({ where, orderBy: { createdAt: "desc" }, take: 100 }),
+    prisma.pointLedger.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
     getChildPointTotal(selected.id),
     prisma.weeklyGoal.findUnique({
       where: { childId_weekStart: { childId: selected.id, weekStart: dateStrToUTCDate(weekStart) } },
@@ -107,6 +126,28 @@ export default async function LichSuPage({
           </ul>
         )}
       </div>
+
+      {pageCount > 1 && (
+        <nav className="flex items-center justify-between gap-2" aria-label="Phân trang">
+          {page > 1 ? (
+            <Link href={pageHref(page - 1)} className="rounded-xl bg-white px-4 py-2 text-[13px] font-bold text-blue-text shadow-md">
+              ← Mới hơn
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-[13px] font-semibold text-muted">
+            Trang {page}/{pageCount} · {entryCount} mục
+          </span>
+          {page < pageCount ? (
+            <Link href={pageHref(page + 1)} className="rounded-xl bg-white px-4 py-2 text-[13px] font-bold text-blue-text shadow-md">
+              Cũ hơn →
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      )}
     </div>
   );
 }

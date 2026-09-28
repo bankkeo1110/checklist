@@ -1,6 +1,50 @@
+"use client";
+
+import { useState } from "react";
+import Spinner from "@/components/Spinner";
+
 type Entry = { id: string; delta: number; reason: string; createdAt: string };
 
-export default function PointHistoryStrip({ entries }: { entries: Entry[] }) {
+const PAGE_SIZE = 10;
+
+export default function PointHistoryStrip({
+  initialEntries,
+  initialHasMore,
+}: {
+  initialEntries: Entry[];
+  initialHasMore: boolean;
+}) {
+  const [entries, setEntries] = useState(initialEntries);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadMore() {
+    const last = entries.at(-1);
+    if (!last || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/points/history?cursor=${encodeURIComponent(last.id)}&take=${PAGE_SIZE}`, {
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Không tải được.");
+        return;
+      }
+      setEntries((current) => {
+        const seen = new Set(current.map((e) => e.id));
+        return [...current, ...(data.entries as Entry[]).filter((e) => !seen.has(e.id))];
+      });
+      setHasMore(Boolean(data.hasMore));
+    } catch {
+      setError("Không kết nối được. Thử lại nhé.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (entries.length === 0) {
     return <p className="text-sm font-semibold text-muted">Chưa có lịch sử điểm.</p>;
   }
@@ -34,6 +78,17 @@ export default function PointHistoryStrip({ entries }: { entries: Entry[] }) {
           </li>
         ))}
       </ul>
+      {hasMore && (
+        <button
+          onClick={loadMore}
+          disabled={loading}
+          className="flex w-full cursor-pointer items-center justify-center gap-1.5 border-t border-divider py-3 text-[13px] font-extrabold text-blue-text disabled:opacity-70"
+        >
+          {loading && <Spinner size={14} />}
+          Xem thêm
+        </button>
+      )}
+      {error && <p className="pb-3 text-center text-sm font-semibold text-coral-text">{error}</p>}
     </div>
   );
 }
