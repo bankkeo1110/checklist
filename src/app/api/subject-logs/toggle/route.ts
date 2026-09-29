@@ -11,9 +11,11 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   const subjectItemId = body?.subjectItemId;
-  const checked = body?.checked;
-  if (typeof subjectItemId !== "string" || typeof checked !== "boolean") {
+  if (typeof subjectItemId !== "string") {
     return NextResponse.json({ error: "Yêu cầu không hợp lệ." }, { status: 400 });
+  }
+  if (body?.checked !== true) {
+    return NextResponse.json({ error: "Chỉ có thể đánh dấu đã hoàn thành, không bỏ tích được." }, { status: 400 });
   }
 
   const item = await prisma.subjectItem.findFirst({ where: { id: subjectItemId, active: true } });
@@ -23,39 +25,29 @@ export async function POST(req: NextRequest) {
 
   const weekStart = currentWeekStart();
 
+  const existing = await prisma.subjectLog.findUnique({
+    where: { childId_subjectItemId_weekStart: { childId: session.id, subjectItemId, weekStart: dateStrToUTCDate(weekStart) } },
+  });
+  if (existing?.checked) {
+    return NextResponse.json({ ok: true });
+  }
+
   await prisma.$transaction(async (tx) => {
     const log = await tx.subjectLog.upsert({
       where: {
-        childId_subjectItemId_weekStart: {
-          childId: session.id,
-          subjectItemId,
-          weekStart: dateStrToUTCDate(weekStart),
-        },
+        childId_subjectItemId_weekStart: { childId: session.id, subjectItemId, weekStart: dateStrToUTCDate(weekStart) },
       },
-      update: { checked },
-      create: {
+      update: { checked: true },
+      create: { childId: session.id, subjectItemId, weekStart: dateStrToUTCDate(weekStart), checked: true },
+    });
+    await tx.pointLedger.create({
+      data: {
         childId: session.id,
-        subjectItemId,
-        weekStart: dateStrToUTCDate(weekStart),
-        checked,
+        subjectLogId: log.id,
+        delta: item.points,
+        reason: `Nhận xét của cô: ${item.label} (tuần ${weekStart})`,
       },
     });
-
-    if (checked) {
-      const existing = await tx.pointLedger.findFirst({ where: { subjectLogId: log.id } });
-      if (!existing) {
-        await tx.pointLedger.create({
-          data: {
-            childId: session.id,
-            subjectLogId: log.id,
-            delta: item.points,
-            reason: `Nhận xét của cô: ${item.label} (tuần ${weekStart})`,
-          },
-        });
-      }
-    } else {
-      await tx.pointLedger.deleteMany({ where: { subjectLogId: log.id } });
-    }
   });
 
   return NextResponse.json({ ok: true });

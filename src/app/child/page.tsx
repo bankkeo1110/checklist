@@ -4,8 +4,7 @@ import { reconcileMissedDaysForChild } from "@/lib/reconcile";
 import { getChildPointTotal } from "@/lib/points";
 import { currentWeekStart, dateStrToUTCDate, todayDateStr, weekDates } from "@/lib/date";
 import WeeklyGrid from "@/components/child/WeeklyGrid";
-import BedtimeChecklist from "@/components/child/BedtimeChecklist";
-import WakeupChecklist from "@/components/child/WakeupChecklist";
+import SelfCheckGrid from "@/components/child/SelfCheckGrid";
 import SubjectFeedback from "@/components/child/SubjectFeedback";
 import AnimalCollection from "@/components/child/AnimalCollection";
 import DragonBallCollection from "@/components/child/DragonBallCollection";
@@ -53,11 +52,11 @@ export default async function ConPage() {
     }),
     prisma.bedtimeItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     prisma.bedtimeLog.findMany({
-      where: { childId: session.id, date: dateStrToUTCDate(today) },
+      where: { childId: session.id, date: { gte: dateStrToUTCDate(dates[0]), lte: dateStrToUTCDate(dates[6]) } },
     }),
     prisma.wakeupItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     prisma.wakeupLog.findMany({
-      where: { childId: session.id, date: dateStrToUTCDate(today) },
+      where: { childId: session.id, date: { gte: dateStrToUTCDate(dates[0]), lte: dateStrToUTCDate(dates[6]) } },
     }),
     prisma.subjectItem.findMany({ where: { active: true }, orderBy: { sortOrder: "asc" } }),
     prisma.subjectLog.findMany({
@@ -84,14 +83,18 @@ export default async function ConPage() {
     cellsByTask[instance.taskId][dateStr] = { id: instance.id, status: instance.status };
   }
 
-  const bedtimeCheckedMap: Record<string, boolean> = {};
+  const bedtimeCheckedMap: Record<string, Record<string, boolean>> = {};
   for (const log of bedtimeLogs) {
-    bedtimeCheckedMap[log.bedtimeItemId] = log.checked;
+    const dateStr = log.date.toISOString().slice(0, 10);
+    bedtimeCheckedMap[log.bedtimeItemId] ??= {};
+    bedtimeCheckedMap[log.bedtimeItemId][dateStr] = log.checked;
   }
 
-  const wakeupCheckedMap: Record<string, boolean> = {};
+  const wakeupCheckedMap: Record<string, Record<string, boolean>> = {};
   for (const log of wakeupLogs) {
-    wakeupCheckedMap[log.wakeupItemId] = log.checked;
+    const dateStr = log.date.toISOString().slice(0, 10);
+    wakeupCheckedMap[log.wakeupItemId] ??= {};
+    wakeupCheckedMap[log.wakeupItemId][dateStr] = log.checked;
   }
 
   const subjectCheckedMap: Record<string, boolean> = {};
@@ -132,9 +135,14 @@ export default async function ConPage() {
 
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🌅 Checklist buổi sáng</h2>
-        <WakeupChecklist
+        <SelfCheckGrid
           items={wakeupItems.map((i) => ({ id: i.id, label: i.label, points: i.points }))}
+          dates={dates}
+          today={today}
           checkedMap={wakeupCheckedMap}
+          toggleUrl="/api/wakeup-logs/toggle"
+          itemIdField="wakeupItemId"
+          accent="orange"
         />
       </section>
 
@@ -162,9 +170,14 @@ export default async function ConPage() {
 
       <section className="flex flex-col gap-2.5">
         <h2 className="font-display text-[15px] font-bold">🌙 Checklist trước khi đi ngủ</h2>
-        <BedtimeChecklist
+        <SelfCheckGrid
           items={bedtimeItems.map((i) => ({ id: i.id, label: i.label, points: i.points }))}
+          dates={dates}
+          today={today}
           checkedMap={bedtimeCheckedMap}
+          toggleUrl="/api/bedtime-logs/toggle"
+          itemIdField="bedtimeItemId"
+          accent="blue"
         />
       </section>
 

@@ -22,24 +22,24 @@ export default function SubjectFeedback({
 
   const merged = { ...checkedMap, ...optimistic };
 
-  async function toggle(item: Item) {
-    const next = !merged[item.id];
-    setOptimistic((o) => ({ ...o, [item.id]: next }));
+  // Chỉ đánh dấu xong được, không bỏ tích lại được — tránh bé bấm tắt-bật
+  // qua lại nhiều lần trong tuần.
+  async function check(item: Item) {
+    if (merged[item.id]) return;
+    setOptimistic((o) => ({ ...o, [item.id]: true }));
     setPendingId(item.id);
-    if (next) {
-      setBurstId(item.id);
-      setTimeout(() => setBurstId((b) => (b === item.id ? null : b)), 1000);
-    }
+    setBurstId(item.id);
+    setTimeout(() => setBurstId((b) => (b === item.id ? null : b)), 1000);
     try {
       const res = await fetch("/api/subject-logs/toggle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subjectItemId: item.id, checked: next }),
+        body: JSON.stringify({ subjectItemId: item.id, checked: true }),
       });
-      if (res.ok) {
-        router.refresh();
+      if (!res.ok) {
+        setOptimistic((o) => ({ ...o, [item.id]: false }));
       } else {
-        setOptimistic((o) => ({ ...o, [item.id]: !next }));
+        router.refresh();
       }
     } finally {
       setPendingId(null);
@@ -58,8 +58,8 @@ export default function SubjectFeedback({
         return (
           <li key={item.id} className="relative">
             <button
-              onClick={() => toggle(item)}
-              disabled={pending}
+              onClick={() => check(item)}
+              disabled={pending || checked}
               className="flex w-full items-center gap-2.5 rounded-2xl bg-white px-3.5 py-3 text-left shadow-md disabled:opacity-80"
             >
               <span
