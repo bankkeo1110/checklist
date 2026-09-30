@@ -3,6 +3,9 @@ type ChildSummary = {
   label: string;
   approved: number;
   pending: number;
+  heightCm?: number | null;
+  weightKg?: number | null;
+  growthRecordedAt?: string | null;
 };
 
 export default function ParentDashboard({ children }: { children: ChildSummary[] }) {
@@ -20,6 +23,13 @@ export default function ParentDashboard({ children }: { children: ChildSummary[]
               <span className="text-green-text">⭐ {child.approved} đã duyệt</span>
               <span className="text-orange">⭐ {child.pending} chờ duyệt</span>
             </div>
+            {child.heightCm != null && child.weightKg != null && (
+              <div className="mt-1.5 flex items-center gap-3 text-[11.5px] font-bold text-muted">
+                <span>📏 {child.heightCm} cm</span>
+                <span>⚖️ {child.weightKg} kg</span>
+                {child.growthRecordedAt && <span className="font-semibold">({child.growthRecordedAt})</span>}
+              </div>
+            )}
           </div>
         ))}
       </div>

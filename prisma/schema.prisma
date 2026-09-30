@@ -49,6 +49,7 @@ model Child {
   subjectLogs       SubjectLog[]
   animalUnlocks     AnimalUnlock[]
   dragonBallUnlocks DragonBallUnlock[]
+  growthRecords     GrowthRecord[]
 }
 
 model Parent {
@@ -252,6 +253,22 @@ model DragonBallUnlock {
   unlockedAt DateTime @default(now())
 
   @@unique([childId, threshold])
+}
+
+// Height/weight entered by a parent, dated to whatever day it was entered
+// (server-set, not picked) — one entry per child per day, re-entering the
+// same day overwrites it rather than piling up duplicates.
+model GrowthRecord {
+  id         String   @id @default(cuid())
+  childId    String
+  child      Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  heightCm   Float
+  weightKg   Float
+  recordedAt DateTime @db.Date
+  createdAt  DateTime @default(now())
+
+  @@unique([childId, recordedAt])
+  @@index([childId, recordedAt])
 }
 
 // ─── Chat ───────────────────────────────────────────────────────────────

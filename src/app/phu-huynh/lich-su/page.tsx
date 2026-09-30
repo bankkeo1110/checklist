@@ -5,6 +5,7 @@ import { currentWeekStart, dateStrToUTCDate } from "@/lib/date";
 import GoalEditor from "@/components/phu-huynh/GoalEditor";
 import PointAdjustForm from "@/components/phu-huynh/PointAdjustForm";
 import HistoryFilterForm from "@/components/phu-huynh/HistoryFilterForm";
+import GrowthForm from "@/components/phu-huynh/GrowthForm";
 import { personTheme } from "@/lib/personTheme";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ export default async function LichSuPage({
     return `/phu-huynh/lich-su?${params.toString()}`;
   }
 
-  const [entries, total, goal] = await Promise.all([
+  const [entries, total, goal, latestGrowth] = await Promise.all([
     prisma.pointLedger.findMany({
       where,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -52,6 +53,10 @@ export default async function LichSuPage({
     getChildPointTotal(selected.id),
     prisma.weeklyGoal.findUnique({
       where: { childId_weekStart: { childId: selected.id, weekStart: dateStrToUTCDate(weekStart) } },
+    }),
+    prisma.growthRecord.findFirst({
+      where: { childId: selected.id },
+      orderBy: { recordedAt: "desc" },
     }),
   ]);
 
@@ -89,6 +94,22 @@ export default async function LichSuPage({
       </div>
 
       <PointAdjustForm childId={selected.id} currentTotal={total} />
+
+      <div className="flex flex-col gap-2 rounded-[20px] bg-white p-4 shadow-md">
+        <p className="text-[11.5px] font-bold uppercase tracking-wide text-muted">Chiều cao / cân nặng</p>
+        {latestGrowth ? (
+          <div className="flex items-center gap-4">
+            <span className="text-[15px] font-bold text-blue-text">📏 {latestGrowth.heightCm} cm</span>
+            <span className="text-[15px] font-bold text-green-text">⚖️ {latestGrowth.weightKg} kg</span>
+            <span className="text-[12px] font-semibold text-muted">
+              ({latestGrowth.recordedAt.toLocaleDateString("vi-VN")})
+            </span>
+          </div>
+        ) : (
+          <p className="text-sm font-semibold text-muted">Chưa có số đo nào.</p>
+        )}
+      </div>
+      <GrowthForm childId={selected.id} latestHeightCm={latestGrowth?.heightCm ?? null} latestWeightKg={latestGrowth?.weightKg ?? null} />
 
       <HistoryFilterForm childId={selected.id} from={sp.from ?? ""} to={sp.to ?? ""} />
 

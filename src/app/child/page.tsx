@@ -38,6 +38,7 @@ export default async function ConPage() {
     animalUnlocks,
     dragonBallUnlocks,
     goal,
+    latestGrowth,
     history,
   ] = await Promise.all([
     prisma.task.findMany({
@@ -67,6 +68,10 @@ export default async function ConPage() {
     prisma.dragonBallUnlock.findMany({ where: { childId: session.id }, select: { threshold: true } }),
     prisma.weeklyGoal.findUnique({
       where: { childId_weekStart: { childId: session.id, weekStart: dateStrToUTCDate(weekStart) } },
+    }),
+    prisma.growthRecord.findFirst({
+      where: { childId: session.id },
+      orderBy: { recordedAt: "desc" },
     }),
     // One extra row tells PointHistoryStrip whether to show "Xem thêm".
     prisma.pointLedger.findMany({
@@ -119,6 +124,18 @@ export default async function ConPage() {
           <div className="flex-1 rounded-[22px] bg-white p-4 shadow-md">
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Mục tiêu tuần</p>
             <p className="mt-1 text-[14.5px] font-bold">{goal.goalText}</p>
+          </div>
+        )}
+        {latestGrowth && (
+          <div className="flex-1 rounded-[22px] bg-white p-4 shadow-md">
+            <p className="text-xs font-bold uppercase tracking-wide text-muted">Chiều cao / cân nặng</p>
+            <div className="mt-1 flex items-center gap-3">
+              <span className="text-[14.5px] font-bold text-blue-text">📏 {latestGrowth.heightCm} cm</span>
+              <span className="text-[14.5px] font-bold text-green-text">⚖️ {latestGrowth.weightKg} kg</span>
+            </div>
+            <p className="mt-0.5 text-[11px] font-semibold text-muted">
+              {latestGrowth.recordedAt.toLocaleDateString("vi-VN")}
+            </p>
           </div>
         )}
       </div>
