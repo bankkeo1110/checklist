@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Check, Pencil, Trash2, X } from "lucide-react";
 import { DEFAULT_STARS } from "@/lib/stars";
 import { personTheme } from "@/lib/personTheme";
 import Spinner from "@/components/Spinner";
@@ -43,6 +43,8 @@ function ChildChip({
 export default function TaskManager({ initialTasks, kids }: { initialTasks: Task[]; kids: Kid[] }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   const [newTitle, setNewTitle] = useState("");
   const [newPoints, setNewPoints] = useState(DEFAULT_STARS);
@@ -100,6 +102,31 @@ export default function TaskManager({ initialTasks, kids }: { initialTasks: Task
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ points }),
       });
+      router.refresh();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function startEditingTitle(task: Task) {
+    setEditingId(task.id);
+    setEditingTitle(task.title);
+  }
+
+  async function saveTitle(task: Task) {
+    const title = editingTitle.trim();
+    if (!title || title === task.title) {
+      setEditingId(null);
+      return;
+    }
+    setBusyId(task.id);
+    try {
+      await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      setEditingId(null);
       router.refresh();
     } finally {
       setBusyId(null);
@@ -178,7 +205,51 @@ export default function TaskManager({ initialTasks, kids }: { initialTasks: Task
             className={`flex flex-col gap-2.5 rounded-[20px] bg-white p-3.5 shadow-md ${task.active ? "" : "opacity-50"}`}
           >
             <div className="flex items-start justify-between gap-2">
-              <p className="font-bold">{task.title}</p>
+              {editingId === task.id ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    saveTitle(task);
+                  }}
+                  className="flex flex-1 items-center gap-1.5"
+                >
+                  <input
+                    autoFocus
+                    value={editingTitle}
+                    onChange={(e) => setEditingTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    disabled={busyId === task.id}
+                    className="min-w-0 flex-1 rounded-xl border-2 border-blue px-2.5 py-1 text-sm font-bold focus:outline-none disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={busyId === task.id || !editingTitle.trim()}
+                    aria-label="Lưu"
+                    className="flex-none p-1 text-blue-text hover:text-blue disabled:opacity-50"
+                  >
+                    {busyId === task.id ? <Spinner size={15} /> : <Check size={17} strokeWidth={2.4} />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    aria-label="Hủy"
+                    className="flex-none p-1 text-muted hover:text-ink"
+                  >
+                    <X size={17} strokeWidth={2.2} />
+                  </button>
+                </form>
+              ) : (
+                <button
+                  onClick={() => startEditingTitle(task)}
+                  className="group flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                  aria-label="Sửa tên nhiệm vụ"
+                >
+                  <p className="min-w-0 truncate font-bold">{task.title}</p>
+                  <Pencil size={12} strokeWidth={2.2} className="flex-none text-[#c7c3cc] group-hover:text-muted" />
+                </button>
+              )}
               <button
                 disabled={busyId === task.id}
                 onClick={() => deleteTask(task)}

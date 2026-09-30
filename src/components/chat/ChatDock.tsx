@@ -97,8 +97,9 @@ export default function ChatDock() {
 
       if (document.visibilityState !== "visible" && notificationsSupported() && Notification.permission === "granted") {
         try {
-          const notification = new Notification(latest.title, {
-            body: latest.title === latest.senderLabel ? latest.body : `${latest.senderLabel}: ${latest.body}`,
+          const bodyText = latest.title === latest.senderLabel ? latest.body : `${latest.senderLabel}: ${latest.body}`;
+          const notification = new Notification(latest.mentionsMe ? `🔔 ${latest.title}` : latest.title, {
+            body: latest.mentionsMe ? `Đã nhắc đến bạn — ${bodyText}` : bodyText,
             tag: `chat-${latest.conversationId}`,
             icon: "/favicon.ico",
           });
@@ -194,8 +195,12 @@ export default function ChatDock() {
     >
       <ChatAvatar avatarName={toast.avatarName} size={38} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-display text-[14px] font-bold">{toast.title}</p>
+        <p className="truncate font-display text-[14px] font-bold">
+          {toast.mentionsMe && "🔔 "}
+          {toast.title}
+        </p>
         <p className="line-clamp-2 text-[12.5px] font-semibold text-muted">
+          {toast.mentionsMe && <span className="font-bold text-orange">Đã nhắc đến bạn — </span>}
           {toast.title === toast.senderLabel ? toast.body : `${toast.senderLabel}: ${toast.body}`}
         </p>
       </div>

@@ -27,12 +27,12 @@ enum TaskInstanceStatus {
 }
 
 model Child {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      ChildName @unique
   label     String
   color     String
   pinHash   String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   // Set by a full "Reset toàn bộ" — reconcileMissedDaysForChild won't
   // backfill missed-day penalties for any date before this, so a reset
@@ -40,23 +40,23 @@ model Child {
   // "didn't check in" history for tasks that existed before the reset.
   historyResetAt DateTime? @db.Date
 
-  tasks          Task[]           @relation("TaskAssignments")
-  taskInstances  TaskInstance[]
-  ledgerEntries  PointLedger[]
-  weeklyGoals    WeeklyGoal[]
-  bedtimeLogs    BedtimeLog[]
-  wakeupLogs     WakeupLog[]
-  subjectLogs    SubjectLog[]
-  animalUnlocks  AnimalUnlock[]
+  tasks             Task[]             @relation("TaskAssignments")
+  taskInstances     TaskInstance[]
+  ledgerEntries     PointLedger[]
+  weeklyGoals       WeeklyGoal[]
+  bedtimeLogs       BedtimeLog[]
+  wakeupLogs        WakeupLog[]
+  subjectLogs       SubjectLog[]
+  animalUnlocks     AnimalUnlock[]
   dragonBallUnlocks DragonBallUnlock[]
 }
 
 model Parent {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   name      ParentName @unique
   label     String
   pinHash   String
-  createdAt DateTime @default(now())
+  createdAt DateTime   @default(now())
 
   reviewedInstances TaskInstance[] @relation("ReviewedBy")
   ledgerApprovals   PointLedger[]  @relation("ApprovedBy")
@@ -75,9 +75,9 @@ model Task {
 }
 
 model TaskInstance {
-  id     String   @id @default(cuid())
+  id     String @id @default(cuid())
   taskId String
-  task   Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   childId String
   child   Child  @relation(fields: [childId], references: [id], onDelete: Cascade)
@@ -158,14 +158,14 @@ model BedtimeItem {
 }
 
 model BedtimeLog {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   childId       String
-  child         Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  child         Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
   bedtimeItemId String
   bedtimeItem   BedtimeItem @relation(fields: [bedtimeItemId], references: [id], onDelete: Cascade)
-  date          DateTime @db.Date
-  checked       Boolean  @default(false)
-  updatedAt     DateTime @updatedAt
+  date          DateTime    @db.Date
+  checked       Boolean     @default(false)
+  updatedAt     DateTime    @updatedAt
 
   ledgerEntries PointLedger[]
 
@@ -184,14 +184,14 @@ model WakeupItem {
 }
 
 model WakeupLog {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   childId      String
-  child        Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  child        Child      @relation(fields: [childId], references: [id], onDelete: Cascade)
   wakeupItemId String
   wakeupItem   WakeupItem @relation(fields: [wakeupItemId], references: [id], onDelete: Cascade)
-  date         DateTime @db.Date
-  checked      Boolean  @default(false)
-  updatedAt    DateTime @updatedAt
+  date         DateTime   @db.Date
+  checked      Boolean    @default(false)
+  updatedAt    DateTime   @updatedAt
 
   ledgerEntries PointLedger[]
 
@@ -214,14 +214,14 @@ model SubjectItem {
 }
 
 model SubjectLog {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   childId       String
-  child         Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+  child         Child       @relation(fields: [childId], references: [id], onDelete: Cascade)
   subjectItemId String
   subjectItem   SubjectItem @relation(fields: [subjectItemId], references: [id], onDelete: Cascade)
-  weekStart     DateTime @db.Date
-  checked       Boolean  @default(false)
-  updatedAt     DateTime @updatedAt
+  weekStart     DateTime    @db.Date
+  checked       Boolean     @default(false)
+  updatedAt     DateTime    @updatedAt
 
   ledgerEntries PointLedger[]
 
@@ -302,6 +302,15 @@ model ChatMessage {
   body           String
   stickerId      String?
   createdAt      DateTime     @default(now())
+
+  replyToId String?
+  replyTo   ChatMessage?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   ChatMessage[] @relation("MessageReplies")
+
+  // @mentions parsed from body at send time (see lib/mentions.ts) — "everyone"
+  // vs specific people ("KIND:id" keys) so notifications can flag them.
+  mentionsEveryone Boolean  @default(false)
+  mentionedKeys    String[] @default([])
 
   @@index([conversationId, createdAt])
 }

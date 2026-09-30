@@ -1,12 +1,21 @@
 import type { PersonKind } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { SessionPayload } from "@/lib/auth";
+import { mentionKey } from "@/lib/mentions";
 
 export const FAMILY_SLUG = "family";
 export const FAMILY_TITLE = "Cả nhà 🏠";
 export const MAX_MESSAGE_LENGTH = 1000;
 
 export type ChatPerson = { kind: PersonKind; id: string; name: string; label: string };
+
+export type ReplyPreview = {
+  id: string;
+  body: string;
+  stickerId: string | null;
+  senderName: string;
+  senderLabel: string;
+};
 
 export type ChatMessageView = {
   id: string;
@@ -16,6 +25,7 @@ export type ChatMessageView = {
   senderName: string;
   senderLabel: string;
   mine: boolean;
+  replyTo: ReplyPreview | null;
 };
 
 export type InboxRow = {
@@ -91,6 +101,20 @@ export async function getMembership(conversationId: string, session: SessionPayl
   });
 }
 
+/**
+ * Everyone in a conversation (for @mention parsing/highlighting) — the caller
+ * included, so a message mentioning the viewer still gets recognized when
+ * rendered. Callers that build a "who can I tag" picker filter themselves out.
+ */
+export async function getConversationPeople(conversationId: string): Promise<ChatPerson[]> {
+  const [members, people] = await Promise.all([
+    prisma.conversationMember.findMany({ where: { conversationId } }),
+    listPeople(),
+  ]);
+  const byKey = new Map(people.map((p) => [personKey(p.kind, p.id), p]));
+  return members.map((m) => byKey.get(personKey(m.kind, m.personId))).filter((p): p is ChatPerson => Boolean(p));
+}
+
 function unreadWhere(conversationId: string, lastReadAt: Date, kind: PersonKind, id: string) {
   return {
     conversationId,
@@ -110,11 +134,14 @@ export type UnreadSummary = {
     senderLabel: string;
     body: string;
     createdAt: string;
+    /** Tagged by name, or with @Tất cả — for a distinct "you were mentioned" notification. */
+    mentionsMe: boolean;
   } | null;
 };
 
 export async function getUnreadSummary(session: SessionPayload): Promise<UnreadSummary> {
   const kind = sessionKind(session);
+  const myKey = mentionKey({ kind, id: session.id });
   const memberships = await prisma.conversationMember.findMany({
     where: { kind, personId: session.id },
     include: { conversation: true },
@@ -152,6 +179,7 @@ export async function getUnreadSummary(session: SessionPayload): Promise<UnreadS
       senderLabel: sender?.label ?? "?",
       body: newest.body,
       createdAt: newest.createdAt.toISOString(),
+      mentionsMe: newest.mentionsEveryone || newest.mentionedKeys.includes(myKey),
     },
   };
 }
@@ -232,17 +260,20 @@ export async function getMessages(
     ? await prisma.chatMessage.findMany({
         where: { conversationId, createdAt: { gt: options.after } },
         orderBy: { createdAt: "asc" },
+        include: { replyTo: true },
       })
     : (
         await prisma.chatMessage.findMany({
           where: { conversationId },
           orderBy: { createdAt: "desc" },
           take: options.take ?? 100,
+          include: { replyTo: true },
         })
       ).reverse();
 
   return messages.map((m) => {
     const sender = byKey.get(personKey(m.senderKind, m.senderId));
+    const replySender = m.replyTo && byKey.get(personKey(m.replyTo.senderKind, m.replyTo.senderId));
     return {
       id: m.id,
       body: m.body,
@@ -251,6 +282,15 @@ export async function getMessages(
       senderName: sender?.name ?? "",
       senderLabel: sender?.label ?? "?",
       mine: m.senderKind === kind && m.senderId === session.id,
+      replyTo: m.replyTo
+        ? {
+            id: m.replyTo.id,
+            body: m.replyTo.body,
+            stickerId: m.replyTo.stickerId,
+            senderName: replySender?.name ?? "",
+            senderLabel: replySender?.label ?? "?",
+          }
+        : null,
     };
   });
 }
