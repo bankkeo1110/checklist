@@ -5,6 +5,8 @@ import ChatDock from "@/components/chat/ChatDock";
 import ParentNav from "@/components/phu-huynh/ParentNav";
 import ParentDashboard from "@/components/phu-huynh/ParentDashboard";
 import { prisma } from "@/lib/prisma";
+import { currentWeekStart } from "@/lib/date";
+import { getWeeklyExerciseCounts } from "@/lib/mathfun/stats";
 
 export default async function PhuHuynhLayout({ children: pageContent }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -12,7 +14,7 @@ export default async function PhuHuynhLayout({ children: pageContent }: { childr
     redirect("/");
   }
 
-  const [kids, trackedInstances, latestGrowthRecords] = await Promise.all([
+  const [kids, trackedInstances, latestGrowthRecords, weeklyExerciseCounts] = await Promise.all([
     prisma.child.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.taskInstance.findMany({
       where: { status: { in: ["CLAIMED", "APPROVED"] } },
@@ -22,6 +24,7 @@ export default async function PhuHuynhLayout({ children: pageContent }: { childr
       orderBy: { recordedAt: "desc" },
       distinct: ["childId"],
     }),
+    getWeeklyExerciseCounts(currentWeekStart()),
   ]);
   const starsByChild = new Map<string, { approved: number; pending: number }>();
   for (const child of kids) starsByChild.set(child.id, { approved: 0, pending: 0 });
@@ -46,6 +49,7 @@ export default async function PhuHuynhLayout({ children: pageContent }: { childr
             heightCm: growth?.heightCm ?? null,
             weightKg: growth?.weightKg ?? null,
             growthRecordedAt: growth?.recordedAt.toLocaleDateString("vi-VN") ?? null,
+            mathExercisesThisWeek: weeklyExerciseCounts[child.name],
           };
         })}
       />

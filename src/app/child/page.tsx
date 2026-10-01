@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { reconcileMissedDaysForChild } from "@/lib/reconcile";
 import { getChildPointTotal } from "@/lib/points";
 import { currentWeekStart, dateStrToUTCDate, todayDateStr, weekDates } from "@/lib/date";
+import { getWeeklyExerciseCounts } from "@/lib/mathfun/stats";
 import WeeklyGrid from "@/components/child/WeeklyGrid";
 import SelfCheckGrid from "@/components/child/SelfCheckGrid";
 import SubjectFeedback from "@/components/child/SubjectFeedback";
@@ -40,6 +41,7 @@ export default async function ConPage() {
     goal,
     latestGrowth,
     history,
+    weeklyExerciseCounts,
   ] = await Promise.all([
     prisma.task.findMany({
       where: { active: true, assignedTo: { some: { id: session.id } } },
@@ -79,7 +81,9 @@ export default async function ConPage() {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: RECENT_HISTORY + 1,
     }),
+    getWeeklyExerciseCounts(weekStart),
   ]);
+  const exercisesThisWeek = weeklyExerciseCounts[session.name] ?? 0;
 
   const cellsByTask: Record<string, Record<string, { id: string; status: string }>> = {};
   for (const instance of instances) {
@@ -119,6 +123,10 @@ export default async function ConPage() {
         >
           <p className="text-xs font-bold uppercase tracking-wide opacity-90">Tổng điểm</p>
           <p className="font-display text-[34px] font-extrabold leading-tight">⭐ {pointTotal}</p>
+        </div>
+        <div className="flex-1 rounded-[22px] bg-white p-4 shadow-md">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted">Bài Toán tuần này</p>
+          <p className="font-display text-[34px] font-extrabold leading-tight text-blue-text">🧮 {exercisesThisWeek}</p>
         </div>
         {goal?.goalText && (
           <div className="flex-1 rounded-[22px] bg-white p-4 shadow-md">

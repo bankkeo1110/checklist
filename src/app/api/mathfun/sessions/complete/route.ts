@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/mathfun/db";
-import { studentBadges } from "@/lib/mathfun/db/schema";
+import { sessions, studentBadges } from "@/lib/mathfun/db/schema";
 import { getMathfunUser } from "@/lib/mathfun/auth";
 
 const BADGE_RANK: Record<string, number> = { bronze: 1, silver: 2, gold: 3, perfect: 4 };
@@ -25,6 +25,10 @@ export async function POST(req: NextRequest) {
 
   const accuracy = Math.round((correct / total) * 100);
   const newBadge = calcBadge(accuracy);
+
+  // One row per finished exercise (reaching the 100-point target), so the
+  // checklist dashboards can show a "N bài tuần này" count beside the stars.
+  await db.insert(sessions).values({ studentId: user.studentId, topic, finishedAt: new Date() });
 
   const existing = await db
     .select()

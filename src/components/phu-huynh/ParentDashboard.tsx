@@ -6,6 +6,7 @@ type ChildSummary = {
   heightCm?: number | null;
   weightKg?: number | null;
   growthRecordedAt?: string | null;
+  mathExercisesThisWeek?: number;
 };
 
 export default function ParentDashboard({ children }: { children: ChildSummary[] }) {
@@ -19,9 +20,12 @@ export default function ParentDashboard({ children }: { children: ChildSummary[]
         {children.map((child) => (
           <div key={child.id} className="rounded-[20px] bg-white p-3.5 shadow-md">
             <p className="font-display text-[15px] font-bold">{child.label}</p>
-            <div className="mt-1 flex gap-4 text-[12.5px] font-bold">
+            <div className="mt-1 flex flex-wrap gap-4 text-[12.5px] font-bold">
               <span className="text-green-text">⭐ {child.approved} đã duyệt</span>
               <span className="text-orange">⭐ {child.pending} chờ duyệt</span>
+              {child.mathExercisesThisWeek != null && (
+                <span className="text-blue-text">🧮 {child.mathExercisesThisWeek} bài tuần này</span>
+              )}
             </div>
             {child.heightCm != null && child.weightKg != null && (
               <div className="mt-1.5 flex items-center gap-3 text-[11.5px] font-bold text-muted">
