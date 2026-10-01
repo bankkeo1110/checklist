@@ -1,0 +1,31 @@
+/* MathFun's own "comic" visual identity, scoped to .mathfun-root so it doesn't
+   leak into the rest of the app (which has its own warm/rounded design
+   system in globals.css). Ported from the standalone app's globals.css. */
+.mathfun-root {
+  background-color: #F5F0E3;
+  background-image: radial-gradient(#d6c9a8 1.5px, transparent 1.5px);
+  background-size: 22px 22px;
+  color: #1a1a1a;
+}
+
+.mathfun-root .card-comic {
+  border: 2.5px solid #1a1a1a;
+  box-shadow: 4px 4px 0px #1a1a1a;
+}
+
+.mathfun-root .card-comic-sm {
+  border: 2px solid #1a1a1a;
+  box-shadow: 3px 3px 0px #1a1a1a;
+}
+
+@keyframes mathfun-pop-in {
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes mathfun-flash-up {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-40px); }
+}
+.mathfun-root .animate-pop { animation: mathfun-pop-in 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+.mathfun-root .animate-flash { animation: mathfun-flash-up 0.7s ease-out forwards; }
