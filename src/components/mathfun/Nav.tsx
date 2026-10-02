@@ -60,6 +60,8 @@ export default function Nav({ backHref }: { backHref: string }) {
       <div className="flex items-center gap-1 overflow-x-auto">
         {link("/mathfun", "Home")}
         {link("/mathfun/practice", "Practice")}
+        {link("/mathfun/exams", "📝 Đề thi")}
+        {link("/mathfun/learn", "📚 Học thêm")}
         {link("/mathfun/grow", "🌱 Grow")}
         {link("/mathfun/members", "Members")}
         {link("/mathfun/report", "Progress")}

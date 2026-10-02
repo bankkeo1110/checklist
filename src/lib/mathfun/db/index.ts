@@ -60,6 +60,18 @@ async function bootstrap() {
     )
   `);
   await db.execute(sql`ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar VARCHAR(10)`);
+  await db.execute(sql`
+    CREATE TABLE IF NOT EXISTS exam_attempts (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER NOT NULL REFERENCES students(id),
+      exam_id VARCHAR(100) NOT NULL,
+      correct INTEGER NOT NULL,
+      total INTEGER NOT NULL,
+      answers TEXT NOT NULL,
+      by_skill TEXT NOT NULL,
+      finished_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
 }
 
 export const ready: Promise<void> = bootstrap().catch(() => undefined);

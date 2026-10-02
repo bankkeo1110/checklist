@@ -41,3 +41,19 @@ export const studentBadges = pgTable('student_badges', {
 }, (table) => ({
   studentTopicUniq: unique().on(table.studentId, table.topic),
 }));
+
+// One row per full exam (practice test) a student submits. `answers` and
+// `bySkill` are JSON strings (Neon's HTTP driver + this schema don't need a
+// native jsonb column for something this small and write-once).
+export const examAttempts = pgTable('exam_attempts', {
+  id: serial('id').primaryKey(),
+  studentId: integer('student_id').references(() => students.id).notNull(),
+  examId: varchar('exam_id', { length: 100 }).notNull(),
+  correct: integer('correct').notNull(),
+  total: integer('total').notNull(),
+  // JSON: Record<questionIndex, { given: string | string[]; correct: boolean }>
+  answers: text('answers').notNull(),
+  // JSON: Record<skillLabel, { correct: number; total: number }>
+  bySkill: text('by_skill').notNull(),
+  finishedAt: timestamp('finished_at').defaultNow(),
+});
