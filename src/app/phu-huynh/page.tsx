@@ -24,6 +24,8 @@ export default async function PhuHuynhInboxPage() {
     points: p.task.points,
     childName: p.child.name,
     childLabel: p.child.label,
+    date: p.date.toISOString().slice(0, 10),
+    claimedAt: p.claimedAt?.toISOString() ?? null,
   }));
 
   const starsByChild = new Map<string, { approved: number; pending: number }>();

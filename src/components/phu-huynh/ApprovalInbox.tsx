@@ -5,6 +5,7 @@ import { useState, type CSSProperties } from "react";
 import PersonBadge from "@/components/PersonBadge";
 import Stars from "@/components/Stars";
 import Spinner from "@/components/Spinner";
+import { dayOfMonth, todayDateStr, weekdayLabel } from "@/lib/date";
 
 type Item = {
   id: string;
@@ -12,7 +13,29 @@ type Item = {
   points: number;
   childName: string;
   childLabel: string;
+  /** Which calendar day the task instance is for (YYYY-MM-DD). */
+  date: string;
+  /** When the child submitted/claimed it. */
+  claimedAt: string | null;
 };
+
+const VN_TIME_ZONE = "Asia/Ho_Chi_Minh";
+const CLAIMED_TIME_FORMAT = new Intl.DateTimeFormat("vi-VN", { timeZone: VN_TIME_ZONE, hour: "2-digit", minute: "2-digit" });
+const CLAIMED_DATE_FORMAT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: VN_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function claimedLabel(claimedAt: string | null): string {
+  if (!claimedAt) return "";
+  const claimed = new Date(claimedAt);
+  const claimedDate = CLAIMED_DATE_FORMAT.format(claimed);
+  const time = CLAIMED_TIME_FORMAT.format(claimed);
+  if (claimedDate === todayDateStr()) return `nộp hôm nay lúc ${time}`;
+  return `nộp ${dayOfMonth(claimedDate)}/${Number(claimedDate.slice(5, 7))} lúc ${time}`;
+}
 
 type Particle = { style: CSSProperties };
 
@@ -231,8 +254,9 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
                 <p className="truncate font-bold">
                   {item.childLabel} — {item.taskTitle}
                 </p>
-                <p className="flex items-center gap-1 text-[11.5px] font-semibold text-muted">
-                  hôm nay · <Stars count={item.points} size={12} />
+                <p className="flex flex-wrap items-center gap-1 text-[11.5px] font-semibold text-muted">
+                  {weekdayLabel(item.date)} {dayOfMonth(item.date)}/{Number(item.date.slice(5, 7))}
+                  {item.claimedAt && <> · {claimedLabel(item.claimedAt)}</>} · <Stars count={item.points} size={12} />
                 </p>
               </div>
             </div>
