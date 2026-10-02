@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { currentWeekStart } from "@/lib/date";
 import { getWeeklyExerciseCounts } from "@/lib/mathfun/stats";
 
+export const dynamic = "force-dynamic";
+
 export default async function PhuHuynhLayout({ children: pageContent }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session || session.kind !== "parent") {

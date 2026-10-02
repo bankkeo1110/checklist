@@ -3,6 +3,8 @@ import { getSession } from "@/lib/auth";
 import Nav from "@/components/mathfun/Nav";
 import "./mathfun.css";
 
+export const dynamic = "force-dynamic";
+
 export default async function MathFunLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/");
