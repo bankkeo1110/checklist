@@ -32,6 +32,11 @@ model Child {
   label     String
   color     String
   pinHash   String
+  // Bumped on every PIN change so any session already issued under the old
+  // PIN stops being valid (getSession compares this against the number
+  // baked into the cookie) — otherwise changing a leaked PIN doesn't
+  // actually revoke whoever's already logged in with it.
+  sessionVersion Int @default(0)
   createdAt DateTime  @default(now())
 
   // Set by a full "Reset toàn bộ" — reconcileMissedDaysForChild won't
@@ -57,6 +62,7 @@ model Parent {
   name      ParentName @unique
   label     String
   pinHash   String
+  sessionVersion Int @default(0)
   createdAt DateTime   @default(now())
 
   reviewedInstances TaskInstance[] @relation("ReviewedBy")

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getSession, setSession } from "@/lib/auth";
 import { DEFAULT_CHILD_PIN, hashPin, verifyPin } from "@/lib/pin";
 
 const PIN_PATTERN = /^\d{4,6}$/;
@@ -30,7 +30,9 @@ export async function POST(req: NextRequest) {
     if (!child) {
       return NextResponse.json({ error: "Không tìm thấy con." }, { status: 404 });
     }
-    await prisma.child.update({ where: { id }, data: { pinHash: hashPin(newPin) } });
+    // Bumping sessionVersion kicks out whoever's currently logged in as this
+    // child (e.g. if that's exactly why a parent is resetting the PIN here).
+    await prisma.child.update({ where: { id }, data: { pinHash: hashPin(newPin), sessionVersion: { increment: 1 } } });
     return NextResponse.json({ ok: true });
   }
 
@@ -45,6 +47,12 @@ export async function POST(req: NextRequest) {
   if (typeof currentPin !== "string" || !verifyPin(currentPin, parent.pinHash)) {
     return NextResponse.json({ error: "Mã PIN hiện tại không đúng." }, { status: 401 });
   }
-  await prisma.parent.update({ where: { id }, data: { pinHash: hashPin(newPin) } });
+  const updated = await prisma.parent.update({
+    where: { id },
+    data: { pinHash: hashPin(newPin), sessionVersion: { increment: 1 } },
+  });
+  // Re-issue so this browser (the one that just proved the current PIN)
+  // stays logged in; any other session on the old PIN is now invalid.
+  await setSession({ kind: "parent", id: updated.id, name: updated.name, label: updated.label, sessionVersion: updated.sessionVersion });
   return NextResponse.json({ ok: true });
 }

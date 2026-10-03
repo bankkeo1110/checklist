@@ -17,3 +17,4 @@ export function verifyPin(pin: string, stored: string): boolean {
 }
 
 export const DEFAULT_CHILD_PIN = "1110";
+export const DEFAULT_PARENT_PIN = "0000";

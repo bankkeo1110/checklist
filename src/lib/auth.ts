@@ -1,16 +1,20 @@
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { prisma } from "./prisma";
 
 export { hashPin, verifyPin } from "./pin";
 
 const SESSION_COOKIE = "session";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 export type SessionPayload = {
   kind: "child" | "parent";
   id: string;
   name: string;
   label: string;
+  // Must match the account's current sessionVersion (see getSession) — a PIN
+  // change bumps it so this cookie stops working even though it hasn't
+  // expired.
+  sessionVersion: number;
 };
 
 function getSecret(): string {
@@ -48,7 +52,20 @@ export function decodeSession(token: string | undefined): SessionPayload | null 
 
 export async function getSession(): Promise<SessionPayload | null> {
   const store = await cookies();
-  return decodeSession(store.get(SESSION_COOKIE)?.value);
+  const payload = decodeSession(store.get(SESSION_COOKIE)?.value);
+  if (!payload) return null;
+
+  // A valid signature only proves the cookie hasn't been tampered with, not
+  // that it's still current — if the PIN changed since this was issued (a
+  // parent reacting to a guessed/leaked PIN), it must stop working even
+  // though it hasn't expired.
+  const current =
+    payload.kind === "child"
+      ? await prisma.child.findUnique({ where: { id: payload.id }, select: { sessionVersion: true } })
+      : await prisma.parent.findUnique({ where: { id: payload.id }, select: { sessionVersion: true } });
+  if (!current || current.sessionVersion !== payload.sessionVersion) return null;
+
+  return payload;
 }
 
 export async function setSession(payload: SessionPayload) {
@@ -58,7 +75,8 @@ export async function setSession(payload: SessionPayload) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: SESSION_MAX_AGE,
+    // No maxAge — a session cookie, cleared when the browser actually
+    // closes, instead of persisting for weeks on a shared family device.
   });
 }
 

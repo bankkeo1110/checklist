@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     if (!child || !verifyPin(pin, child.pinHash)) {
       return NextResponse.json({ error: "Mã PIN không đúng." }, { status: 401 });
     }
-    await setSession({ kind: "child", id: child.id, name: child.name, label: child.label });
+    await setSession({ kind: "child", id: child.id, name: child.name, label: child.label, sessionVersion: child.sessionVersion });
     return NextResponse.json({ ok: true, redirect: "/child" });
   }
 
@@ -30,6 +30,6 @@ export async function POST(req: NextRequest) {
   if (!parent || !verifyPin(pin, parent.pinHash)) {
     return NextResponse.json({ error: "Mã PIN không đúng." }, { status: 401 });
   }
-  await setSession({ kind: "parent", id: parent.id, name: parent.name, label: parent.label });
+  await setSession({ kind: "parent", id: parent.id, name: parent.name, label: parent.label, sessionVersion: parent.sessionVersion });
   return NextResponse.json({ ok: true, redirect: "/phu-huynh" });
 }

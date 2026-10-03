@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getSession, setSession } from "@/lib/auth";
 import { hashPin, verifyPin } from "@/lib/pin";
 
 export async function POST(req: NextRequest) {
@@ -22,13 +22,23 @@ export async function POST(req: NextRequest) {
     if (!child || !verifyPin(currentPin, child.pinHash)) {
       return NextResponse.json({ error: "Mã PIN hiện tại không đúng." }, { status: 401 });
     }
-    await prisma.child.update({ where: { id: child.id }, data: { pinHash: hashPin(newPin) } });
+    const updated = await prisma.child.update({
+      where: { id: child.id },
+      data: { pinHash: hashPin(newPin), sessionVersion: { increment: 1 } },
+    });
+    // Re-issue the session with the bumped version so this browser stays
+    // logged in — only *other* sessions still on the old PIN get kicked out.
+    await setSession({ kind: "child", id: updated.id, name: updated.name, label: updated.label, sessionVersion: updated.sessionVersion });
   } else {
     const parent = await prisma.parent.findUnique({ where: { id: session.id } });
     if (!parent || !verifyPin(currentPin, parent.pinHash)) {
       return NextResponse.json({ error: "Mã PIN hiện tại không đúng." }, { status: 401 });
     }
-    await prisma.parent.update({ where: { id: parent.id }, data: { pinHash: hashPin(newPin) } });
+    const updated = await prisma.parent.update({
+      where: { id: parent.id },
+      data: { pinHash: hashPin(newPin), sessionVersion: { increment: 1 } },
+    });
+    await setSession({ kind: "parent", id: updated.id, name: updated.name, label: updated.label, sessionVersion: updated.sessionVersion });
   }
 
   return NextResponse.json({ ok: true });
