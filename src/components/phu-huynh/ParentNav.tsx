@@ -6,6 +6,7 @@ import MathFunLink from "@/components/MathFunLink";
 
 const LINKS = [
   { href: "/phu-huynh", label: "Duyệt" },
+  { href: "/phu-huynh/tinh-trang", label: "Tình trạng con" },
   { href: "/phu-huynh/nhiem-vu", label: "Quản lý nhiệm vụ" },
   { href: "/phu-huynh/checklist", label: "Checklist hằng ngày" },
   { href: "/phu-huynh/lich-su", label: "Lịch sử & Mục tiêu" },

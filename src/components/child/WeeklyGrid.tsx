@@ -2,47 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, useState } from "react";
-import { Check, X, Clock } from "lucide-react";
 import { weekdayLabel } from "@/lib/date";
 import Stars from "@/components/Stars";
 import Spinner from "@/components/Spinner";
+import StatusCell from "@/components/child/TaskStatusCell";
 
 type Task = { id: string; title: string; points: number };
 type Cell = { id: string; status: string };
-
-// Checkbox-styled status square: bé bấm ô trống để xin duyệt (CLAIMED), ba mẹ
-// duyệt/từ chối mới ra kết quả cuối — bé không tự bỏ tích được sau khi bấm.
-function StatusCell({ status }: { status: string }) {
-  if (status === "APPROVED") {
-    return (
-      <span className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border-2 border-green bg-green">
-        <Check size={17} strokeWidth={2.5} className="text-white" />
-      </span>
-    );
-  }
-  if (status === "CLAIMED") {
-    return (
-      <span className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border-2 border-orange bg-[#fff1e2] text-orange">
-        <Clock size={15} strokeWidth={1.8} />
-      </span>
-    );
-  }
-  if (status === "REJECTED") {
-    return (
-      <span
-        className="flex h-[38px] w-[38px] items-center justify-center rounded-lg border-2"
-        style={{ borderColor: "#e7a79e", background: "#fbedec" }}
-      >
-        <X size={14} strokeWidth={2} style={{ color: "#c4736b" }} />
-      </span>
-    );
-  }
-  return (
-    <span className="flex h-[38px] w-[38px] items-center justify-center rounded-lg bg-[#f7f5f9] text-[14px] text-[#c7c3cc]">
-      ·
-    </span>
-  );
-}
 
 export default function WeeklyGrid({
   tasks,
