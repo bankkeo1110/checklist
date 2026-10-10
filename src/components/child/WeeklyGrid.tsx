@@ -139,7 +139,12 @@ export default function WeeklyGrid({
               }
 
               const status = optimisticClaims[key] ? "CLAIMED" : cell?.status;
-              if (status === "CLAIMED" || status === "APPROVED") {
+              // CLAIMED/APPROVED/REJECTED đều là trạng thái cuối cùng cho
+              // ngày đó — một khi ba mẹ đã duyệt hoặc từ chối, ô khóa lại
+              // hẳn (hiện ✓ hoặc ✗), bé không bấm lại được nữa. Chỉ MISSED
+              // (chưa từng gửi, bị tự động đánh "chưa check-in") mới còn là
+              // ô trống cho bé gửi lần đầu.
+              if (status === "CLAIMED" || status === "APPROVED" || status === "REJECTED") {
                 return (
                   <div key={`${task.id}-${d}`} className="flex justify-center">
                     <StatusCell status={status} />
@@ -147,16 +152,7 @@ export default function WeeklyGrid({
                 );
               }
 
-              // Bé check được cho hôm nay và các ngày đã qua trong tuần (kể
-              // cả ngày đã bị tự động đánh "chưa check-in" hoặc bị từ chối) —
-              // bấm lại là gửi xin duyệt lại từ đầu. Viền màu nhạt nhắc lại
-              // vì sao ô này vẫn trống, để bé không tưởng nhầm là chưa từng bấm.
-              const hintClass =
-                status === "REJECTED"
-                  ? "border-[#f3c9c2] bg-[#fdf4f2]"
-                  : status === "MISSED"
-                    ? "border-[#e9e6ed] bg-[#f9f8fa]"
-                    : "border-[#e4e1e8] bg-white";
+              const hintClass = status === "MISSED" ? "border-[#e9e6ed] bg-[#f9f8fa]" : "border-[#e4e1e8] bg-white";
               return (
                 <div key={`${task.id}-${d}`} className="flex justify-center">
                   <button

@@ -36,8 +36,15 @@ export async function POST(req: NextRequest) {
   if (existing?.status === "APPROVED" || existing?.status === "CLAIMED") {
     return NextResponse.json({ ok: true, status: existing.status });
   }
+  // Một khi ba mẹ đã từ chối là xong hẳn cho ngày đó — bé không gửi lại
+  // được nữa, tránh vòng lặp gửi/từ chối/gửi lại làm phình hàng chờ duyệt.
+  if (existing?.status === "REJECTED") {
+    return NextResponse.json({ error: "Nhiệm vụ này đã bị từ chối cho ngày này, không gửi lại được." }, { status: 409 });
+  }
 
   if (existing) {
+    // Chỉ còn trường hợp MISSED (tự động đánh "chưa check-in") tới đây —
+    // bé gửi lần đầu coi như submit mới.
     await prisma.$transaction([
       prisma.pointLedger.deleteMany({ where: { taskInstanceId: existing.id } }),
       prisma.taskInstance.update({
