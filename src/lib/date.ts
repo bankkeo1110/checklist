@@ -4,13 +4,21 @@ const APP_TIMEZONE = "Asia/Ho_Chi_Minh";
 
 const VN_WEEKDAY_LABELS = ["CN", "Th 2", "Th 3", "Th 4", "Th 5", "Th 6", "Th 7"];
 
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: APP_TIMEZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 export function todayDateStr(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: APP_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  return DATE_FORMATTER.format(new Date());
+}
+
+// Same family-timezone calendar day a timestamp (e.g. PointLedger.createdAt)
+// falls on, as a date str — for grouping timestamped rows by week/month/etc.
+export function dateStrFromDate(d: Date): string {
+  return DATE_FORMATTER.format(d);
 }
 
 export function dateStrToUTCDate(dateStr: string): Date {
