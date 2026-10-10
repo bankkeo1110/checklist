@@ -16,9 +16,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (action !== "approve" && action !== "reject") {
     return NextResponse.json({ error: "Yêu cầu không hợp lệ." }, { status: 400 });
   }
-  if (action === "reject" && !note) {
-    return NextResponse.json({ error: "Cần nhập lý do từ chối." }, { status: 400 });
-  }
 
   const instance = await prisma.taskInstance.findUnique({
     where: { id },

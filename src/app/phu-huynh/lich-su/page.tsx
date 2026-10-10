@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { getChildPointTotal } from "@/lib/points";
 import { currentWeekStart, dateStrToUTCDate } from "@/lib/date";
 import GoalEditor from "@/components/phu-huynh/GoalEditor";
-import PointAdjustForm from "@/components/phu-huynh/PointAdjustForm";
 import HistoryFilterForm from "@/components/phu-huynh/HistoryFilterForm";
 import GrowthForm from "@/components/phu-huynh/GrowthForm";
 import { personTheme } from "@/lib/personTheme";
@@ -89,11 +88,12 @@ export default async function LichSuPage({
         >
           <p className="text-[11.5px] font-bold uppercase tracking-wide opacity-90">Tổng điểm hiện tại</p>
           <p className="font-display text-[28px] font-extrabold">{total}</p>
+          <Link href={`/phu-huynh/tong-ket?child=${selected.id}`} className="mt-1 inline-block text-[11.5px] font-bold underline opacity-90">
+            Cộng/trừ điểm, reset → Tổng kết điểm
+          </Link>
         </div>
         <GoalEditor childId={selected.id} weekStart={weekStart} initialGoalText={goal?.goalText ?? ""} />
       </div>
-
-      <PointAdjustForm childId={selected.id} currentTotal={total} />
 
       <div className="flex flex-col gap-2 rounded-[20px] bg-white p-4 shadow-md">
         <p className="text-[11.5px] font-bold uppercase tracking-wide text-muted">Chiều cao / cân nặng</p>

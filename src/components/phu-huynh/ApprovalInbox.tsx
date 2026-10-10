@@ -105,17 +105,13 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
   }
 
   async function confirmBulkReject() {
-    if (!bulkReason.trim()) {
-      setBulkReasonError("Cần nhập lý do từ chối.");
-      return;
-    }
     setBulkBusy("reject");
     try {
       for (const item of items) {
         const res = await fetch(`/api/task-instances/${item.id}/review`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "reject", note: bulkReason.trim() }),
+          body: JSON.stringify({ action: "reject", note: bulkReason.trim() || undefined }),
         });
         if (!res.ok) {
           const data = await res.json().catch(() => null);
@@ -151,17 +147,13 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
   }
 
   async function confirmReject(id: string) {
-    if (!feedback.trim()) {
-      setFeedbackError("Cần nhập lý do từ chối.");
-      return;
-    }
     setPendingId(id);
     setPendingAction("reject");
     try {
       const res = await fetch(`/api/task-instances/${id}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject", note: feedback.trim() }),
+        body: JSON.stringify({ action: "reject", note: feedback.trim() || undefined }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -211,7 +203,7 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
         {bulkRejectOpen && (
           <div className="flex flex-col gap-2 rounded-2xl bg-divider p-3">
             <label className="text-xs font-bold text-muted" htmlFor="bulk-feedback">
-              Lý do từ chối tất cả (bắt buộc)
+              Lý do từ chối tất cả (không bắt buộc)
             </label>
             <textarea
               id="bulk-feedback"
@@ -280,7 +272,7 @@ export default function ApprovalInbox({ items }: { items: Item[] }) {
             {feedbackId === item.id && (
               <div className="flex flex-col gap-2 rounded-2xl bg-divider p-3">
                 <label className="text-xs font-bold text-muted" htmlFor={`feedback-${item.id}`}>
-                  Lý do từ chối (bắt buộc)
+                  Lý do từ chối (không bắt buộc)
                 </label>
                 <textarea
                   id={`feedback-${item.id}`}

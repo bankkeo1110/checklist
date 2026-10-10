@@ -5,6 +5,7 @@ import { addDaysToDateStr, dateStrFromDate, dateStrToUTCDate, todayDateStr, week
 import { summarizePointHistory, type PointSummaryRow } from "@/lib/pointSummary";
 import { personTheme } from "@/lib/personTheme";
 import WeeklyResetButton from "@/components/phu-huynh/WeeklyResetButton";
+import PointAdjustForm from "@/components/phu-huynh/PointAdjustForm";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +136,8 @@ export default async function TongKetPage({
         <p className="text-[11.5px] font-bold uppercase tracking-wide opacity-90">Tổng điểm hiện tại</p>
         <p className="font-display text-[28px] font-extrabold">{currentTotal}</p>
       </div>
+
+      <PointAdjustForm childId={selected.id} currentTotal={currentTotal} />
 
       <WeeklyResetButton childId={selected.id} currentTotal={currentTotal} />
 
