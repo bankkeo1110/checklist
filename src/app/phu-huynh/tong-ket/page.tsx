@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getChildPointTotal } from "@/lib/points";
+import { getChildPointTotal, getChildPointTotals } from "@/lib/points";
 import { addDaysToDateStr, dateStrFromDate, dateStrToUTCDate, todayDateStr, weekStartForDateStr } from "@/lib/date";
 import { summarizePointHistory, type PointSummaryRow } from "@/lib/pointSummary";
 import { personTheme } from "@/lib/personTheme";
@@ -85,8 +85,9 @@ export default async function TongKetPage({
 
   const selected = children.find((c) => c.id === sp.child) ?? children[0];
 
-  const [currentTotal, allEntries] = await Promise.all([
+  const [currentTotal, allTotals, allEntries] = await Promise.all([
     getChildPointTotal(selected.id),
+    getChildPointTotals(),
     prisma.pointLedger.findMany({
       where: { childId: selected.id, createdAt: { gte: dateStrToUTCDate(addDaysToDateStr(todayDateStr(), -LOOKBACK_DAYS)) } },
       orderBy: { createdAt: "desc" },
@@ -129,6 +130,8 @@ export default async function TongKetPage({
         </div>
       </div>
 
+      <WeeklyResetButton children={children.map((c) => ({ id: c.id, label: c.label, total: allTotals[c.id] ?? 0 }))} />
+
       <div
         className="rounded-[20px] p-4 text-white shadow-lg"
         style={{ background: "linear-gradient(150deg,#FFC93C,#FF9F45)" }}
@@ -138,8 +141,6 @@ export default async function TongKetPage({
       </div>
 
       <PointAdjustForm childId={selected.id} currentTotal={currentTotal} />
-
-      <WeeklyResetButton childId={selected.id} currentTotal={currentTotal} />
 
       {selectedWeek ? (
         <div className="flex flex-col gap-2.5">
