@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 
-export type GameId = "typing" | "units";
+export type GameId = "typing" | "units" | "mathrace";
 
 export type GameDef = {
   id: GameId;
@@ -30,6 +30,14 @@ export const GAMES: GameDef[] = [
     title: "Unit Lab",
     blurb: "Brew the right potion by converting m, cm, km, m², ha, kg, g, l and ml — beat the clock, keep your lives!",
     accent: "bg-green-tint text-green-text",
+  },
+  {
+    id: "mathrace",
+    href: "/child/games/mathrace",
+    emoji: "🏁",
+    title: "Math Grand Prix",
+    blurb: "Race the clock — every pit stop is a fractions or decimals question. Answer right to boost ahead!",
+    accent: "bg-purple-tint text-purple-text",
   },
 ];
 
