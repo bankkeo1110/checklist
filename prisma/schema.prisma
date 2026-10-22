@@ -261,6 +261,15 @@ model DragonBallUnlock {
   @@unique([childId, threshold])
 }
 
+// Manual parent on/off switch for one reward mini-game under /child/games
+// (see lib/games.ts for the catalog). Independent of any future point-
+// threshold or task-approval gating — a row only exists once a parent has
+// toggled that game at least once; a game with no row defaults to visible.
+model GameConfig {
+  id     String  @id
+  active Boolean @default(true)
+}
+
 // Height/weight entered by a parent, dated to whatever day it was entered
 // (server-set, not picked) — one entry per child per day, re-entering the
 // same day overwrites it rather than piling up duplicates.
