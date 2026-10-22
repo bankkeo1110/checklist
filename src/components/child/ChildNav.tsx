@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import MathFunLink from "@/components/MathFunLink";
 
-const LINKS = [{ href: "/child", label: "🏠 Trang của con" }];
+const LINKS = [
+  { href: "/child", label: "🏠 Trang của con" },
+  { href: "/child/games", label: "🎮 Games" },
+];
 
 export default function ChildNav() {
   const pathname = usePathname();
