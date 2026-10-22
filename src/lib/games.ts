@@ -26,9 +26,9 @@ export const GAMES: GameDef[] = [
   {
     id: "units",
     href: "/child/games/units",
-    emoji: "📏",
-    title: "Unit Convert",
-    blurb: "Convert between m, cm, km, m², ha, kg, g, l and ml.",
+    emoji: "🧪",
+    title: "Unit Lab",
+    blurb: "Brew the right potion by converting m, cm, km, m², ha, kg, g, l and ml — beat the clock, keep your lives!",
     accent: "bg-green-tint text-green-text",
   },
 ];
