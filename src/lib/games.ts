@@ -34,9 +34,9 @@ export const GAMES: GameDef[] = [
   {
     id: "mathrace",
     href: "/child/games/mathrace",
-    emoji: "🏁",
-    title: "Math Grand Prix",
-    blurb: "Race the clock — every pit stop is a fractions or decimals question. Answer right to boost ahead!",
+    emoji: "⛰️",
+    title: "Math Hill Climb",
+    blurb: "Gas and brake over the hills, grab coins, and answer fractions/decimals pit stops to refuel and boost!",
     accent: "bg-purple-tint text-purple-text",
   },
 ];

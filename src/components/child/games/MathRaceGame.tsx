@@ -2,28 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
-// --- Race tuning -----------------------------------------------------------
-// The race always drives for this many seconds in total, split into pit
-// stops every DRIVE_SEGMENT_SECONDS — the clock only ticks while actually
-// driving, so pausing for a question never costs the player track time.
-const TOTAL_DRIVE_SECONDS = 60;
-const DRIVE_SEGMENT_SECONDS = 10;
-const CHECKPOINTS = [10, 20, 30, 40, 50]; // last 10s stretch runs straight to the finish
-const TRACK_TARGET_UNITS = 300;
-const REQUIRED_UNITS_PER_SECOND = TRACK_TARGET_UNITS / TOTAL_DRIVE_SECONDS;
-const BOOST_BONUS_FRACTION = 0.08;
-const WRONG_PENALTY_FRACTION = 0.03;
-const BOOST_VISUAL_MS = 1100;
-const DRIVE_TICK_MS = 120;
-const FEEDBACK_PAUSE_MS = 1300;
-
-const OPPONENTS = [
-  { id: "rex", name: "Rex", emoji: "🚙", paceFactor: 0.72 },
-  { id: "mia", name: "Mia", emoji: "🚓", paceFactor: 0.9 },
-  { id: "zoe", name: "Zoe", emoji: "🚕", paceFactor: 1.08 },
-];
-const RANK_BADGE = ["#FFC93C", "#C9CDD3", "#D08A4F", "#8A8592"];
-
 // --- Question generation ----------------------------------------------------
 // Four question kinds, mixed randomly: fraction add/subtract, fraction
 // compare, decimal add/subtract, decimal compare — the set the user asked
@@ -182,10 +160,75 @@ function makeMathQuestion(): MathQuestion {
   return maker();
 }
 
-// --- Game ---------------------------------------------------------------
+// --- Terrain -----------------------------------------------------------
+// A deterministic (seeded) sum of sine waves — rolling hills with the odd
+// bigger bump, never jagged or impossible. Pure functions of (x, seed), so
+// they're safe to call directly from render as many times as needed.
 
-type Phase = "ready" | "driving" | "question" | "done";
-type Lane = { id: string; name: string; emoji: string; distance: number };
+function terrainHeight(x: number, seed: number): number {
+  return (
+    42 * Math.sin(x * 0.0055 + seed) +
+    16 * Math.sin(x * 0.017 + seed * 1.6) +
+    7 * Math.sin(x * 0.045 + seed * 2.4)
+  );
+}
+
+function terrainSlope(x: number, seed: number): number {
+  const d = 2;
+  return (terrainHeight(x + d, seed) - terrainHeight(x - d, seed)) / (2 * d);
+}
+
+// --- Hill-climb physics tuning ------------------------------------------
+
+const VIEW_WIDTH = 480;
+const VIEW_HEIGHT = 230;
+const BASELINE_Y = 150;
+const CAR_SCREEN_X = VIEW_WIDTH * 0.3;
+const TICK_MS = 50;
+const TERRAIN_STEP = 12;
+
+const MAX_SPEED = 150; // world units / second
+const MIN_SPEED = -40; // a little reverse, to back off a wall
+const ACCEL = 85;
+const BRAKE_DECEL = 110;
+const COAST_FRICTION = 30;
+const SLOPE_ACCEL_FACTOR = 220; // how hard hills push back/forward
+const TILT_DEG_PER_SLOPE = 60;
+const MAX_TILT_DEG = 28;
+
+const FUEL_MAX = 100;
+const FUEL_DRAIN_PER_SEC = 2.4;
+const PITSTOP_FUEL_BONUS = 35;
+const PITSTOP_SPEED_KICK = 25;
+const BOOST_VISUAL_MS = 1200;
+const STOPPED_TICKS_TO_END = 20; // ~1s of being essentially stationary
+
+const FINISH_DISTANCE = 5000;
+
+// --- Collectibles --------------------------------------------------------
+
+type ItemKind = "coin" | "pitstop";
+type Item = { id: number; worldX: number; kind: ItemKind; collected: boolean };
+const COLLECT_RADIUS = 14;
+
+function generateItems(): Item[] {
+  let id = 0;
+  const coins: Item[] = [];
+  let x = 150;
+  while (x < FINISH_DISTANCE - 100) {
+    coins.push({ id: id++, worldX: Math.round(x), kind: "coin", collected: false });
+    x += 110 + Math.random() * 90;
+  }
+  const pitstops: Item[] = [];
+  x = 500;
+  while (x < FINISH_DISTANCE - 200) {
+    pitstops.push({ id: id++, worldX: Math.round(x), kind: "pitstop", collected: false });
+    x += 480 + Math.random() * 220;
+  }
+  return [...coins, ...pitstops].sort((a, b) => a.worldX - b.worldX);
+}
+
+// --- Sparks (correct-answer flourish, same pattern as the other games) ---
 
 type Spark = { style: CSSProperties };
 const SPARK_COLORS = ["#6BCB77", "#4D96FF", "#FFC93C", "#B983FF", "#FF9F45"];
@@ -206,80 +249,191 @@ function makeSparks(): Spark[] {
   });
 }
 
+// --- Game ---------------------------------------------------------------
+
+type Phase = "ready" | "driving" | "question" | "done";
+type Outcome = "finished" | "stranded" | null;
+
 export default function MathRaceGame() {
   const [phase, setPhase] = useState<Phase>("ready");
   const [driveRun, setDriveRun] = useState(0);
-  const [drivingElapsed, setDrivingElapsed] = useState(0);
+  const [seed, setSeed] = useState(0);
+  const [carX, setCarX] = useState(0);
+  const [speed, setSpeed] = useState(0);
+  const [fuel, setFuel] = useState(FUEL_MAX);
+  const [score, setScore] = useState(0);
+  const [coinsCollected, setCoinsCollected] = useState(0);
+  const [pitstopsAnswered, setPitstopsAnswered] = useState(0);
+  const [items, setItems] = useState<Item[]>([]);
+  const [gasPressed, setGasPressed] = useState(false);
+  const [brakePressed, setBrakePressed] = useState(false);
   const [boosting, setBoosting] = useState(false);
-  const [boostTotal, setBoostTotal] = useState(0);
+  const [outcome, setOutcome] = useState<Outcome>(null);
   const [question, setQuestion] = useState<MathQuestion | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const [result, setResult] = useState<"correct" | "wrong" | null>(null);
-  const [score, setScore] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [bestStreak, setBestStreak] = useState(0);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [wrongCount, setWrongCount] = useState(0);
   const [sparks, setSparks] = useState<Spark[]>([]);
 
-  const resumedAtRef = useRef(0);
-  const pausedElapsedRef = useRef(0);
-  const checkpointIndexRef = useRef(0);
-  // Ticks remaining on the nitro-boost visual flag, counted down by the
-  // driving interval — a tick counter rather than a Date.now() deadline, so
-  // triggering it from the answer handler (reached through the choices
-  // list's onClick) never calls an impure function from render's reach.
+  const carXRef = useRef(0);
+  const speedRef = useRef(0);
+  const fuelRef = useRef(FUEL_MAX);
+  const throttleRef = useRef(false);
+  const brakeRef = useRef(false);
+  const itemsRef = useRef<Item[]>([]);
+  const seedRef = useRef(0);
   const boostTicksRef = useRef(0);
+  const stoppedTicksRef = useRef(0);
 
-  // Drives the race clock. Only runs while phase === "driving"; a pit stop
-  // (phase === "question") simply lets this effect unmount and freezes
-  // drivingElapsed until a new driveRun resumes it.
+  // Drives the hill-climb physics. Only runs while phase === "driving"; a
+  // pit stop (phase === "question") simply lets this effect unmount,
+  // freezing the car exactly where it is until a new driveRun resumes it.
   useEffect(() => {
     if (phase !== "driving") return;
-    resumedAtRef.current = Date.now();
     const id = setInterval(() => {
-      const delta = (Date.now() - resumedAtRef.current) / 1000;
-      const elapsed = Math.min(pausedElapsedRef.current + delta, TOTAL_DRIVE_SECONDS);
-      setDrivingElapsed(elapsed);
+      const dt = TICK_MS / 1000;
+      const x = carXRef.current;
+      const slope = terrainSlope(x, seedRef.current);
+      let v = speedRef.current;
+
+      if (fuelRef.current > 0 && throttleRef.current) {
+        v += (ACCEL - slope * SLOPE_ACCEL_FACTOR) * dt;
+      } else if (brakeRef.current) {
+        v -= BRAKE_DECEL * dt;
+      } else {
+        const gravityPull = -slope * SLOPE_ACCEL_FACTOR * 0.55;
+        const friction = -Math.sign(v) * COAST_FRICTION;
+        v += (gravityPull + friction) * dt;
+      }
+      v = Math.max(MIN_SPEED, Math.min(MAX_SPEED, v));
+      speedRef.current = v;
+
+      const nextX = Math.max(0, x + v * dt);
+      carXRef.current = nextX;
+      setCarX(nextX);
+      setSpeed(v);
+
       if (boostTicksRef.current > 0) boostTicksRef.current -= 1;
       setBoosting(boostTicksRef.current > 0);
 
-      if (elapsed >= TOTAL_DRIVE_SECONDS) {
-        clearInterval(id);
-        pausedElapsedRef.current = TOTAL_DRIVE_SECONDS;
-        setPhase("done");
-        return;
+      if (throttleRef.current && fuelRef.current > 0) {
+        fuelRef.current = Math.max(0, fuelRef.current - FUEL_DRAIN_PER_SEC * dt);
       }
-      const nextCheckpoint = CHECKPOINTS[checkpointIndexRef.current];
-      if (nextCheckpoint !== undefined && elapsed >= nextCheckpoint) {
+      setFuel(fuelRef.current);
+
+      let coinHit = 0;
+      let pitstopHit: Item | null = null;
+      itemsRef.current = itemsRef.current.map((item) => {
+        if (item.collected || Math.abs(item.worldX - nextX) >= COLLECT_RADIUS) return item;
+        if (item.kind === "coin") {
+          coinHit += 1;
+        } else {
+          pitstopHit = item;
+        }
+        return { ...item, collected: true };
+      });
+      if (coinHit > 0 || pitstopHit) setItems(itemsRef.current);
+      if (coinHit > 0) {
+        setScore((s) => s + coinHit * 15);
+        setCoinsCollected((c) => c + coinHit);
+      }
+
+      if (pitstopHit) {
         clearInterval(id);
-        pausedElapsedRef.current = nextCheckpoint;
-        checkpointIndexRef.current += 1;
-        setDrivingElapsed(nextCheckpoint);
         setQuestion(makeMathQuestion());
         setPicked(null);
         setResult(null);
         setPhase("question");
+        return;
       }
-    }, DRIVE_TICK_MS);
+
+      if (nextX >= FINISH_DISTANCE) {
+        clearInterval(id);
+        setOutcome("finished");
+        setPhase("done");
+        return;
+      }
+
+      if (fuelRef.current <= 0) {
+        stoppedTicksRef.current = Math.abs(v) < 2 ? stoppedTicksRef.current + 1 : 0;
+        if (stoppedTicksRef.current > STOPPED_TICKS_TO_END) {
+          clearInterval(id);
+          setOutcome("stranded");
+          setPhase("done");
+          return;
+        }
+      }
+    }, TICK_MS);
     return () => clearInterval(id);
   }, [phase, driveRun]);
 
+  // Gas/brake via the keyboard, mirroring the on-screen pedals below —
+  // keydown/keyup (not a single tap) since this is a hold-to-drive control.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (phase !== "driving") return;
+      if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+        throttleRef.current = true;
+        setGasPressed(true);
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+        brakeRef.current = true;
+        setBrakePressed(true);
+      }
+    }
+    function onKeyUp(e: KeyboardEvent) {
+      if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+        throttleRef.current = false;
+        setGasPressed(false);
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+        brakeRef.current = false;
+        setBrakePressed(false);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [phase]);
+
+  function pressGas(down: boolean) {
+    throttleRef.current = down;
+    setGasPressed(down);
+  }
+  function pressBrake(down: boolean) {
+    brakeRef.current = down;
+    setBrakePressed(down);
+  }
+
   function start() {
-    pausedElapsedRef.current = 0;
-    checkpointIndexRef.current = 0;
+    const newSeed = Math.random() * 1000;
+    seedRef.current = newSeed;
+    carXRef.current = 0;
+    speedRef.current = 0;
+    fuelRef.current = FUEL_MAX;
+    throttleRef.current = false;
+    brakeRef.current = false;
     boostTicksRef.current = 0;
-    setDrivingElapsed(0);
+    stoppedTicksRef.current = 0;
+    itemsRef.current = generateItems();
+
+    setSeed(newSeed);
+    setCarX(0);
+    setSpeed(0);
+    setFuel(FUEL_MAX);
+    setItems(itemsRef.current);
+    setScore(0);
+    setCoinsCollected(0);
+    setPitstopsAnswered(0);
+    setGasPressed(false);
+    setBrakePressed(false);
     setBoosting(false);
-    setBoostTotal(0);
+    setOutcome(null);
     setQuestion(null);
     setPicked(null);
     setResult(null);
-    setScore(0);
-    setStreak(0);
-    setBestStreak(0);
-    setCorrectCount(0);
-    setWrongCount(0);
     setSparks([]);
     setPhase("driving");
     setDriveRun((n) => n + 1);
@@ -290,155 +444,203 @@ export default function MathRaceGame() {
     const isCorrect = choice === question.answer;
     setPicked(choice);
     setResult(isCorrect ? "correct" : "wrong");
-
     if (isCorrect) {
-      setBoostTotal((b) => b + BOOST_BONUS_FRACTION * TRACK_TARGET_UNITS);
-      setCorrectCount((c) => c + 1);
-      setScore((s) => s + (streak >= 2 ? 15 : 10));
-      const nextStreak = streak + 1;
-      setStreak(nextStreak);
-      setBestStreak((best) => Math.max(best, nextStreak));
+      fuelRef.current = Math.min(FUEL_MAX, fuelRef.current + PITSTOP_FUEL_BONUS);
+      speedRef.current = Math.min(MAX_SPEED, speedRef.current + PITSTOP_SPEED_KICK);
+      setFuel(fuelRef.current);
+      setSpeed(speedRef.current);
+      setScore((s) => s + 25);
+      setPitstopsAnswered((p) => p + 1);
       setSparks(makeSparks());
-      boostTicksRef.current = Math.ceil(BOOST_VISUAL_MS / DRIVE_TICK_MS);
-    } else {
-      setBoostTotal((b) => b - WRONG_PENALTY_FRACTION * TRACK_TARGET_UNITS);
-      setStreak(0);
-      setWrongCount((c) => c + 1);
+      boostTicksRef.current = Math.ceil(BOOST_VISUAL_MS / TICK_MS);
     }
-
     setTimeout(() => {
       setPhase("driving");
       setDriveRun((n) => n + 1);
-    }, FEEDBACK_PAUSE_MS);
+    }, 1300);
   }
 
-  const playerDistance = Math.max(0, REQUIRED_UNITS_PER_SECOND * drivingElapsed + boostTotal);
-  const lanes: Lane[] = useMemo(
-    () => [
-      { id: "you", name: "You", emoji: "🏎️", distance: playerDistance },
-      ...OPPONENTS.map((opp) => ({
-        id: opp.id,
-        name: opp.name,
-        emoji: opp.emoji,
-        distance: REQUIRED_UNITS_PER_SECOND * opp.paceFactor * drivingElapsed,
-      })),
-    ],
-    [playerDistance, drivingElapsed],
+  // --- Derived view (pure functions of state only — safe to compute here) ---
+  const camX = carX - CAR_SCREEN_X;
+  const camHeight = terrainHeight(carX, seed);
+  const terrainPoints = useMemo(() => {
+    const points: { x: number; y: number }[] = [];
+    const startWorldX = Math.floor(camX / TERRAIN_STEP) * TERRAIN_STEP;
+    for (let wx = startWorldX; wx <= camX + VIEW_WIDTH + TERRAIN_STEP; wx += TERRAIN_STEP) {
+      points.push({ x: wx - camX, y: BASELINE_Y - (terrainHeight(wx, seed) - camHeight) });
+    }
+    return points;
+  }, [camX, camHeight, seed]);
+  const terrainPath = useMemo(() => {
+    if (terrainPoints.length === 0) return "";
+    const top = terrainPoints.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    const first = terrainPoints[0];
+    const last = terrainPoints[terrainPoints.length - 1];
+    return `${top} L${last.x.toFixed(1)},${VIEW_HEIGHT} L${first.x.toFixed(1)},${VIEW_HEIGHT} Z`;
+  }, [terrainPoints]);
+  const slopeAtCar = terrainSlope(carX, seed);
+  const carAngle = Math.max(-MAX_TILT_DEG, Math.min(MAX_TILT_DEG, -slopeAtCar * TILT_DEG_PER_SLOPE));
+  const visibleItems = items.filter(
+    (item) => !item.collected && item.worldX > camX - 20 && item.worldX < camX + VIEW_WIDTH + 20,
   );
-  const rankById = useMemo(() => {
-    const ranked = [...lanes].sort((a, b) => b.distance - a.distance);
-    const map = new Map<string, number>();
-    ranked.forEach((lane, i) => map.set(lane.id, i + 1));
-    return map;
-  }, [lanes]);
-  const rank = rankById.get("you") ?? lanes.length;
 
-  const medal = rank === 1 ? "🏆" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "🏁";
-  const rankMessage =
-    rank === 1
-      ? "You won the race!"
-      : `You finished ${ordinal(rank)} — sharpen those answers to blast past them!`;
-  // Derived purely from drivingElapsed (never the ref) so this stays safe to
-  // read during render: the next checkpoint is always the next multiple of
-  // DRIVE_SEGMENT_SECONDS, capped at the finish.
-  const nextCheckpointAt = Math.min(
-    TOTAL_DRIVE_SECONDS,
-    (Math.floor(drivingElapsed / DRIVE_SEGMENT_SECONDS) + 1) * DRIVE_SEGMENT_SECONDS,
-  );
-  const secondsToNext = phase === "driving" ? Math.max(0, nextCheckpointAt - drivingElapsed) : 0;
+  const fuelPct = Math.max(0, Math.round((fuel / FUEL_MAX) * 100));
+  const distancePct = Math.min(100, Math.round((carX / FINISH_DISTANCE) * 100));
+  const speedKmh = Math.max(0, Math.round(speed * 3.2));
+  const fuelBarColor = fuelPct > 35 ? "#6BCB77" : fuelPct > 15 ? "#FFC93C" : "#FF6B6B";
 
   return (
     <div className="flex flex-col gap-4 rounded-[22px] p-5 shadow-lg" style={{ background: "linear-gradient(165deg,#ffffff,#f3eaff)" }}>
       <div className="flex items-center justify-between">
         <h3 className="font-display text-[18px] font-extrabold tracking-tight">
           <span style={{ background: "linear-gradient(90deg,#B983FF,#4D96FF)", WebkitBackgroundClip: "text", color: "transparent" }}>
-            🏁 Math Grand Prix
+            ⛰️ Math Hill Climb
           </span>
         </h3>
         {(phase === "driving" || phase === "question") && (
-          <span className="rounded-full bg-purple-tint px-3 py-1 font-display text-[13px] font-bold text-purple-text">
-            ⭐ {score}
-          </span>
+          <span className="rounded-full bg-purple-tint px-3 py-1 font-display text-[13px] font-bold text-purple-text">⭐ {score}</span>
         )}
       </div>
 
       {phase === "ready" && (
         <div className="flex flex-col items-center gap-3 py-6 text-center">
           <p className="text-[14.5px] font-semibold text-muted">
-            Drive for 10 seconds, then pit-stop for a fractions or decimals question — add, subtract
-            or compare. Answer right for a nitro boost; the race always runs the full 60s! 🚀
+            Hold ⛽ GAS to climb the hills, tap 🛑 BRAKE to slow down or back off — just like a real hill-climb
+            racer! Grab ⭐ coins, and drive into a 🧮 pit stop to answer a fractions/decimals question for a
+            fuel refill and a speed boost. Don&apos;t run out of gas before the garage! 🏁
           </p>
           <button
             onClick={start}
             className="rounded-2xl px-6 py-3 font-display text-[15px] font-bold text-white shadow-md"
             style={{ background: "linear-gradient(135deg,#B983FF,#4D96FF)" }}
           >
-            Start race 🏎️
+            Start climbing 🚙
           </button>
         </div>
       )}
 
       {(phase === "driving" || phase === "question") && (
         <div className="flex flex-col gap-3">
-          <RaceTrack lanes={lanes.map((lane) => ({ ...lane, boosting: lane.id === "you" && boosting }))} rankById={rankById} />
-          <p className="text-center text-[11.5px] font-bold uppercase tracking-wide text-muted">
-            🏁 {Math.round(drivingElapsed)}s / {TOTAL_DRIVE_SECONDS}s · You&apos;re in {ordinal(rank)} place
-            {phase === "driving" && ` · next pit stop in ${Math.ceil(secondsToNext)}s`}
-          </p>
+          <div className="flex flex-col gap-1">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-divider">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${distancePct}%`, background: "linear-gradient(90deg,#B983FF,#4D96FF)" }}
+              />
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-divider">
+              <div className="h-full rounded-full transition-[width]" style={{ width: `${fuelPct}%`, background: fuelBarColor }} />
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-2xl shadow-inner" style={{ height: VIEW_HEIGHT, background: "linear-gradient(180deg,#8FD3F4,#D9F0FF)" }}>
+            <svg viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`} width="100%" height="100%" preserveAspectRatio="none">
+              <path d={terrainPath} fill="#7BC67E" stroke="#4FB35B" strokeWidth={3} />
+            </svg>
+
+            {visibleItems.map((item) => {
+              const screenX = item.worldX - camX;
+              const screenY = BASELINE_Y - (terrainHeight(item.worldX, seed) - camHeight) - 22;
+              return (
+                <span
+                  key={item.id}
+                  className="absolute animate-[floatBlob_2.4s_ease-in-out_infinite] text-[20px]"
+                  style={{ left: screenX, top: screenY, transform: "translate(-50%,-50%)" }}
+                >
+                  {item.kind === "coin" ? "⭐" : "🧮"}
+                </span>
+              );
+            })}
+
+            <span
+              className="absolute text-[30px] leading-none"
+              style={{
+                left: CAR_SCREEN_X,
+                top: BASELINE_Y,
+                transform: `translate(-50%,-60%) rotate(${carAngle}deg) ${boosting ? "scale(1.12)" : ""}`,
+                filter: "drop-shadow(0 4px 4px rgba(0,0,0,.35))",
+                transition: "transform 80ms linear",
+              }}
+            >
+              {boosting && (
+                <span className="absolute -left-4 top-1/2 -translate-y-1/2 text-[16px]" style={{ animation: "popStar 0.4s ease-out" }}>
+                  🔥
+                </span>
+              )}
+              🚙
+            </span>
+
+            {phase === "question" && question && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/55 p-4">
+                <div className="relative flex w-full max-w-[280px] flex-col gap-3 rounded-2xl bg-white p-4 text-center shadow-lg">
+                  <span className="font-display text-[11px] font-bold uppercase tracking-wide text-muted">🧮 Pit stop!</span>
+                  <p className="font-display text-[19px] font-extrabold">{question.prompt}</p>
+                  {result === "correct" && (
+                    <span className="font-display text-[11.5px] font-bold text-orange">⛽ +{PITSTOP_FUEL_BONUS} fuel · 🚀 boost!</span>
+                  )}
+                  {sparks.map((p, i) => (
+                    <span
+                      key={i}
+                      style={p.style}
+                      className="pointer-events-none absolute left-1/2 top-10 h-1.5 w-1.5 rounded-sm animate-[confetti-fly_0.8s_ease-out_forwards]"
+                    />
+                  ))}
+                  <div className="grid grid-cols-2 gap-2">
+                    {question.choices.map((choice) => {
+                      const isPicked = picked === choice;
+                      let style = "bg-divider text-ink";
+                      if (result && isPicked) {
+                        style = result === "correct" ? "bg-green text-white" : "bg-coral text-white";
+                      } else if (result && choice === question.answer) {
+                        style = "bg-green-tint text-green-text";
+                      }
+                      return (
+                        <button
+                          key={choice}
+                          onClick={() => handleChoose(choice)}
+                          disabled={!!result}
+                          className={`rounded-2xl px-3 py-2.5 font-display text-[15px] font-bold transition-colors ${style}`}
+                        >
+                          {choice}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {phase === "driving" && (
-            <div className="flex flex-col items-center gap-2 rounded-2xl bg-purple-tint px-4 py-6 text-center">
-              <span className="text-[26px]">🏎️💨</span>
-              <p className="font-display text-[14px] font-bold text-purple-text">Racing! Get ready for the next pit stop…</p>
-            </div>
-          )}
-
-          {phase === "question" && question && (
-            <div className="flex flex-col gap-3">
-              <div
-                className={`relative flex flex-col items-center justify-center gap-1 rounded-2xl bg-divider px-4 py-5 text-center ${
-                  result === "wrong" ? "animate-[shake_0.4s_ease-in-out]" : ""
+            <div className="flex items-center justify-center gap-6">
+              <button
+                onPointerDown={() => pressBrake(true)}
+                onPointerUp={() => pressBrake(false)}
+                onPointerLeave={() => pressBrake(false)}
+                aria-label="Brake"
+                className={`h-14 w-20 rounded-2xl font-display text-[13px] font-extrabold transition-colors ${
+                  brakePressed ? "bg-coral text-white" : "bg-divider text-ink"
                 }`}
               >
-                <span className="font-display text-[11px] font-bold uppercase tracking-wide text-muted">🛑 Pit stop!</span>
-                <p className="font-display text-[20px] font-extrabold">{question.prompt}</p>
-                {result === "correct" && (
-                  <span className="font-display text-[11.5px] font-bold text-orange">🚀 Nitro boost!</span>
-                )}
-                {sparks.map((p, i) => (
-                  <span
-                    key={i}
-                    style={p.style}
-                    className="pointer-events-none absolute left-1/2 top-1/2 h-1.5 w-1.5 rounded-sm animate-[confetti-fly_0.8s_ease-out_forwards]"
-                  />
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                {question.choices.map((choice) => {
-                  const isPicked = picked === choice;
-                  let style = "bg-divider text-ink";
-                  if (result && isPicked) {
-                    style = result === "correct" ? "bg-green text-white" : "bg-coral text-white";
-                  } else if (result && choice === question.answer) {
-                    style = "bg-green-tint text-green-text";
-                  }
-                  return (
-                    <button
-                      key={choice}
-                      onClick={() => handleChoose(choice)}
-                      disabled={!!result}
-                      className={`rounded-2xl px-4 py-3 font-display text-[16px] font-bold transition-colors ${style}`}
-                    >
-                      {choice}
-                    </button>
-                  );
-                })}
-              </div>
+                🛑 BRAKE
+              </button>
+              <button
+                onPointerDown={() => pressGas(true)}
+                onPointerUp={() => pressGas(false)}
+                onPointerLeave={() => pressGas(false)}
+                aria-label="Gas"
+                className={`h-14 w-20 rounded-2xl font-display text-[13px] font-extrabold transition-colors ${
+                  gasPressed ? "bg-green text-white" : "bg-divider text-ink"
+                }`}
+              >
+                ⛽ GAS
+              </button>
             </div>
           )}
 
-          <p className="text-center text-[12px] font-bold uppercase tracking-wide text-muted">
-            ✅ {correctCount} · ❌ {wrongCount} {streak >= 2 ? `🔥 x${streak} combo!` : ""}
+          <p className="text-center text-[11.5px] font-bold uppercase tracking-wide text-muted">
+            🏁 {distancePct}% · ⚡ {speedKmh} km/h · ⭐ {coinsCollected} · 🧮 {pitstopsAnswered}
+            {boosting && " · 🚀 NITRO"}
           </p>
         </div>
       )}
@@ -446,37 +648,13 @@ export default function MathRaceGame() {
       {phase === "done" && (
         <div className="flex flex-col items-center gap-3 py-4 text-center">
           <p className="font-display text-[22px] font-extrabold text-purple-text">
-            {medal} {rankMessage}
+            {outcome === "finished" ? "You reached the garage! 🏁" : "Ran out of gas! ⛽"}
           </p>
-          <div className="w-full">
-            <p className="mb-1.5 text-left text-[11px] font-bold uppercase tracking-wide text-muted">Final positions</p>
-            <ol className="flex w-full flex-col gap-1.5">
-              {[...lanes]
-                .sort((a, b) => b.distance - a.distance)
-                .map((racer, i) => (
-                  <li
-                    key={racer.id}
-                    className={`flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[13.5px] font-bold ${
-                      racer.id === "you" ? "bg-purple-tint text-purple-text" : "bg-divider text-ink"
-                    }`}
-                  >
-                    <span
-                      className="flex h-5 w-5 flex-none items-center justify-center rounded-full text-[10.5px] font-extrabold text-white"
-                      style={{ background: RANK_BADGE[i] ?? "#8A8592" }}
-                    >
-                      {i + 1}
-                    </span>
-                    <span className="text-[18px]">{racer.emoji}</span>
-                    <span className="flex-1">{racer.name}</span>
-                    <span className="text-muted">{Math.round(Math.min((racer.distance / TRACK_TARGET_UNITS) * 100, 100))}%</span>
-                  </li>
-                ))}
-            </ol>
-          </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap justify-center gap-3">
             <Stat label="Score" value={score} />
-            <Stat label="Correct" value={correctCount} />
-            <Stat label="Best combo" value={`🔥${bestStreak}`} />
+            <Stat label="Distance" value={`${distancePct}%`} />
+            <Stat label="Coins" value={coinsCollected} />
+            <Stat label="Pit stops" value={pitstopsAnswered} />
           </div>
           <button
             onClick={start}
@@ -487,75 +665,6 @@ export default function MathRaceGame() {
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-function ordinal(n: number): string {
-  if (n === 1) return "1st";
-  if (n === 2) return "2nd";
-  if (n === 3) return "3rd";
-  return `${n}th`;
-}
-
-type RaceLane = Lane & { boosting: boolean };
-
-function RaceTrack({ lanes, rankById }: { lanes: RaceLane[]; rankById: Map<string, number> }) {
-  return (
-    <div className="flex flex-col gap-1.5 rounded-2xl p-2.5 shadow-inner" style={{ background: "linear-gradient(180deg,#2b2b38,#17171f)" }}>
-      {lanes.map((lane) => {
-        const pct = Math.min((lane.distance / TRACK_TARGET_UNITS) * 100, 100);
-        const rank = rankById.get(lane.id) ?? lanes.length;
-        return (
-          <div
-            key={lane.id}
-            className="relative h-11 overflow-hidden rounded-xl"
-            style={{
-              backgroundImage:
-                "repeating-linear-gradient(90deg, #35353f 0 18px, #2d2d36 18px 36px), repeating-linear-gradient(90deg, rgba(255,255,255,.45) 0 9px, transparent 9px 22px)",
-              backgroundSize: "100% 100%, 100% 2px",
-              backgroundPosition: "0 0, 0 50%",
-              backgroundRepeat: "repeat, repeat-x",
-            }}
-          >
-            <div
-              className="absolute inset-y-0 left-0 transition-[width] duration-150 ease-linear"
-              style={{
-                width: `${pct}%`,
-                background:
-                  lane.id === "you"
-                    ? "linear-gradient(90deg, rgba(185,131,255,0), rgba(185,131,255,.4))"
-                    : "linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.14))",
-              }}
-            />
-            <span
-              className="absolute left-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-[10.5px] font-extrabold text-white shadow"
-              style={{ background: RANK_BADGE[rank - 1] ?? "#8A8592" }}
-            >
-              {rank}
-            </span>
-            <span
-              className="absolute top-1/2 flex items-center text-[25px] leading-none transition-[left] duration-150 ease-linear"
-              style={{
-                left: `max(26px, calc(${Math.min(pct, 94)}% - 2px))`,
-                transform: `translateY(-50%) ${lane.boosting ? "scale(1.18) rotate(-6deg)" : "rotate(0deg)"}`,
-                filter: "drop-shadow(0 3px 3px rgba(0,0,0,.45))",
-              }}
-            >
-              {lane.boosting && (
-                <span className="mr-0.5 text-[18px]" style={{ animation: "popStar 0.4s ease-out" }}>
-                  🔥
-                </span>
-              )}
-              {lane.emoji}
-            </span>
-            <div
-              className="absolute right-0 top-0 h-full w-2.5"
-              style={{ backgroundImage: "repeating-conic-gradient(#fff 0deg 90deg, #111 90deg 180deg)", backgroundSize: "6px 6px" }}
-            />
-          </div>
-        );
-      })}
     </div>
   );
 }
