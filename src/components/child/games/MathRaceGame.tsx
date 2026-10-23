@@ -180,9 +180,9 @@ function terrainSlope(x: number, seed: number): number {
 
 // --- Hill-climb physics tuning ------------------------------------------
 
-const VIEW_WIDTH = 480;
-const VIEW_HEIGHT = 230;
-const BASELINE_Y = 150;
+const VIEW_WIDTH = 640;
+const VIEW_HEIGHT = 340;
+const BASELINE_Y = 222;
 const CAR_SCREEN_X = VIEW_WIDTH * 0.3;
 const TICK_MS = 50;
 const TERRAIN_STEP = 12;
@@ -204,6 +204,50 @@ const BOOST_VISUAL_MS = 1200;
 const STOPPED_TICKS_TO_END = 20; // ~1s of being essentially stationary
 
 const FINISH_DISTANCE = 5000;
+
+// --- Car garage -----------------------------------------------------------
+// 10 picks, smallest/cutest first — each step up is bigger on screen (scale)
+// and reads fiercer (a bolder emoji + a hotter glow color), so "bigger = more
+// badass" is true both in size and in look.
+
+type CarType = { id: string; emoji: string; name: string; scale: number; glow: string };
+
+const CAR_TYPES: CarType[] = [
+  { id: "sedan", emoji: "🚗", name: "Sedan", scale: 0.8, glow: "rgba(0,0,0,.25)" },
+  { id: "taxi", emoji: "🚕", name: "Taxi", scale: 0.88, glow: "rgba(0,0,0,.28)" },
+  { id: "suv", emoji: "🚙", name: "SUV", scale: 0.96, glow: "rgba(0,0,0,.3)" },
+  { id: "van", emoji: "🚐", name: "Minivan", scale: 1.04, glow: "rgba(0,0,0,.32)" },
+  { id: "police", emoji: "🚓", name: "Police", scale: 1.1, glow: "rgba(77,150,255,.45)" },
+  { id: "ambulance", emoji: "🚑", name: "Ambulance", scale: 1.16, glow: "rgba(255,107,107,.45)" },
+  { id: "racer", emoji: "🏎️", name: "Race car", scale: 1.24, glow: "rgba(255,201,60,.5)" },
+  { id: "pickup", emoji: "🛻", name: "Pickup", scale: 1.32, glow: "rgba(255,159,69,.5)" },
+  { id: "truck", emoji: "🚚", name: "Big truck", scale: 1.42, glow: "rgba(255,107,107,.55)" },
+  { id: "monster", emoji: "🚜", name: "Monster rig", scale: 1.55, glow: "rgba(255,69,58,.65)" },
+];
+
+// --- Sky decoration -------------------------------------------------------
+// A fixed, deterministic field of clouds (no Math.random at module scope —
+// that would compute once on the server and again on the client, producing
+// two different sets and a hydration mismatch). Each cloud scrolls at a
+// fraction of the camera speed (parallax) so the sky reads as far away.
+
+type Cloud = { worldX: number; y: number; scale: number };
+const CLOUD_PARALLAX = 0.3;
+const CLOUDS: Cloud[] = Array.from({ length: 24 }, (_, i) => ({
+  worldX: -200 + i * 240,
+  y: 18 + 16 * Math.abs(Math.sin(i * 1.7)),
+  scale: 0.6 + 0.4 * Math.abs(Math.sin(i * 0.9 + 1)),
+}));
+
+function Puff({ cx, cy, scale }: { cx: number; cy: number; scale: number }) {
+  return (
+    <g opacity={0.85}>
+      <ellipse cx={cx} cy={cy} rx={22 * scale} ry={11 * scale} fill="#fff" />
+      <ellipse cx={cx - 14 * scale} cy={cy + 4 * scale} rx={14 * scale} ry={9 * scale} fill="#fff" />
+      <ellipse cx={cx + 15 * scale} cy={cy + 3 * scale} rx={15 * scale} ry={9 * scale} fill="#fff" />
+    </g>
+  );
+}
 
 // --- Collectibles --------------------------------------------------------
 
@@ -254,8 +298,11 @@ function makeSparks(): Spark[] {
 type Phase = "ready" | "driving" | "question" | "done";
 type Outcome = "finished" | "stranded" | null;
 
+const CAR_STORAGE_KEY = "mathrace.carId";
+
 export default function MathRaceGame() {
   const [phase, setPhase] = useState<Phase>("ready");
+  const [carId, setCarId] = useState<string>(CAR_TYPES[0].id);
   const [driveRun, setDriveRun] = useState(0);
   const [seed, setSeed] = useState(0);
   const [carX, setCarX] = useState(0);
@@ -273,6 +320,30 @@ export default function MathRaceGame() {
   const [picked, setPicked] = useState<string | null>(null);
   const [result, setResult] = useState<"correct" | "wrong" | null>(null);
   const [sparks, setSparks] = useState<Spark[]>([]);
+
+  // Remembered pick, read once after mount — localStorage doesn't exist on
+  // the server, so this can't run during the initial render; syncing it in
+  // right after is the standard escape hatch for that (hence the lint
+  // suppression — this isn't the "derived from props/state" case the rule
+  // guards against).
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CAR_STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- loading a per-device pick from localStorage, not state derived from props/state
+      if (saved && CAR_TYPES.some((c) => c.id === saved)) setCarId(saved);
+    } catch {
+      // ignore — storage may be blocked
+    }
+  }, []);
+
+  function chooseCar(id: string) {
+    setCarId(id);
+    try {
+      localStorage.setItem(CAR_STORAGE_KEY, id);
+    } catch {
+      // ignore — storage may be blocked
+    }
+  }
 
   const carXRef = useRef(0);
   const speedRef = useRef(0);
@@ -483,7 +554,17 @@ export default function MathRaceGame() {
   const visibleItems = items.filter(
     (item) => !item.collected && item.worldX > camX - 20 && item.worldX < camX + VIEW_WIDTH + 20,
   );
+  const visibleClouds = useMemo(
+    () =>
+      CLOUDS.map((c) => ({ ...c, screenX: c.worldX - camX * CLOUD_PARALLAX }))
+        .filter((c) => c.screenX > -60 && c.screenX < VIEW_WIDTH + 60),
+    [camX],
+  );
+  const finishScreenX = FINISH_DISTANCE - camX;
+  const finishVisible = finishScreenX > -60 && finishScreenX < VIEW_WIDTH + 60;
+  const finishGroundY = BASELINE_Y - (terrainHeight(FINISH_DISTANCE, seed) - camHeight);
 
+  const selectedCar = CAR_TYPES.find((c) => c.id === carId) ?? CAR_TYPES[0];
   const fuelPct = Math.max(0, Math.round((fuel / FUEL_MAX) * 100));
   const distancePct = Math.min(100, Math.round((carX / FINISH_DISTANCE) * 100));
   const speedKmh = Math.max(0, Math.round(speed * 3.2));
@@ -509,12 +590,42 @@ export default function MathRaceGame() {
             racer! Grab ⭐ coins, and drive into a 🧮 pit stop to answer a fractions/decimals question for a
             fuel refill and a speed boost. Don&apos;t run out of gas before the garage! 🏁
           </p>
+          <div className="flex flex-col gap-2">
+            <span className="text-[11.5px] font-bold uppercase tracking-wide text-muted">🚘 Pick your ride</span>
+            <div className="grid grid-cols-5 gap-2">
+              {CAR_TYPES.map((car) => {
+                const isSelected = car.id === carId;
+                return (
+                  <button
+                    key={car.id}
+                    onClick={() => chooseCar(car.id)}
+                    aria-label={car.name}
+                    aria-pressed={isSelected}
+                    className={`flex flex-col items-center gap-0.5 rounded-2xl px-2 py-2 transition-transform ${
+                      isSelected ? "bg-purple-tint ring-2 ring-purple-text" : "bg-divider"
+                    }`}
+                  >
+                    <span
+                      className="leading-none"
+                      style={{
+                        fontSize: `${18 + car.scale * 8}px`,
+                        filter: `drop-shadow(0 2px 3px ${car.glow})`,
+                      }}
+                    >
+                      {car.emoji}
+                    </span>
+                    <span className="text-[9.5px] font-bold text-muted">{car.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <button
             onClick={start}
             className="rounded-2xl px-6 py-3 font-display text-[15px] font-bold text-white shadow-md"
             style={{ background: "linear-gradient(135deg,#B983FF,#4D96FF)" }}
           >
-            Start climbing 🚙
+            Start climbing {selectedCar.emoji}
           </button>
         </div>
       )}
@@ -535,7 +646,37 @@ export default function MathRaceGame() {
 
           <div className="relative overflow-hidden rounded-2xl shadow-inner" style={{ height: VIEW_HEIGHT, background: "linear-gradient(180deg,#8FD3F4,#D9F0FF)" }}>
             <svg viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`} width="100%" height="100%" preserveAspectRatio="none">
-              <path d={terrainPath} fill="#7BC67E" stroke="#4FB35B" strokeWidth={3} />
+              <defs>
+                <linearGradient id="terrainGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8FE08F" />
+                  <stop offset="35%" stopColor="#5FBF6B" />
+                  <stop offset="100%" stopColor="#4A3222" />
+                </linearGradient>
+                <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#FFF4C2" />
+                  <stop offset="55%" stopColor="#FFD55C" />
+                  <stop offset="100%" stopColor="#FFD55C" stopOpacity={0} />
+                </radialGradient>
+              </defs>
+
+              <circle cx={VIEW_WIDTH - 70} cy={48} r={44} fill="url(#sunGrad)" />
+              <circle cx={VIEW_WIDTH - 70} cy={48} r={15} fill="#FFEA8A" />
+
+              {visibleClouds.map((c, i) => (
+                <Puff key={i} cx={c.screenX} cy={c.y} scale={c.scale} />
+              ))}
+
+              <path d={terrainPath} fill="url(#terrainGrad)" stroke="#3F8C49" strokeWidth={3} />
+
+              {finishVisible && (
+                <g>
+                  <rect x={finishScreenX - 1.5} y={finishGroundY - 72} width={3} height={72} fill="#5A4632" />
+                  <rect x={finishScreenX + 1.5} y={finishGroundY - 72} width={16} height={11} fill="#1a1a1a" />
+                  <rect x={finishScreenX + 1.5} y={finishGroundY - 61} width={16} height={11} fill="#fff" />
+                  <rect x={finishScreenX + 9.5} y={finishGroundY - 72} width={8} height={11} fill="#fff" />
+                  <rect x={finishScreenX + 1.5} y={finishGroundY - 61} width={8} height={11} fill="#1a1a1a" />
+                </g>
+              )}
             </svg>
 
             {visibleItems.map((item) => {
@@ -552,22 +693,63 @@ export default function MathRaceGame() {
               );
             })}
 
+            {speed > 20 && (
+              <>
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="absolute rounded-full"
+                    style={{
+                      left: CAR_SCREEN_X - 18 - i * 11,
+                      top: BASELINE_Y - 6 + i * 3,
+                      width: 13,
+                      height: 2,
+                      background: "rgba(255,255,255,.6)",
+                      opacity: Math.max(0, 0.65 - i * 0.2),
+                    }}
+                  />
+                ))}
+              </>
+            )}
+
+            <div
+              className="absolute rounded-full"
+              style={{
+                left: CAR_SCREEN_X,
+                top: BASELINE_Y + 7,
+                width: 42 * selectedCar.scale,
+                height: 11 * selectedCar.scale,
+                background: "radial-gradient(ellipse at center, rgba(0,0,0,.4), rgba(0,0,0,0) 72%)",
+                transform: "translate(-50%,-50%)",
+              }}
+            />
+
+            {/* Most car emoji glyphs face left by default; the track scrolls
+                left-to-right as the car advances, so without a horizontal
+                flip the car visually drives rear-first. scaleX(-1) mirrors
+                the glyph to face the direction of travel; it's applied
+                BEFORE the slope tilt (rotate) in the transform list so the
+                tilt still reads in normal screen space, not the mirrored
+                one — otherwise uphill/downhill tilt would flip too. */}
             <span
               className="absolute text-[30px] leading-none"
               style={{
                 left: CAR_SCREEN_X,
                 top: BASELINE_Y,
-                transform: `translate(-50%,-60%) rotate(${carAngle}deg) ${boosting ? "scale(1.12)" : ""}`,
-                filter: "drop-shadow(0 4px 4px rgba(0,0,0,.35))",
+                transform: `translate(-50%,-60%) rotate(${carAngle}deg) scaleX(-1) scale(${selectedCar.scale * (boosting ? 1.12 : 1)})`,
+                filter: `drop-shadow(0 4px ${4 + selectedCar.scale * 3}px ${selectedCar.glow})`,
                 transition: "transform 80ms linear",
               }}
             >
               {boosting && (
-                <span className="absolute -left-4 top-1/2 -translate-y-1/2 text-[16px]" style={{ animation: "popStar 0.4s ease-out" }}>
+                // Local-space positive offset: the parent's scaleX(-1) mirrors
+                // this to screen-left (the car's back, since the fix now
+                // faces it right) so the flame trails behind, not in front.
+                <span className="absolute top-1/2 -translate-y-1/2 text-[16px]" style={{ left: 16, animation: "popStar 0.4s ease-out" }}>
                   🔥
                 </span>
               )}
-              🚙
+              {selectedCar.emoji}
             </span>
 
             {phase === "question" && question && (
