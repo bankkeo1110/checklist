@@ -210,20 +210,74 @@ const FINISH_DISTANCE = 5000;
 // and reads fiercer (a bolder emoji + a hotter glow color), so "bigger = more
 // badass" is true both in size and in look.
 
-type CarType = { id: string; emoji: string; name: string; scale: number; glow: string };
+type CarType = {
+  id: string;
+  emoji: string;
+  name: string;
+  scale: number;
+  glow: string;
+  body: string;
+  accent: string;
+};
 
 const CAR_TYPES: CarType[] = [
-  { id: "sedan", emoji: "🚗", name: "Sedan", scale: 0.8, glow: "rgba(0,0,0,.25)" },
-  { id: "taxi", emoji: "🚕", name: "Taxi", scale: 0.88, glow: "rgba(0,0,0,.28)" },
-  { id: "suv", emoji: "🚙", name: "SUV", scale: 0.96, glow: "rgba(0,0,0,.3)" },
-  { id: "van", emoji: "🚐", name: "Minivan", scale: 1.04, glow: "rgba(0,0,0,.32)" },
-  { id: "police", emoji: "🚓", name: "Police", scale: 1.1, glow: "rgba(77,150,255,.45)" },
-  { id: "ambulance", emoji: "🚑", name: "Ambulance", scale: 1.16, glow: "rgba(255,107,107,.45)" },
-  { id: "racer", emoji: "🏎️", name: "Race car", scale: 1.24, glow: "rgba(255,201,60,.5)" },
-  { id: "pickup", emoji: "🛻", name: "Pickup", scale: 1.32, glow: "rgba(255,159,69,.5)" },
-  { id: "truck", emoji: "🚚", name: "Big truck", scale: 1.42, glow: "rgba(255,107,107,.55)" },
-  { id: "monster", emoji: "🚜", name: "Monster rig", scale: 1.55, glow: "rgba(255,69,58,.65)" },
+  { id: "sedan", emoji: "🚗", name: "Sedan", scale: 0.8, glow: "rgba(0,0,0,.25)", body: "#B9C0C9", accent: "#7C8594" },
+  { id: "taxi", emoji: "🚕", name: "Taxi", scale: 0.88, glow: "rgba(0,0,0,.28)", body: "#FFD23F", accent: "#1A1A1A" },
+  { id: "suv", emoji: "🚙", name: "SUV", scale: 0.96, glow: "rgba(0,0,0,.3)", body: "#4A5B73", accent: "#2E3A4D" },
+  { id: "van", emoji: "🚐", name: "Minivan", scale: 1.04, glow: "rgba(0,0,0,.32)", body: "#6FB3A8", accent: "#3F8A7F" },
+  { id: "police", emoji: "🚓", name: "Police", scale: 1.1, glow: "rgba(77,150,255,.45)", body: "#F4F6F8", accent: "#2B6CB0" },
+  { id: "ambulance", emoji: "🚑", name: "Ambulance", scale: 1.16, glow: "rgba(255,107,107,.45)", body: "#FDFDFD", accent: "#E63946" },
+  { id: "racer", emoji: "🏎️", name: "Race car", scale: 1.24, glow: "rgba(255,201,60,.5)", body: "#E63946", accent: "#FFC93C" },
+  { id: "pickup", emoji: "🛻", name: "Pickup", scale: 1.32, glow: "rgba(255,159,69,.5)", body: "#FF9F45", accent: "#7A4A24" },
+  { id: "truck", emoji: "🚚", name: "Big truck", scale: 1.42, glow: "rgba(255,107,107,.55)", body: "#D64545", accent: "#33373D" },
+  { id: "monster", emoji: "🚜", name: "Monster rig", scale: 1.55, glow: "rgba(255,69,58,.65)", body: "#22252B", accent: "#FF4538" },
 ];
+
+// A hand-drawn SVG side profile, nose on the RIGHT — not a system emoji.
+// Emoji car glyphs vary by platform: most vendors draw them facing left, but
+// Microsoft's set faces right, and vertical placement inside the glyph box
+// varies too. That ambiguity is exactly what made the car look like it was
+// driving backwards on some devices and sitting half-buried in the ground
+// on others (the old "-60%" vertical offset was tuned against one font's
+// metrics and wrong on others). A shape this component draws itself renders
+// identically everywhere, so direction and the ground anchor are fixed, not
+// guessed. The bottom edge of the viewBox is exactly the tires' contact
+// line — callers anchor to that edge, not to a glyph's invisible baseline.
+function CarSprite({ car }: { car: CarType }) {
+  const showLightbar = car.id === "police";
+  const showCross = car.id === "ambulance";
+  const wheelR = car.id === "monster" || car.id === "truck" || car.id === "pickup" ? 8.5 : 7;
+  return (
+    <svg viewBox="0 0 100 42" width={76} height={32} style={{ display: "block", overflow: "visible" }}>
+      <path
+        d="M8,30 L13,17 Q16,9 27,9 L62,9 Q72,9 77,15 L92,23 L92,30 Z"
+        fill={car.body}
+        stroke="rgba(0,0,0,.28)"
+        strokeWidth={1.5}
+      />
+      <path d="M25,16 L33,10.5 L58,10.5 L67,16.5 Z" fill="#CFE9FB" opacity={0.92} />
+      <rect x={9} y={23.5} width={80} height={3.6} fill={car.accent} opacity={0.9} />
+      {showLightbar && (
+        <>
+          <rect x={34} y={5} width={10} height={4.5} rx={1.5} fill="#2B6CB0" />
+          <rect x={44} y={5} width={10} height={4.5} rx={1.5} fill="#E63946" />
+        </>
+      )}
+      {showCross && (
+        <g fill="#E63946">
+          <rect x={41} y={14} width={10} height={3} />
+          <rect x={44.5} y={10.5} width={3} height={10} />
+        </g>
+      )}
+      <circle cx={92} cy={23} r={2.6} fill="#FFF6B0" />
+      <circle cx={8} cy={23} r={2.2} fill="#FF4545" />
+      <circle cx={27} cy={32} r={wheelR} fill="#20232A" />
+      <circle cx={27} cy={32} r={wheelR * 0.42} fill="#6B6F76" />
+      <circle cx={74} cy={32} r={wheelR} fill="#20232A" />
+      <circle cx={74} cy={32} r={wheelR * 0.42} fill="#6B6F76" />
+    </svg>
+  );
+}
 
 // --- Sky decoration -------------------------------------------------------
 // A fixed, deterministic field of clouds (no Math.random at module scope —
@@ -724,33 +778,35 @@ export default function MathRaceGame() {
               }}
             />
 
-            {/* Most car emoji glyphs face left by default; the track scrolls
-                left-to-right as the car advances, so without a horizontal
-                flip the car visually drives rear-first. scaleX(-1) mirrors
-                the glyph to face the direction of travel; it's applied
-                BEFORE the slope tilt (rotate) in the transform list so the
-                tilt still reads in normal screen space, not the mirrored
-                one — otherwise uphill/downhill tilt would flip too. */}
-            <span
-              className="absolute text-[30px] leading-none"
+            {/* A drawn sprite, not the system car emoji — see CarSprite's
+                comment for why. Anchored by translate(-50%,-100%): that
+                puts the viewBox's bottom edge (the tires' contact line,
+                by construction) exactly on BASELINE_Y, which is itself the
+                terrain surface at the car's own x. No glyph-metric guessing
+                left for either the ground contact or the facing direction
+                (the sprite is drawn nose-right, matching travel, always). */}
+            <div
+              className="absolute"
               style={{
                 left: CAR_SCREEN_X,
                 top: BASELINE_Y,
-                transform: `translate(-50%,-60%) rotate(${carAngle}deg) scaleX(-1) scale(${selectedCar.scale * (boosting ? 1.12 : 1)})`,
+                transform: `translate(-50%,-100%) rotate(${carAngle}deg) scale(${selectedCar.scale * (boosting ? 1.12 : 1)})`,
                 filter: `drop-shadow(0 4px ${4 + selectedCar.scale * 3}px ${selectedCar.glow})`,
                 transition: "transform 80ms linear",
               }}
             >
               {boosting && (
-                // Local-space positive offset: the parent's scaleX(-1) mirrors
-                // this to screen-left (the car's back, since the fix now
-                // faces it right) so the flame trails behind, not in front.
-                <span className="absolute top-1/2 -translate-y-1/2 text-[16px]" style={{ left: 16, animation: "popStar 0.4s ease-out" }}>
+                // Back of the car is local x=0 (left) now that the sprite
+                // itself is drawn nose-right — no mirroring to account for.
+                <span
+                  className="absolute top-[70%] -translate-y-1/2 text-[16px]"
+                  style={{ left: -16, animation: "popStar 0.4s ease-out" }}
+                >
                   🔥
                 </span>
               )}
-              {selectedCar.emoji}
-            </span>
+              <CarSprite car={selectedCar} />
+            </div>
 
             {phase === "question" && question && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/55 p-4">
