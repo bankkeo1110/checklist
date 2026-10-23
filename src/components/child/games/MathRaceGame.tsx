@@ -180,9 +180,9 @@ function terrainSlope(x: number, seed: number): number {
 
 // --- Hill-climb physics tuning ------------------------------------------
 
-const VIEW_WIDTH = 640;
-const VIEW_HEIGHT = 340;
-const BASELINE_Y = 222;
+const VIEW_WIDTH = 720;
+const VIEW_HEIGHT = 380;
+const BASELINE_Y = 248;
 const CAR_SCREEN_X = VIEW_WIDTH * 0.3;
 const TICK_MS = 50;
 const TERRAIN_STEP = 12;
@@ -243,38 +243,74 @@ const CAR_TYPES: CarType[] = [
 // identically everywhere, so direction and the ground anchor are fixed, not
 // guessed. The bottom edge of the viewBox is exactly the tires' contact
 // line — callers anchor to that edge, not to a glyph's invisible baseline.
+// Lightens (amt > 0) or darkens (amt < 0) a #rrggbb/#rgb color toward white
+// or black by amt (0..1) — used to build a glossy top-to-bottom gradient out
+// of each car's single base color instead of hand-picking two more shades
+// per car type.
+function shade(hex: string, amt: number): string {
+  const c = hex.replace("#", "");
+  const full = c.length === 3 ? c.split("").map((ch) => ch + ch).join("") : c;
+  const num = parseInt(full, 16);
+  const target = amt >= 0 ? 255 : 0;
+  const t = Math.min(1, Math.abs(amt));
+  const mix = (channel: number) => Math.round(channel + (target - channel) * t);
+  const r = mix((num >> 16) & 255);
+  const g = mix((num >> 8) & 255);
+  const b = mix(num & 255);
+  return `rgb(${r},${g},${b})`;
+}
+
 function CarSprite({ car }: { car: CarType }) {
   const showLightbar = car.id === "police";
   const showCross = car.id === "ambulance";
-  const wheelR = car.id === "monster" || car.id === "truck" || car.id === "pickup" ? 8.5 : 7;
+  const big = car.id === "monster" || car.id === "truck" || car.id === "pickup";
+  const wheelR = big ? 9 : 7.5;
+  const gradId = `carGrad-${car.id}`;
   return (
-    <svg viewBox="0 0 100 42" width={76} height={32} style={{ display: "block", overflow: "visible" }}>
+    <svg viewBox="0 0 112 43" width={92} height={38} style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={shade(car.body, 0.4)} />
+          <stop offset="50%" stopColor={car.body} />
+          <stop offset="100%" stopColor={shade(car.body, -0.25)} />
+        </linearGradient>
+      </defs>
+
+      {/* Rounded, nose-right silhouette — see CarSprite's module comment
+          above for why this is drawn rather than borrowed from a glyph. */}
       <path
-        d="M8,30 L13,17 Q16,9 27,9 L62,9 Q72,9 77,15 L92,23 L92,30 Z"
-        fill={car.body}
-        stroke="rgba(0,0,0,.28)"
-        strokeWidth={1.5}
+        d="M8,34 Q8,23 17,19 L21,15 Q27,9 39,9 L69,9 Q79,9 85,14 L95,21 Q105,23 105,30 L105,34 Z"
+        fill={`url(#${gradId})`}
+        stroke={shade(car.body, -0.4)}
+        strokeWidth={1.4}
+        strokeLinejoin="round"
       />
-      <path d="M25,16 L33,10.5 L58,10.5 L67,16.5 Z" fill="#CFE9FB" opacity={0.92} />
-      <rect x={9} y={23.5} width={80} height={3.6} fill={car.accent} opacity={0.9} />
+
+      <path d="M24,16 L30,10.5 L66,10.5 L80,17 Z" fill="#CFE9FB" opacity={0.92} />
+      <rect x={9} y={25} width={94} height={3.6} fill={car.accent} opacity={0.9} rx={1} />
+
       {showLightbar && (
         <>
-          <rect x={34} y={5} width={10} height={4.5} rx={1.5} fill="#2B6CB0" />
-          <rect x={44} y={5} width={10} height={4.5} rx={1.5} fill="#E63946" />
+          <rect x={38} y={4.5} width={11} height={5} rx={1.6} fill="#2B6CB0" />
+          <rect x={49} y={4.5} width={11} height={5} rx={1.6} fill="#E63946" />
         </>
       )}
       {showCross && (
         <g fill="#E63946">
-          <rect x={41} y={14} width={10} height={3} />
-          <rect x={44.5} y={10.5} width={3} height={10} />
+          <rect x={46} y={13} width={11} height={3.2} />
+          <rect x={50} y={9} width={3.2} height={11} />
         </g>
       )}
-      <circle cx={92} cy={23} r={2.6} fill="#FFF6B0" />
-      <circle cx={8} cy={23} r={2.2} fill="#FF4545" />
-      <circle cx={27} cy={32} r={wheelR} fill="#20232A" />
-      <circle cx={27} cy={32} r={wheelR * 0.42} fill="#6B6F76" />
-      <circle cx={74} cy={32} r={wheelR} fill="#20232A" />
-      <circle cx={74} cy={32} r={wheelR * 0.42} fill="#6B6F76" />
+
+      <circle cx={105} cy={25} r={2.8} fill="#FFF6B0" />
+      <circle cx={8} cy={25} r={2.4} fill="#FF4545" />
+
+      <circle cx={30} cy={34} r={wheelR} fill="#1B1E24" />
+      <circle cx={30} cy={34} r={wheelR * 0.55} fill="#8A9099" />
+      <circle cx={30 - wheelR * 0.3} cy={34 - wheelR * 0.3} r={wheelR * 0.18} fill="#fff" opacity={0.6} />
+      <circle cx={84} cy={34} r={wheelR} fill="#1B1E24" />
+      <circle cx={84} cy={34} r={wheelR * 0.55} fill="#8A9099" />
+      <circle cx={84 - wheelR * 0.3} cy={34 - wheelR * 0.3} r={wheelR * 0.18} fill="#fff" opacity={0.6} />
     </svg>
   );
 }
@@ -625,7 +661,7 @@ export default function MathRaceGame() {
   const fuelBarColor = fuelPct > 35 ? "#6BCB77" : fuelPct > 15 ? "#FFC93C" : "#FF6B6B";
 
   return (
-    <div className="flex flex-col gap-4 rounded-[22px] p-5 shadow-lg" style={{ background: "linear-gradient(165deg,#ffffff,#f3eaff)" }}>
+    <div className="flex flex-col gap-4 rounded-[22px] px-3 py-5 shadow-lg" style={{ background: "linear-gradient(165deg,#ffffff,#f3eaff)" }}>
       <div className="flex items-center justify-between">
         <h3 className="font-display text-[18px] font-extrabold tracking-tight">
           <span style={{ background: "linear-gradient(90deg,#B983FF,#4D96FF)", WebkitBackgroundClip: "text", color: "transparent" }}>
@@ -698,7 +734,11 @@ export default function MathRaceGame() {
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-2xl shadow-inner" style={{ height: VIEW_HEIGHT, background: "linear-gradient(180deg,#8FD3F4,#D9F0FF)" }}>
+          {/* -mx-3 bleeds this past the card's own horizontal padding (px-3
+              above) so the track uses the full card width, not card-width
+              minus padding on both sides — this is the actual "wider
+              screen" the padding was quietly eating on narrow phones. */}
+          <div className="relative -mx-3 overflow-hidden rounded-2xl shadow-inner" style={{ height: VIEW_HEIGHT, background: "linear-gradient(180deg,#8FD3F4,#D9F0FF)" }}>
             <svg viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`} width="100%" height="100%" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="terrainGrad" x1="0" y1="0" x2="0" y2="1">
