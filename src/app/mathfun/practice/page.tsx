@@ -4,9 +4,11 @@ import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { generateQuestion, TOPICS, TOPIC_CATEGORIES, type Topic, type Question, type Category } from '@/lib/mathfun/questions';
+import { LESSONS } from '@/lib/mathfun/curriculum';
+import MathText from '@/components/mathfun/MathText';
 import { TARGET_POINTS, calcScore, isSessionComplete, calcAccuracy, getPointsDelta } from '@/lib/mathfun/practice-logic';
 
-const CATEGORY_ORDER: Category[] = ['numbers', 'fractions', 'measurement-geometry', 'problem-solving'];
+const CATEGORY_ORDER: Category[] = ['hk1', 'hk2', 'numbers', 'fractions', 'measurement-geometry', 'problem-solving'];
 
 interface AuthUser { studentId: number; name: string; }
 interface BadgeResult { badge: string; isNew: boolean; isUpgrade: boolean; previousBadge: string | null; }
@@ -18,7 +20,7 @@ const BADGE_LABEL: Record<string, string> = {
 
 const PROGRESS_KEY = 'mathapp_session_progress';
 
-type Phase = 'setup' | 'playing' | 'result';
+type Phase = 'setup' | 'theory' | 'playing' | 'result';
 
 interface SavedProgress {
   topic: Topic;
@@ -100,6 +102,8 @@ function PracticeApp() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [selectedTopic, setSelectedTopic] = useState<Topic>(topicParam ?? 'addition');
 
+  const lesson = LESSONS.find(l => l.id === selectedTopic);
+
   const [question, setQuestion] = useState<Question | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
@@ -145,7 +149,8 @@ function PracticeApp() {
     }
     setEarnedBadge(null);
     setFlash(null);
-    setPhase('playing');
+    // Curriculum lessons open on the rule + examples first; resuming a saved game goes straight to the exercises.
+    setPhase(lesson && !saved ? 'theory' : 'playing');
     localStorage.setItem('mathapp_last_topic', selectedTopic);
     nextQuestion();
   };
@@ -223,6 +228,47 @@ function PracticeApp() {
   };
 
   const topicInfo = TOPICS.find(t => t.id === selectedTopic)!;
+
+  /* ── THEORY (rule + worked examples, then exercises) ── */
+  if (phase === 'theory' && lesson) {
+    return (
+      <div className="max-w-xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={() => setPhase('setup')}
+            className="card-comic-sm bg-white font-black text-sm px-3 py-1.5 rounded-lg hover:bg-gray-50 transition">
+            ← Quay lại
+          </button>
+          <span className={`card-comic-sm px-3 py-1 rounded-full font-black text-sm ${lesson.color}`}>
+            {lesson.emoji} {lesson.label}
+          </span>
+        </div>
+
+        <div className="card-comic bg-white rounded-2xl p-6 mb-4">
+          <h2 className="font-black text-lg mb-2">📖 Quy tắc cần nhớ</h2>
+          <div className="text-gray-700 leading-relaxed [&_p]:font-normal! [&_p]:mb-2">
+            <MathText content={lesson.rule} />
+          </div>
+        </div>
+
+        <div className="card-comic bg-yellow-50 rounded-2xl p-6 mb-5">
+          <h2 className="font-black text-lg mb-3">✏️ Ví dụ</h2>
+          <div className="flex flex-col gap-4">
+            {lesson.examples.map((ex, i) => (
+              <div key={i} className="text-gray-700 [&_p]:font-normal!">
+                <div className="font-bold text-gray-900"><MathText content={`Ví dụ ${i + 1}: ${ex.q}`} /></div>
+                <div className="mt-1 pl-3 border-l-4 border-green-400"><MathText content={`→ ${ex.a}`} /></div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={() => setPhase('playing')}
+          className="card-comic w-full bg-[#FFD015] text-[#1a1a1a] font-black py-4 rounded-2xl text-lg hover:bg-yellow-300 transition">
+          ▶ Làm bài tập (đạt 100 điểm)
+        </button>
+      </div>
+    );
+  }
 
   /* ── SETUP ── */
   if (phase === 'setup') {
@@ -383,6 +429,11 @@ function PracticeApp() {
         <span className={`card-comic-sm px-3 py-1 rounded-full font-black text-sm ${topicInfo.color}`}>
           {topicInfo.emoji} {topicInfo.label}
         </span>
+        {lesson && (
+          <button onClick={() => setPhase('theory')} className="card-comic-sm bg-white font-black text-sm px-3 py-1.5 rounded-lg hover:bg-gray-50 transition">
+            📖 Lý thuyết
+          </button>
+        )}
         <span className="font-black text-sm text-gray-500">✅ {correctCount} ❌ {totalAnswered - correctCount}</span>
       </div>
 

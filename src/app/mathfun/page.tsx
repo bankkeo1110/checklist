@@ -8,7 +8,7 @@ interface Badge { topic: string; badge: string; bestScore: number; attempts: num
 
 const BADGE_EMOJI: Record<string, string> = { bronze: '🥉', silver: '🥈', gold: '🥇', perfect: '👑' };
 
-const CATEGORY_ORDER: Category[] = ['numbers', 'fractions', 'measurement-geometry', 'problem-solving'];
+const CATEGORY_ORDER: Category[] = ['hk1', 'hk2', 'numbers', 'fractions', 'measurement-geometry', 'problem-solving'];
 
 export default function Home() {
   const [studentId, setStudentId] = useState<number | null>(null);

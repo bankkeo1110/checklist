@@ -10,12 +10,13 @@ type Token =
   | { kind: "text"; value: string }
   | { kind: "math"; value: string }
   | { kind: "image"; src: string }
-  | { kind: "blank"; index: number };
+  | { kind: "blank"; index: number }
+  | { kind: "bold"; value: string };
 
 function tokenize(content: string): Token[] {
   const tokens: Token[] = [];
   // $...$ math, [I:file]/[U:url] images, {} blanks — scanned left to right in one pass.
-  const re = /\$([^$]+)\$|\[I:([^\]]+)\]|\[U:([^\]]+)\]|\{\}/g;
+  const re = /\$([^$]+)\$|\[I:([^\]]+)\]|\[U:([^\]]+)\]|\{\}|\*\*([^*]+)\*\*/g;
   let last = 0;
   let blankIndex = 0;
   let match: RegExpExecArray | null;
@@ -24,6 +25,7 @@ function tokenize(content: string): Token[] {
     if (match[1] !== undefined) tokens.push({ kind: "math", value: match[1] });
     else if (match[2] !== undefined) tokens.push({ kind: "image", src: IMG_BASE + match[2] });
     else if (match[3] !== undefined) tokens.push({ kind: "image", src: match[3] });
+    else if (match[4] !== undefined) tokens.push({ kind: "bold", value: match[4] });
     else tokens.push({ kind: "blank", index: blankIndex++ });
     last = re.lastIndex;
   }
@@ -57,6 +59,8 @@ export default function MathText({
             switch (t.kind) {
               case "text":
                 return <Fragment key={j}>{t.value}</Fragment>;
+              case "bold":
+                return <strong key={j}>{t.value}</strong>;
               case "math":
                 return <Math key={j} tex={t.value} />;
               case "image":

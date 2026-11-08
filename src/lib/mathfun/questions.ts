@@ -1,4 +1,7 @@
-export type Topic =
+import { shuffle, rand, pick, gcd, lcm, simplifyFrac, makeChoices } from './qutil';
+import { LESSONS } from './curriculum';
+
+export type LegacyTopic =
   | 'place-value'
   | 'addition'
   | 'subtraction'
@@ -22,7 +25,10 @@ export type Topic =
   | 'time'
   | 'word-problems';
 
-export type Category = 'numbers' | 'fractions' | 'measurement-geometry' | 'problem-solving';
+/** Legacy topics plus the curriculum lesson ids (`hk1-…` / `hk2-…`). */
+export type Topic = LegacyTopic | (string & {});
+
+export type Category = 'numbers' | 'fractions' | 'measurement-geometry' | 'problem-solving' | 'hk1' | 'hk2';
 
 export interface Question {
   question: string;
@@ -42,18 +48,6 @@ export interface TopicMeta {
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-function shuffle<T>(arr: T[]): T[] { return [...arr].sort(() => Math.random() - 0.5); }
-function rand(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function pick<T>(arr: T[]): T { return arr[rand(0, arr.length - 1)]; }
-
-function gcd(a: number, b: number): number { return b === 0 ? Math.abs(a) : gcd(b, a % b); }
-function lcm(a: number, b: number): number { return (a * b) / gcd(a, b); }
-
-function simplifyFrac(num: number, den: number): string {
-  if (num === 0) return '0';
-  const g = gcd(Math.abs(num), den);
-  return den / g === 1 ? String(num / g) : `${num / g}/${den / g}`;
-}
 
 function toMixed(num: number, den: number): string {
   const s = simplifyFrac(num, den);
@@ -63,18 +57,6 @@ function toMixed(num: number, den: number): string {
   const whole = Math.floor(n / d);
   const rem = n % d;
   return rem === 0 ? String(whole) : `${whole} ${rem}/${d}`;
-}
-
-/** numeric choices around a correct value */
-function makeChoices(correct: number, range: number): string[] {
-  const r = Math.max(range, 3); // need at least 3 to guarantee 3 unique positives
-  const wrong = new Set<number>();
-  while (wrong.size < 3) {
-    const offset = rand(-r, r);
-    const v = correct + offset;
-    if (offset !== 0 && v > 0) wrong.add(v);
-  }
-  return shuffle([correct, ...wrong].map(String));
 }
 
 /** fraction / string choices with explicit distractors */
@@ -1072,7 +1054,9 @@ function genWordProblems(): Question {
 // ─── DISPATCH ────────────────────────────────────────────────────────────────
 
 export function generateQuestion(topic: Topic): Question {
-  switch (topic) {
+  const lesson = LESSONS.find((l) => l.id === topic);
+  if (lesson) return lesson.gen();
+  switch (topic as LegacyTopic) {
     case 'place-value':        return genPlaceValue();
     case 'addition':           return genAddition();
     case 'subtraction':        return genSubtraction();
@@ -1101,6 +1085,8 @@ export function generateQuestion(topic: Topic): Question {
 // ─── TOPIC METADATA ──────────────────────────────────────────────────────────
 
 export const TOPIC_CATEGORIES: Record<Category, { label: string; emoji: string }> = {
+  hk1:                  { label: 'Toán 4 — Học kì 1', emoji: '📘' },
+  hk2:                  { label: 'Toán 4 — Học kì 2', emoji: '📗' },
   numbers:              { label: 'Numbers & Operations', emoji: '🔢' },
   fractions:            { label: 'Fractions & Decimals', emoji: '🍕' },
   'measurement-geometry': { label: 'Geometry & Measurement', emoji: '📐' },
@@ -1135,3 +1121,8 @@ export const TOPICS: TopicMeta[] = [
   // Word Problems
   { id: 'word-problems',     label: 'Word Problems',       emoji: '📖', color: 'bg-orange-100 border-orange-500 text-orange-900', category: 'problem-solving',       description: 'Real-world multi-step problems' },
 ];
+
+// Curriculum lessons (theory + exercises) share the same topic list so badges/reports work unchanged.
+TOPICS.unshift(...LESSONS.map<TopicMeta>((l) => ({
+  id: l.id, label: l.label, emoji: l.emoji, color: l.color, category: l.semester === 1 ? 'hk1' : 'hk2', description: l.description,
+})));
