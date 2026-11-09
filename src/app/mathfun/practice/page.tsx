@@ -136,7 +136,7 @@ function PracticeApp() {
   }, [selectedTopic]);
 
   const startGame = (forceNew = false) => {
-    const saved = !forceNew ? savedProgress : null;
+    const saved = !forceNew ? loadProgress(selectedTopic) : null; // read storage, not state: may run right after a topic change
     if (saved) {
       setPoints(saved.points);
       setCorrectCount(saved.correctCount);
@@ -154,6 +154,15 @@ function PracticeApp() {
     localStorage.setItem('mathapp_last_topic', selectedTopic);
     nextQuestion();
   };
+
+  // Double-click on a topic: select it, then start once the new selection has rendered.
+  const [autoStart, setAutoStart] = useState(false);
+  useEffect(() => {
+    if (!autoStart) return;
+    setAutoStart(false);
+    startGame(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to the autoStart flag
+  }, [autoStart]);
 
   const handleAnswer = (choice: string) => {
     if (chosen || !question) return;
@@ -296,7 +305,7 @@ function PracticeApp() {
                   <div className="text-xs font-black tracking-widest text-gray-400 mb-2">{catMeta.emoji} {catMeta.label.toUpperCase()}</div>
                   <div className="grid grid-cols-2 gap-2">
                     {catTopics.map(t => (
-                      <button key={t.id} onClick={() => setSelectedTopic(t.id)}
+                      <button key={t.id} onClick={() => setSelectedTopic(t.id)} onDoubleClick={() => { setSelectedTopic(t.id); setAutoStart(true); }}
                         className={`rounded-xl p-2.5 font-black text-left transition card-comic-sm text-sm ${
                           selectedTopic === t.id
                             ? `${t.color} border-[#1a1a1a]`
@@ -314,6 +323,7 @@ function PracticeApp() {
         </div>
 
         <div className="card-comic-sm bg-blue-50 border-blue-300 rounded-2xl p-4 mb-5 text-sm font-semibold text-blue-700">
+          👆 Nhấp đúp vào một chủ đề để vào làm ngay.<br />
           🎮 Reach <strong>100 points</strong> to complete · <strong>&lt;30 pts:</strong> ±10 · <strong>30–59 pts:</strong> ±5 · <strong>60–79 pts:</strong> ±3 · <strong>80–100 pts:</strong> ±2
         </div>
 
