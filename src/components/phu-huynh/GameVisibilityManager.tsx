@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import Spinner from "@/components/Spinner";
 import type { GameDef } from "@/lib/games";
@@ -41,6 +42,11 @@ export default function GameVisibilityManager({ games }: { games: GameRow[] }) {
             <p className="text-sm font-bold">{game.title}</p>
             <p className="text-[12px] font-semibold text-muted">{game.blurb}</p>
           </div>
+          {game.parentHref && (
+            <Link href={game.parentHref} className="flex-none rounded-full bg-blue-tint px-3 py-1.5 text-[11.5px] font-bold text-blue-text">
+              Xem thử
+            </Link>
+          )}
           <button
             disabled={busyId === game.id}
             onClick={() => toggle(game)}

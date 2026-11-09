@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { generateQuestion, TOPICS, TOPIC_CATEGORIES, type Topic, type Question, type Category } from '@/lib/mathfun/questions';
+import { addCredit } from '@/lib/mathfun/footballCredit';
 import { LESSONS } from '@/lib/mathfun/curriculum';
 import MathText from '@/components/mathfun/MathText';
 import { TARGET_POINTS, calcScore, isSessionComplete, calcAccuracy, getPointsDelta } from '@/lib/mathfun/practice-logic';
@@ -215,6 +216,7 @@ function PracticeApp() {
 
     if (isSessionComplete(pending.points)) {
       clearProgress();
+      addCredit(); // +5 minutes of the football reward game
       if (user) {
         try {
           const res = await fetch('/api/mathfun/sessions/complete', {
@@ -378,6 +380,9 @@ function PracticeApp() {
         <div className="card-comic bg-white rounded-3xl p-8">
           <div className="text-7xl mb-3">🏆</div>
           <h1 className="font-black text-3xl mb-1 tracking-wide">COMPLETED!</h1>
+          <Link href="/child/games/football" className="card-comic-sm mb-3 inline-block bg-green-100 border-green-500 font-black text-green-800 py-2 px-4 rounded-xl hover:bg-green-200 transition">
+            ⚽ Bạn được chơi đá bóng 5 phút! Chơi ngay →
+          </Link>
           <p className="text-gray-400 font-bold mb-6">{topicInfo.emoji} {topicInfo.label}</p>
 
           <div className="grid grid-cols-3 gap-4 mb-6">

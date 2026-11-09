@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 
-export type GameId = "typing" | "units" | "mathrace";
+export type GameId = "typing" | "units" | "mathrace" | "football";
 
 export type GameDef = {
   id: GameId;
@@ -9,6 +9,8 @@ export type GameDef = {
   title: string;
   blurb: string;
   accent: string;
+  /** Parent-side preview page (child routes need a child login). */
+  parentHref?: string;
 };
 
 // Single source of truth for the reward-games menu — both the child-facing
@@ -38,6 +40,15 @@ export const GAMES: GameDef[] = [
     title: "Math Hill Climb",
     blurb: "Gas and brake over the hills, grab coins, and answer fractions/decimals pit stops to refuel and boost!",
     accent: "bg-purple-tint text-purple-text",
+  },
+  {
+    id: "football",
+    href: "/child/games/football",
+    parentHref: "/phu-huynh/games/football",
+    emoji: "⚽",
+    title: "Penalty Shootout",
+    blurb: "Earn 5 minutes of play every time you reach 100 points in a Math Fun exercise.",
+    accent: "bg-green-tint text-green-text",
   },
 ];
 
