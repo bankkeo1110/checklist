@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { getCredit } from '@/lib/mathfun/footballCredit';
 import { TOPICS, TOPIC_CATEGORIES, type Category } from '@/lib/mathfun/questions';
 
 interface Badge { topic: string; badge: string; bestScore: number; attempts: number; }
@@ -15,10 +16,12 @@ export default function Home() {
   const [studentName, setStudentName] = useState<string | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [lastTopic, setLastTopic] = useState<string | null>(null);
+  const [creditSec, setCreditSec] = useState(0);
 
   useEffect(() => {
     const topic = localStorage.getItem('mathapp_last_topic');
     setLastTopic(topic);
+    setCreditSec(getCredit());
     fetch('/api/mathfun/me')
       .then(r => r.json())
       .then(d => {
@@ -101,6 +104,18 @@ export default function Home() {
           </Link>
         </div>
       </div>
+
+      {/* Reward: football */}
+      <Link href="/child/games/football" className="card-comic bg-green-500 text-white rounded-2xl p-5 mb-8 flex items-center justify-between gap-4 hover:-translate-y-0.5 transition-all">
+        <div>
+          <h3 className="font-black text-xl">⚽ Đá bóng thưởng</h3>
+          <p className="text-green-50 font-semibold text-sm">Đạt 100 điểm một bài toán để được chơi 5 phút.</p>
+        </div>
+        <div className="shrink-0 text-center font-black">
+          <div className="text-3xl leading-none">{Math.floor(creditSec / 60)}:{String(creditSec % 60).padStart(2, '0')}</div>
+          <div className="text-xs tracking-widest mt-1">CÒN LẠI</div>
+        </div>
+      </Link>
 
       {/* Topics by category */}
       {CATEGORY_ORDER.map(cat => {
