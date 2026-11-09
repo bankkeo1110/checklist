@@ -46,8 +46,8 @@ export const GAMES: GameDef[] = [
     href: "/child/games/football",
     parentHref: "/phu-huynh/games/football",
     emoji: "⚽",
-    title: "Penalty Shootout",
-    blurb: "Earn 5 minutes of play every time you reach 100 points in a Math Fun exercise.",
+    title: "Dragon Ball Soccer",
+    blurb: "Pick 3 warriors, tackle, pass and charge a special shot! Earn 5 minutes of play every time you reach 100 points in Math Fun.",
     accent: "bg-green-tint text-green-text",
   },
 ];
