@@ -8,6 +8,7 @@ import { CHARS, GY1, GY2, H, W, emptyInput, newGame, step, type Char, type Game,
 
 type Stage = 'pick' | 'play' | 'over';
 
+const SPRITE = 1.35; // sprites are drawn big relative to the pitch, like the arcade original
 const TEAM = ['#2563eb', '#dc2626']; // player blue, CPU red
 
 // ── drawing ──────────────────────────────────────────────────────────────────
@@ -15,7 +16,7 @@ const TEAM = ['#2563eb', '#dc2626']; // player blue, CPU red
 function drawChar(ctx: CanvasRenderingContext2D, c: Char, x: number, y: number, o: { fx: number; fy: number; side: 0 | 1; down: boolean; moving: boolean; tick: number; glow?: boolean }) {
   const bob = o.moving && !o.down ? Math.sin(o.tick * 0.5) * 1.2 : 0;
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(x, y); ctx.scale(SPRITE, SPRITE);
   ctx.fillStyle = 'rgba(0,0,0,.25)';
   ctx.beginPath(); ctx.ellipse(0, 11, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
   if (o.glow) { ctx.fillStyle = c.shotColor + '66'; ctx.beginPath(); ctx.arc(0, -4, 17 + Math.sin(o.tick * 0.6) * 2, 0, Math.PI * 2); ctx.fill(); }
@@ -66,9 +67,9 @@ function draw(ctx: CanvasRenderingContext2D, g: Game, tick: number, trail: { x: 
   const ps = [...g.ps].sort((a, c) => a.y - c.y);
   for (const p of ps) {
     drawChar(ctx, CHARS[p.ch], p.x, p.y, { fx: p.fx, fy: p.fy, side: p.side, down: p.down > 0, moving: p.vx !== 0 || p.vy !== 0, tick, glow: p.charge >= 60 });
-    if (p === g.ctl) { ctx.fillStyle = '#ffe14d'; ctx.beginPath(); ctx.moveTo(p.x - 4, p.y - 38); ctx.lineTo(p.x + 4, p.y - 38); ctx.lineTo(p.x, p.y - 32); ctx.fill(); }
-    if (p.charge > 0) { ctx.fillStyle = '#0006'; ctx.fillRect(p.x - 9, p.y - 42, 18, 3); ctx.fillStyle = p.charge >= 60 ? CHARS[p.ch].shotColor : '#fff'; ctx.fillRect(p.x - 9, p.y - 42, 18 * Math.min(1, p.charge / 60), 3); }
-    if (p.down > 0) { ctx.fillStyle = '#ffe14d'; ctx.font = '12px sans-serif'; ctx.fillText('✦', p.x - 5 + Math.sin(tick * 0.4) * 4, p.y - 18); }
+    if (p === g.ctl) { ctx.fillStyle = '#ffe14d'; ctx.beginPath(); ctx.moveTo(p.x - 5, p.y - 48); ctx.lineTo(p.x + 5, p.y - 48); ctx.lineTo(p.x, p.y - 41); ctx.fill(); }
+    if (p.charge > 0) { ctx.fillStyle = '#0006'; ctx.fillRect(p.x - 10, p.y - 53, 20, 4); ctx.fillStyle = p.charge >= 60 ? CHARS[p.ch].shotColor : '#fff'; ctx.fillRect(p.x - 10, p.y - 53, 20 * Math.min(1, p.charge / 60), 4); }
+    if (p.down > 0) { ctx.fillStyle = '#ffe14d'; ctx.font = '12px sans-serif'; ctx.fillText('✦', p.x - 5 + Math.sin(tick * 0.4) * 4, p.y - 28); }
   }
   // special-shot trail + ball
   if (b.sup) { trail.push({ x: b.x, y: b.y }); if (trail.length > 9) trail.shift(); } else trail.length = 0;
@@ -92,7 +93,7 @@ function CharThumb({ c, side }: { c: Char; side: 0 | 1 }) {
     const ctx = ref.current?.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, 60, 64);
-    ctx.translate(30, 44); ctx.scale(1.5, 1.5);
+    ctx.translate(30, 48); ctx.scale(1.1, 1.1);
     drawChar(ctx, c, 0, 0, { fx: 0, fy: 1, side, down: false, moving: false, tick: 0 });
   }, [c, side]);
   return <canvas ref={ref} width={60} height={64} />;
@@ -230,9 +231,9 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
       <canvas ref={canvasRef} width={W} height={H} className="w-full touch-none select-none rounded-xl border-4 border-white shadow-xl" />
       <div className="flex items-center justify-between gap-3 select-none">
         <div className="grid grid-cols-3 grid-rows-3 gap-1 [&>button]:h-11 [&>button]:w-11 [&>button]:touch-none [&>button]:rounded-xl [&>button]:bg-white [&>button]:text-lg [&>button]:font-black [&>button]:shadow">
-          <span /><button {...hold('up')}>▲</button><span />
-          <button {...hold('left')}>◀</button><span /><button {...hold('right')}>▶</button>
-          <span /><button {...hold('down')}>▼</button><span />
+          <span /><button {...hold('up')}>↑</button><span />
+          <button {...hold('left')}>←</button><span /><button {...hold('right')}>→</button>
+          <span /><button {...hold('down')}>↓</button><span />
         </div>
         <div className="flex gap-2 [&>button]:touch-none [&>button]:rounded-full [&>button]:px-4 [&>button]:py-4 [&>button]:text-sm [&>button]:font-black [&>button]:text-white [&>button]:shadow-lg">
           <button className="!bg-sky-500" {...hold('pass')}>🎯 Chuyền</button>

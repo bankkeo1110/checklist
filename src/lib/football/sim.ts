@@ -104,7 +104,7 @@ function decide(g: Game, p: P, chaser: P | undefined): Act {
     const gc = goalCenter(p.side);
     const foe = g.ps.filter((q) => q.side !== p.side && !q.gk && q.down === 0 && Math.abs(q.x - p.x) < 40 && Math.abs(q.y - p.y) < 30)[0];
     const toGoal = Math.abs(p.x - gc.x);
-    if (toGoal < 175 && p.cd <= 0 && Math.random() < 0.05) return { mx: 0, my: 0, shoot: Math.random() < 0.2 ? 's' : 'n' };
+    if (toGoal < 175 && p.cd <= 0 && Math.random() < 0.03) return { mx: 0, my: 0, shoot: Math.random() < 0.2 ? 's' : 'n' };
     if (foe && Math.random() < 0.04) return { mx: 0, my: 0, pass: true };
     return { mx: gc.x - p.x, my: (foe ? (p.y < foe.y ? -60 : 60) : gc.y - p.y) };
   }
@@ -139,12 +139,13 @@ function act(g: Game, p: P, a: Act, human: boolean, inp: Input | null) {
     return;
   }
   let mx = a.mx, my = a.my;
-  const sp = (human ? 1.7 : p.side === 1 ? 1.45 : 1.6) * (b.owner === p ? 0.9 : 1) * (p.gk ? 0.8 : 1);
+  const sp = (human ? 1.7 : p.side === 1 ? 1.3 : 1.6) * (b.owner === p ? 0.9 : 1) * (p.gk ? 0.8 : 1);
   if (p.slide > 0) {
     p.slide--; p.vx = p.fx * 3.4; p.vy = p.fy * 3.4;
   } else {
     const l = Math.hypot(mx, my);
-    if (l > 3) { mx /= l; my /= l; p.fx = mx; p.fy = my; p.vx = mx * sp; p.vy = my * sp; } else { p.vx = p.vy = 0; }
+    if (l > (human ? 0.1 : 3)) { // keys give a 0..1 vector, AI gives a pixel offset to its target
+      mx /= l; my /= l; p.fx = mx; p.fy = my; p.vx = mx * sp; p.vy = my * sp; } else { p.vx = p.vy = 0; }
   }
   p.x = clamp(p.x + p.vx, MX, W - MX); p.y = clamp(p.y + p.vy, MY, H - MY);
 
