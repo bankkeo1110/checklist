@@ -213,7 +213,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
         </div>
         <button disabled={picked.length !== 3} onClick={() => { setScore([0, 0]); setStage('play'); }}
           className="rounded-full bg-green-500 py-3 text-lg font-bold text-white shadow-lg disabled:opacity-40">
-          ▶ Vào trận{preview ? ' (xem thử, không giới hạn giờ)' : ''}
+          ▶ Vào trận{preview ? ' (phụ huynh chơi, không giới hạn giờ)' : ''}
         </button>
       </div>
     );
@@ -224,7 +224,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-2">
       <div className="flex items-center justify-between rounded-xl bg-white px-4 py-2 text-lg font-black shadow">
         <span style={{ color: TEAM[0] }}>Bạn {score[0]}</span>
-        <span>⏱️ {m}{preview && ' (xem thử)'}</span>
+        <span>⏱️ {m}{preview && ' (chơi thử)'}</span>
         <span style={{ color: TEAM[1] }}>{score[1]} Máy</span>
       </div>
       <canvas ref={canvasRef} width={W} height={H} className="w-full touch-none select-none rounded-xl border-4 border-white shadow-xl" />

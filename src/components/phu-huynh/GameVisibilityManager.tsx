@@ -44,7 +44,7 @@ export default function GameVisibilityManager({ games }: { games: GameRow[] }) {
           </div>
           {game.parentHref && (
             <Link href={game.parentHref} className="flex-none rounded-full bg-blue-tint px-3 py-1.5 text-[11.5px] font-bold text-blue-text">
-              Xem thử
+              Chơi thử
             </Link>
           )}
           <button
