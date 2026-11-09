@@ -1085,8 +1085,8 @@ export function generateQuestion(topic: Topic): Question {
 // ─── TOPIC METADATA ──────────────────────────────────────────────────────────
 
 export const TOPIC_CATEGORIES: Record<Category, { label: string; emoji: string }> = {
-  hk1:                  { label: 'Toán 4 — Học kì 1', emoji: '📘' },
-  hk2:                  { label: 'Toán 4 — Học kì 2', emoji: '📗' },
+  hk1:                  { label: 'Toán 5 — Học kì 1', emoji: '📘' },
+  hk2:                  { label: 'Toán 5 — Học kì 2', emoji: '📗' },
   numbers:              { label: 'Numbers & Operations', emoji: '🔢' },
   fractions:            { label: 'Fractions & Decimals', emoji: '🍕' },
   'measurement-geometry': { label: 'Geometry & Measurement', emoji: '📐' },
