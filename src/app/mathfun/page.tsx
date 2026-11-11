@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getCredit } from '@/lib/mathfun/footballCredit';
-import { TOPICS, TOPIC_CATEGORIES, type Category } from '@/lib/mathfun/questions';
+import { TOPICS } from '@/lib/mathfun/questions';
+import { LESSONS } from '@/lib/mathfun/curriculum';
+import IslandMap from '@/components/mathfun/IslandMap';
 
 interface Badge { topic: string; badge: string; bestScore: number; attempts: number; }
 
 const BADGE_EMOJI: Record<string, string> = { bronze: '🥉', silver: '🥈', gold: '🥇', perfect: '👑' };
-
-const CATEGORY_ORDER: Category[] = ['hk1', 'hk2', 'numbers', 'fractions', 'measurement-geometry', 'problem-solving'];
 
 export default function Home() {
   const [studentId, setStudentId] = useState<number | null>(null);
@@ -41,14 +41,15 @@ export default function Home() {
   }, []);
 
   const lastTopicInfo = TOPICS.find(t => t.id === lastTopic);
-  const topicsDone = badges.length;
-  const totalTopics = TOPICS.length;
+  const lessonIds = new Set(LESSONS.map(l => l.id));
+  const topicsDone = badges.filter(b => lessonIds.has(b.topic)).length;
+  const totalTopics = LESSONS.length;
 
   const greetings = ['POW!', 'WOW!', 'YO!', 'HEY!'];
   const greeting = studentName ? greetings[studentName.charCodeAt(0) % greetings.length] : 'HEY!';
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
 
       {/* Row 1 — greeting + counter */}
       <div className="flex items-start justify-between mb-6 gap-4">
@@ -117,52 +118,17 @@ export default function Home() {
         </div>
       </Link>
 
-      {/* Topics by category */}
-      {CATEGORY_ORDER.map(cat => {
-        const catTopics = TOPICS.filter(t => t.category === cat);
-        const catMeta = TOPIC_CATEGORIES[cat];
-        return (
-          <div key={cat} className="mb-8">
-            <h2 className="font-black text-xs tracking-[0.2em] text-[#1a1a1a] mb-3 flex items-center gap-2">
-              <span>{catMeta.emoji}</span>
-              <span>{catMeta.label.toUpperCase()}</span>
-              <span className="text-gray-400 font-bold">
-                ({catTopics.filter(t => badges.some(b => b.topic === t.id)).length}/{catTopics.length} done)
-              </span>
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {catTopics.map(t => {
-                const badge = badges.find(b => b.topic === t.id);
-                const pct = badge?.bestScore ?? 0;
-                const barColor = pct >= 90 ? 'bg-green-500' : pct >= 70 ? 'bg-yellow-400' : 'bg-blue-400';
-                return (
-                  <Link key={t.id} href={`/mathfun/practice?topic=${t.id}`}
-                    className="card-comic bg-white rounded-2xl p-4 flex items-center gap-3 hover:-translate-y-0.5 hover:shadow-[5px_5px_0px_#1a1a1a] transition-all">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl border-2 border-[#1a1a1a] shrink-0 ${t.color}`}>
-                      {t.emoji}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-baseline">
-                        <span className="font-black text-sm text-[#1a1a1a]">{t.label}</span>
-                        <span className={`font-black text-xs ml-1 shrink-0 ${pct ? 'text-green-600' : 'text-gray-300'}`}>
-                          {pct ? `${pct}%` : '--'}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-400 font-semibold mb-1.5 truncate">{t.description}</div>
-                      <div className="h-2 bg-gray-100 rounded-full border border-gray-200 overflow-hidden">
-                        <div className={`h-full ${barColor} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-                      </div>
-                      {badge && (
-                        <div className="text-xs text-gray-400 mt-0.5">{BADGE_EMOJI[badge.badge]} {badge.badge} · {badge.attempts} attempt{badge.attempts !== 1 ? 's' : ''}</div>
-                      )}
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+      {/* Toán lớp 5 — treasure map */}
+      <h2 className="font-black text-xs tracking-[0.2em] text-[#1a1a1a] mb-3 flex items-center gap-2">
+        <span>🗺️</span><span>HÀNH TRÌNH TOÁN LỚP 5</span>
+        <span className="text-gray-400 font-bold">(chạm vào đảo để chọn bài)</span>
+      </h2>
+      <div className="mb-6"><IslandMap badges={badges} /></div>
+      <div className="mb-8 text-center">
+        <Link href="/mathfun/practice" className="card-comic-sm bg-white font-black text-sm px-5 py-2 rounded-xl inline-block hover:bg-gray-50 transition">
+          📚 Luyện thêm các chủ đề khác →
+        </Link>
+      </div>
 
       {!studentId && (
         <div className="mt-2 card-comic bg-[#FFD015] rounded-2xl p-5 text-center">
