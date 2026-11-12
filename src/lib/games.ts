@@ -36,9 +36,9 @@ export const GAMES: GameDef[] = [
   {
     id: "mathrace",
     href: "/child/games/mathrace",
-    emoji: "⛰️",
-    title: "Math Hill Climb",
-    blurb: "Gas and brake over the hills, grab coins, and answer fractions/decimals pit stops to refuel and boost!",
+    emoji: "🏎️",
+    title: "Đường đua toán học",
+    blurb: "Mỗi chặng một bài toán lớp 5. Trả lời đúng để xe vượt đối thủ — đúng 5 câu liên tiếp được một bảo bối (cân đẩu vân, tên lửa, rồng thần…).",
     accent: "bg-purple-tint text-purple-text",
   },
   {

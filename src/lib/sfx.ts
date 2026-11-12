@@ -65,4 +65,7 @@ export const sfx = {
   },
   save: () => tone(120, 0, 0.35, "sawtooth", 0.15),
   whistle: () => tone(1200, 0, 0.4, "square", 0.1),
+  coin: () => [988, 1319].forEach((f, i) => tone(f, i * 0.06, 0.12, "triangle", 0.12)),
+  correct: () => [659, 988].forEach((f, i) => tone(f, i * 0.09, 0.18, "sine", 0.16)),
+  wrong: () => tone(160, 0, 0.26, "sawtooth", 0.14),
 };
