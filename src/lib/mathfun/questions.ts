@@ -1,5 +1,6 @@
 import { shuffle, rand, pick, gcd, lcm, simplifyFrac, makeChoices } from './qutil';
 import { LESSONS } from './curriculum';
+import { CHALLENGE_TOPIC } from './practice-logic';
 
 export type LegacyTopic =
   | 'place-value'
@@ -1056,6 +1057,7 @@ function genWordProblems(): Question {
 export function generateQuestion(topic: Topic): Question {
   const lesson = LESSONS.find((l) => l.id === topic);
   if (lesson) return lesson.gen();
+  if (topic === CHALLENGE_TOPIC) return pick(LESSONS).gen();
   switch (topic as LegacyTopic) {
     case 'place-value':        return genPlaceValue();
     case 'addition':           return genAddition();

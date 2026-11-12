@@ -9,4 +9,6 @@ export function getCredit(): number {
 export function setCredit(sec: number) {
   try { localStorage.setItem(KEY, String(Math.max(0, Math.floor(sec)))); } catch { /* storage blocked */ }
 }
-export const addCredit = () => setCredit(getCredit() + PLAY_SECONDS);
+export const BONUS_SECONDS = 2 * 60;
+/** Default: one finished exercise = 5 minutes. Pass extra seconds for a flawless run. */
+export const addCredit = (sec: number = PLAY_SECONDS) => setCredit(getCredit() + sec);

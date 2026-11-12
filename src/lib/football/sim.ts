@@ -1,246 +1,481 @@
-// Top-down 4v4 arcade soccer in the spirit of Nekketsu Soccer League: dribble, pass, slide-tackle
-// (knocks players down) and a charged "special shot" that blasts through defenders.
+// "Giải đấu chiến binh": top-down 5-a-side arcade football on a scrolling pitch.
+// Dribble, sprint, pass, slide-tackle, charge shots at a corner, and a ki-powered special shot.
 // Pure logic, no DOM — the React component draws it, scripts/check-football.ts exercises it headless.
 
-export const W = 640, H = 360, GY1 = 135, GY2 = 225, MX = 8, MY = 12;
+export const VW = 640, VH = 360;          // what the camera shows
+export const W = 960, H = 560;            // the whole pitch
+export const GY1 = H / 2 - 62, GY2 = H / 2 + 62;
+const MX = 12, MY = 14;
+export const CHARGE_FULL = 40;
+export const MATCH_SECONDS = 120;
 
+export type SupKind = 'blast' | 'zigzag' | 'sky';
+export type HairStyle = 'spiky' | 'long' | 'cap' | 'bun' | 'mohawk' | 'hood' | 'curly' | 'band';
+
+/** Original elemental warriors. spd / pow / tac are 1–5. */
 export interface Char {
-  id: string; name: string; skin: string; hair: string;
-  style: 'spike' | 'flame' | 'bald' | 'turban' | 'dome' | 'antenna';
-  outfit: string; trim: string; shot: string; shotColor: string;
+  id: string; name: string; skin: string; hair: string; style: HairStyle;
+  aura: string; shot: string; kind: SupKind; spd: number; pow: number; tac: number;
 }
 
 export const CHARS: Char[] = [
-  { id: 'goku', name: 'Goku', skin: '#f1c27d', hair: '#1a1a1a', style: 'spike', outfit: '#ff7a00', trim: '#1f4fd8', shot: 'KAMEHAMEHA!', shotColor: '#4cc9ff' },
-  { id: 'vegeta', name: 'Vegeta', skin: '#f1c27d', hair: '#1a1a1a', style: 'flame', outfit: '#2a47c4', trim: '#f4f4f4', shot: 'GALICK GUN!', shotColor: '#b66dff' },
-  { id: 'piccolo', name: 'Piccolo', skin: '#6fbf4a', hair: '#f4f4f4', style: 'turban', outfit: '#7b2fbf', trim: '#f4f4f4', shot: 'SPECIAL BEAM CANNON!', shotColor: '#ffe14d' },
-  { id: 'krillin', name: 'Krillin', skin: '#f1c27d', hair: '#f1c27d', style: 'bald', outfit: '#ff7a00', trim: '#1f4fd8', shot: 'KIENZAN!', shotColor: '#ffd23f' },
-  { id: 'gohan', name: 'Gohan', skin: '#f1c27d', hair: '#1a1a1a', style: 'spike', outfit: '#7b2fbf', trim: '#ffd23f', shot: 'MASENKO!', shotColor: '#ffd23f' },
-  { id: 'trunks', name: 'Trunks', skin: '#f1c27d', hair: '#a77bff', style: 'spike', outfit: '#3b5bdb', trim: '#e9e9e9', shot: 'BURNING ATTACK!', shotColor: '#ff9f43' },
-  { id: 'frieza', name: 'Frieza', skin: '#f4f4f4', hair: '#8e44ad', style: 'dome', outfit: '#8e44ad', trim: '#f4f4f4', shot: 'DEATH BEAM!', shotColor: '#ff4d6d' },
-  { id: 'buu', name: 'Majin Buu', skin: '#ff9ec7', hair: '#ff9ec7', style: 'antenna', outfit: '#f4f4f4', trim: '#222', shot: 'CHOCOLATE BEAM!', shotColor: '#ff70a6' },
+  { id: 'lua', name: 'Lửa', skin: '#f2c48d', hair: '#e8452c', style: 'spiky', aura: '#ff7a1a', shot: 'CẦU LỬA!', kind: 'blast', spd: 3, pow: 5, tac: 2 },
+  { id: 'sam', name: 'Sấm', skin: '#e9b98a', hair: '#ffd21f', style: 'mohawk', aura: '#ffe14d', shot: 'TIA SÉT!', kind: 'zigzag', spd: 5, pow: 3, tac: 2 },
+  { id: 'bang', name: 'Băng', skin: '#f6d7bd', hair: '#8fd8ff', style: 'long', aura: '#6fd3ff', shot: 'MŨI TÊN BĂNG!', kind: 'blast', spd: 3, pow: 4, tac: 3 },
+  { id: 'gio', name: 'Gió', skin: '#d9a273', hair: '#e9f5f2', style: 'band', aura: '#9ff5d8', shot: 'LỐC XOÁY!', kind: 'zigzag', spd: 5, pow: 2, tac: 3 },
+  { id: 'da', name: 'Đá', skin: '#b98258', hair: '#6b5a4b', style: 'cap', aura: '#c9a36b', shot: 'THIÊN THẠCH!', kind: 'sky', spd: 2, pow: 4, tac: 5 },
+  { id: 'la', name: 'Lá', skin: '#f2c48d', hair: '#3fae4c', style: 'bun', aura: '#7be07b', shot: 'BÃO LÁ!', kind: 'zigzag', spd: 4, pow: 2, tac: 4 },
+  { id: 'sao', name: 'Sao', skin: '#f6d7bd', hair: '#b58cff', style: 'curly', aura: '#d5b8ff', shot: 'SAO BĂNG!', kind: 'sky', spd: 4, pow: 4, tac: 2 },
+  { id: 'dem', name: 'Bóng Đêm', skin: '#c99872', hair: '#2b2440', style: 'hood', aura: '#8f6bff', shot: 'HỐ ĐEN!', kind: 'blast', spd: 3, pow: 3, tac: 4 },
 ];
 
-export type Side = 0 | 1; // 0 = player (attacks right), 1 = CPU (attacks left)
+/** How strong a CPU team (or the kid's own AI team-mates) plays. */
+export interface Level {
+  name: string; emoji: string; color: string;
+  spd: number; gkReact: number; gkSpd: number; gkPunch: number;
+  range: number; shootP: number; tackleP: number; stealP: number; kiRate: number;
+}
+
+export const LEVELS: Level[] = [
+  { name: 'Đội Rùa Con', emoji: '🐢', color: '#16a34a', spd: 1.32, gkReact: 18, gkSpd: 2.1, gkPunch: 0, range: 190, shootP: 0.035, tackleP: 0.03, stealP: 0.022, kiRate: 0.3 },
+  { name: 'Đội Khỉ Rừng', emoji: '🐵', color: '#b45309', spd: 1.44, gkReact: 15, gkSpd: 2.4, gkPunch: 0, range: 205, shootP: 0.04, tackleP: 0.045, stealP: 0.028, kiRate: 0.45 },
+  { name: 'Đội Sói Tuyết', emoji: '🐺', color: '#475569', spd: 1.56, gkReact: 12, gkSpd: 2.7, gkPunch: 0.1, range: 220, shootP: 0.045, tackleP: 0.06, stealP: 0.034, kiRate: 0.6 },
+  { name: 'Đội Rồng Lửa', emoji: '🐲', color: '#dc2626', spd: 1.7, gkReact: 10, gkSpd: 3.0, gkPunch: 0.2, range: 240, shootP: 0.05, tackleP: 0.08, stealP: 0.04, kiRate: 0.8 },
+  { name: 'Đội Thần Sấm', emoji: '⚡', color: '#7c3aed', spd: 1.82, gkReact: 7, gkSpd: 3.3, gkPunch: 0.3, range: 260, shootP: 0.06, tackleP: 0.1, stealP: 0.05, kiRate: 1 },
+];
+const ALLY: Level = { ...LEVELS[2], name: '', gkReact: 11, gkSpd: 2.9, gkPunch: 0.15, tackleP: 0.03, stealP: 0.02 };
+
+export type Side = 0 | 1; // 0 = the kid (attacks right), 1 = CPU (attacks left)
 
 export interface P {
-  side: Side; gk: boolean; ch: number;
+  side: Side; gk: boolean; ch: number; role: number;
   x: number; y: number; vx: number; vy: number; fx: number; fy: number;
   down: number; cd: number; charge: number; slide: number; hold: number; hx: number; hy: number;
+  react: number; dive: number; safe: number; kickT: number; sprint: boolean;
 }
-export interface Ball { x: number; y: number; vx: number; vy: number; owner: P | null; sup: boolean; ks: Side; noPick: number; noP: P | null }
-export interface Msg { text: string; ttl: number; color: string }
+export interface Sup { kind: SupKind; ch: number; x0: number; y0: number; x1: number; y1: number; t: number; dur: number; rolled: boolean }
+export interface Ball {
+  x: number; y: number; z: number; vx: number; vy: number; vz: number;
+  owner: P | null; ks: Side; noPick: number; noP: P | null; sup: Sup | null; shot: boolean; pass: boolean;
+}
+export interface Msg { text: string; ttl: number; max: number; color: string }
+export interface Ev { t: string; x: number; y: number; side?: Side; color?: string }
 export interface Game {
-  ps: P[]; ball: Ball; score: [number, number]; ctl: P; kick: number;
-  msgs: Msg[]; ev: string[]; frame: number; prevShoot: boolean;
+  ps: P[]; ball: Ball; score: [number, number]; ctl: P; kick: number; freeze: number;
+  phase: 'play' | 'goal' | 'full'; phaseT: number; lastGoal: Side; scorer: P | null;
+  msgs: Msg[]; ev: Ev[]; frame: number; prevShoot: boolean; prevPass: boolean;
+  ki: [number, number]; stamina: number; time: number; golden: boolean; goldenT: number; level: Level;
 }
-export interface Input { dx: number; dy: number; shoot: boolean; pass: boolean; tackle: boolean }
+export interface Input { dx: number; dy: number; shoot: boolean; pass: boolean; tackle: boolean; sprint: boolean }
+export const emptyInput = (): Input => ({ dx: 0, dy: 0, shoot: false, pass: false, tackle: false, sprint: false });
 
-const HOME: [number, number][] = [[22, 180], [150, 100], [150, 260], [240, 180]];
-const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+// GK, defender, two wingers, striker — for the side attacking right
+const HOME: [number, number][] = [[26, H / 2], [210, H / 2], [390, 150], [390, H - 150], [W / 2 - 60, H / 2]];
+type Pt = { x: number; y: number };
+const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+const dirOf = (s: Side) => (s === 0 ? 1 : -1);
+const goalX = (s: Side) => (s === 0 ? W : 0); // the goal this side attacks
+const spdF = (p: P) => 0.9 + CHARS[p.ch].spd * 0.04;
+const powF = (p: P) => 0.88 + CHARS[p.ch].pow * 0.04;
+const cfgOf = (g: Game, p: P) => (p.side === 1 ? g.level : ALLY);
+const say = (g: Game, text: string, color: string, ttl = 80) => { g.msgs = g.msgs.slice(-1); g.msgs.push({ text, ttl, max: ttl, color }); };
+const emit = (g: Game, t: string, at: Pt, extra: Partial<Ev> = {}) => g.ev.push({ t, x: at.x, y: at.y, ...extra });
+const addKi = (g: Game, s: Side, n: number) => { g.ki[s] = clamp(g.ki[s] + n * (s === 1 ? g.level.kiRate : 1), 0, 100); };
 
-export function newGame(mine: number[], theirs: number[]): Game {
+function segDist(p: Pt, a: Pt, b: Pt) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const t = clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+export function newGame(mine: number[], theirs: number[], level = 0, seconds = MATCH_SECONDS): Game {
   const ps: P[] = [];
   ([0, 1] as Side[]).forEach((side) => {
     const team = side === 0 ? mine : theirs;
     HOME.forEach(([hx, hy], i) => {
       const x = side === 0 ? hx : W - hx;
-      ps.push({ side, gk: i === 0, ch: team[Math.max(0, i - 1)] ?? 0, x, y: hy, vx: 0, vy: 0, fx: side === 0 ? 1 : -1, fy: 0, down: 0, cd: 0, charge: 0, slide: 0, hold: 0, hx: x, hy });
+      ps.push({
+        side, gk: i === 0, ch: team[Math.max(0, i - 1) % team.length] ?? 0, role: i,
+        x, y: hy, vx: 0, vy: 0, fx: dirOf(side), fy: 0, down: 0, cd: 0, charge: 0, slide: 0, hold: 0, hx: x, hy,
+        react: -1, dive: 0, safe: 0, kickT: 0, sprint: false,
+      });
     });
   });
-  return {
-    ps, ball: { x: W / 2, y: H / 2, vx: 0, vy: 0, owner: null, sup: false, ks: 0, noPick: 0, noP: null },
-    score: [0, 0], ctl: ps[3], kick: 60, msgs: [], ev: [], frame: 0, prevShoot: false,
+  const g: Game = {
+    ps, ball: { x: W / 2, y: H / 2, z: 0, vx: 0, vy: 0, vz: 0, owner: null, ks: 0, noPick: 0, noP: null, sup: null, shot: false, pass: false },
+    score: [0, 0], ctl: ps[4], kick: 0, freeze: 0, phase: 'play', phaseT: 0, lastGoal: 0, scorer: null,
+    msgs: [], ev: [], frame: 0, prevShoot: false, prevPass: false,
+    ki: [30, 0], stamina: 100, time: seconds * 60, golden: false, goldenT: 0, level: LEVELS[clamp(level, 0, LEVELS.length - 1)],
   };
+  kickoff(g, 0);
+  return g;
 }
 
 const field = (g: Game, side: Side) => g.ps.filter((p) => p.side === side && !p.gk);
+const foesOf = (g: Game, p: P) => g.ps.filter((q) => q.side !== p.side && !q.gk && q.down === 0);
 
-function goalCenter(side: Side) { return { x: side === 0 ? W : 0, y: H / 2 }; }
-
-function shoot(g: Game, p: P, special: boolean, noisy: boolean) {
-  const gc = goalCenter(p.side);
-  let tx = gc.x - p.x, ty = (noisy ? rnd(GY1 + 12, GY2 - 12) : gc.y) - p.y;
-  const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
-  let dx = noisy ? tx : p.fx * 0.5 + tx * 0.5, dy = noisy ? ty : p.fy * 0.5 + ty * 0.5;
-  const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
-  const sp = special ? 9.5 : 5.6;
-  Object.assign(g.ball, { vx: dx * sp, vy: dy * sp, owner: null, sup: special, ks: p.side, noPick: 10, noP: p });
-  p.cd = 20; p.charge = 0;
-  g.ev.push(special ? 'super' : 'kick');
-  if (special) g.msgs.push({ text: CHARS[p.ch].shot, ttl: 70, color: CHARS[p.ch].shotColor });
+/** Everyone back to their spot; `side` takes the kick-off with its striker on the ball. */
+function kickoff(g: Game, side: Side) {
+  for (const p of g.ps) Object.assign(p, { x: p.hx, y: p.hy, vx: 0, vy: 0, fx: dirOf(p.side), fy: 0, down: 0, slide: 0, charge: 0, hold: 0, cd: 0, react: -1, dive: 0, safe: 40 });
+  const st = g.ps.find((p) => p.side === side && p.role === 4)!;
+  st.x = W / 2 - dirOf(side) * 10; st.y = H / 2;
+  Object.assign(g.ball, { x: W / 2, y: H / 2, z: 0, vx: 0, vy: 0, vz: 0, owner: st, ks: side, noPick: 0, noP: null, sup: null, shot: false, pass: false });
+  if (side === 0) g.ctl = st;
+  g.phase = 'play'; g.kick = 70;
 }
 
-function pass(g: Game, p: P) {
-  const mates = field(g, p.side).filter((q) => q !== p && q.down === 0 && dist(p, q) > 20);
-  if (!mates.length) return;
-  let best = mates[0], bestScore = -2;
-  for (const q of mates) {
-    const d = dist(p, q) || 1;
-    const s = ((q.x - p.x) * p.fx + (q.y - p.y) * p.fy) / d - d / 900;
-    if (s > bestScore) { bestScore = s; best = q; }
-  }
-  const d = dist(p, best) || 1;
-  Object.assign(g.ball, { vx: ((best.x - p.x) / d) * 6.2, vy: ((best.y - p.y) / d) * 6.2, owner: null, sup: false, ks: p.side, noPick: 8, noP: p });
-  p.cd = 12; p.charge = 0;
-  g.ev.push('kick');
+function shootAt(g: Game, p: P, ty: number, power: number) {
+  const b = g.ball, gx = goalX(p.side);
+  let dx = gx - p.x, dy = ty - p.y;
+  const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  const sp = (6.2 + 5 * power) * powF(p);
+  Object.assign(b, { vx: dx * sp, vy: dy * sp, vz: 1 + 2.2 * power, z: 2, owner: null, ks: p.side, noPick: 10, noP: p, shot: true, pass: false, sup: null });
+  p.cd = 18; p.charge = 0; p.kickT = 12; p.fx = dx; p.fy = dy;
+  emit(g, power > 0.75 ? 'bigkick' : 'kick', p);
 }
 
-interface Act { mx: number; my: number; shoot?: 'n' | 's'; pass?: boolean; tackle?: boolean }
+function clearBall(g: Game, p: P, power: number) {
+  const sp = (6 + 4 * power) * powF(p);
+  Object.assign(g.ball, { vx: p.fx * sp, vy: p.fy * sp, vz: 2.5, z: 2, owner: null, ks: p.side, noPick: 10, noP: p, shot: false, pass: false, sup: null });
+  p.cd = 18; p.charge = 0; p.kickT = 12;
+  emit(g, 'kick', p);
+}
 
-function decide(g: Game, p: P, chaser: P | undefined): Act {
-  const b = g.ball;
-  const dir = p.side === 0 ? 1 : -1;
-  if (p.gk) {
-    if (b.owner === p) {
-      p.fx = dir; p.fy = 0;
-      return { mx: 0, my: 0, pass: p.hold > 40 };
-    }
-    return { mx: p.hx - p.x, my: clamp(b.y, GY1 + 8, GY2 - 8) - p.y };
+function special(g: Game, p: P) {
+  const c = CHARS[p.ch], gx = goalX(p.side), y1 = H / 2 + rnd(-38, 38);
+  const sp = c.kind === 'blast' ? 11.5 : c.kind === 'zigzag' ? 8.5 : 7.5;
+  g.ball.sup = { kind: c.kind, ch: p.ch, x0: p.x, y0: p.y, x1: gx + dirOf(p.side) * 6, y1, t: 0, dur: Math.max(14, Math.hypot(gx - p.x, y1 - p.y) / sp), rolled: false };
+  Object.assign(g.ball, { owner: null, ks: p.side, noPick: 0, noP: p, shot: false, pass: false, vz: 0 });
+  g.ki[p.side] = 0; p.cd = 30; p.charge = 0; p.kickT = 16; p.fx = dirOf(p.side); p.fy = 0;
+  g.freeze = 26;
+  say(g, c.shot, c.aura, 90);
+  emit(g, 'super', p, { color: c.aura, side: p.side });
+}
+
+function passTo(g: Game, p: P, q: P, lob = false) {
+  const b = g.ball, tx = q.x + q.vx * 10, ty = q.y + q.vy * 10, d = Math.hypot(tx - p.x, ty - p.y) || 1;
+  const sp = clamp(4.6 + d / 60, 5.2, lob ? 9.5 : 8);
+  Object.assign(b, { vx: ((tx - p.x) / d) * sp, vy: ((ty - p.y) / d) * sp, vz: lob ? 3.6 : 0.6, z: 2, owner: null, ks: p.side, noPick: 8, noP: p, shot: false, pass: true, sup: null });
+  p.cd = 12; p.charge = 0; p.kickT = 10; p.fx = (tx - p.x) / d; p.fy = (ty - p.y) / d;
+  emit(g, 'kick', p);
+}
+
+/** Team-mate the player is facing (humans), preferring ones nobody is marking. */
+function bestMate(g: Game, p: P, facing: boolean): P | null {
+  const foes = foesOf(g, p);
+  let best: P | null = null, bestS = -1e9;
+  for (const q of field(g, p.side)) {
+    if (q === p || q.down > 0 || dist(p, q) < 24) continue;
+    const d = dist(p, q), open = Math.min(120, ...foes.map((f) => dist(f, q)));
+    const blocked = foes.some((f) => segDist(f, p, q) < 13) ? 60 : 0;
+    const s = facing
+      ? (((q.x - p.x) * p.fx + (q.y - p.y) * p.fy) / d) * 140 - d * 0.12 + open * 0.2 - blocked * 0.5
+      : (q.x - p.x) * dirOf(p.side) * 0.5 + open * 0.8 - blocked - Math.abs(d - 170) * 0.15;
+    if (s > bestS) { bestS = s; best = q; }
   }
+  return best;
+}
+
+interface Act { mx: number; my: number; spd?: number; shoot?: { ty: number; power: number }; special?: boolean; pass?: P | null; lob?: boolean; tackle?: boolean }
+
+function keeper(g: Game, p: P): Act {
+  const b = g.ball, cfg = cfgOf(g, p), dir = dirOf(p.side);
   if (b.owner === p) {
-    const gc = goalCenter(p.side);
-    const foe = g.ps.filter((q) => q.side !== p.side && !q.gk && q.down === 0 && Math.abs(q.x - p.x) < 40 && Math.abs(q.y - p.y) < 30)[0];
-    const toGoal = Math.abs(p.x - gc.x);
-    if (toGoal < 175 && p.cd <= 0 && Math.random() < 0.03) return { mx: 0, my: 0, shoot: Math.random() < 0.2 ? 's' : 'n' };
-    if (foe && Math.random() < 0.04) return { mx: 0, my: 0, pass: true };
-    return { mx: gc.x - p.x, my: (foe ? (p.y < foe.y ? -60 : 60) : gc.y - p.y) };
+    p.fx = dir; p.fy = 0; p.react = -1; p.dive = 0;
+    return p.hold > 34 ? { mx: 0, my: 0, pass: bestMate(g, p, false), lob: true } : { mx: 0, my: 0 };
   }
-  const carrier = b.owner;
-  if (p === chaser) {
-    const t = carrier && carrier.side !== p.side ? carrier : b;
-    const near = carrier && carrier.side !== p.side && dist(p, carrier) < 24 && p.cd <= 0;
-    return { mx: t.x - p.x, my: t.y - p.y, tackle: !!near };
+  const coming = !b.owner && !b.sup && b.vx * -dir > 1.5 && Math.abs(b.x - p.hx) < 420;
+  if (coming) {
+    const ty = b.y + b.vy * ((p.hx - b.x) / b.vx);
+    if (ty > GY1 - 28 && ty < GY2 + 28) {
+      if (p.react < 0) p.react = cfg.gkReact;
+      if (p.react > 0) { p.react--; return { mx: 0, my: 0 }; }
+      const goY = clamp(ty, GY1 + 4, GY2 - 4) - p.y;
+      p.dive = Math.abs(goY) > 8 ? Math.sign(goY) : 0;
+      return { mx: (p.hx - p.x) * 0.5, my: goY, spd: cfg.gkSpd };
+    }
   }
-  const attacking = carrier && carrier.side === p.side;
-  return {
-    mx: clamp(p.hx + (b.x - W / 2) * 0.35 + (attacking ? dir * 60 : 0), MX, W - MX) - p.x,
-    my: clamp(p.hy + (b.y - H / 2) * 0.25, MY, H - MY) - p.y,
-  };
+  p.react = -1; p.dive = 0;
+  // sweep up a slow loose ball in the box
+  if (!b.owner && !b.sup && Math.hypot(b.vx, b.vy) < 2.5 && dist(p, b) < 80 && !g.ps.some((q) => q.side !== p.side && dist(q, b) < dist(p, b))) {
+    return { mx: b.x - p.x, my: b.y - p.y, spd: 1.9 };
+  }
+  return { mx: p.hx + dir * clamp(Math.abs(b.x - p.hx) * 0.04, 0, 22) - p.x, my: clamp(H / 2 + (b.y - H / 2) * 0.42, GY1 + 10, GY2 - 10) - p.y, spd: 1.6 };
 }
 
-function chooseCtl(g: Game) {
-  const b = g.ball;
-  const mates = field(g, 0);
+function decide(g: Game, p: P, presser: P | undefined, cover: P | undefined): Act {
+  if (p.gk) return keeper(g, p);
+  const b = g.ball, cfg = cfgOf(g, p), dir = dirOf(p.side), gx = goalX(p.side), foes = foesOf(g, p);
+
+  if (b.owner === p) {
+    const toGoal = Math.abs(gx - p.x);
+    if (g.ki[p.side] >= 100 && toGoal < 360 && Math.random() < 0.06) return { mx: 0, my: 0, special: true };
+    const target = { x: gx, y: H / 2 };
+    const lane = !foes.some((f) => segDist(f, p, target) < 15 && dist(f, p) < 130);
+    if (toGoal < cfg.range && p.cd <= 0 && (lane || toGoal < 110) && Math.random() < cfg.shootP * (lane ? 2 : 0.7)) {
+      const corner = Math.random() < 0.35 + cfg.kiRate * 0.4;
+      return { mx: 0, my: 0, shoot: { ty: H / 2 + (corner ? (Math.random() < 0.5 ? -1 : 1) * rnd(34, 54) : rnd(-30, 30)), power: rnd(0.55, 0.75 + cfg.kiRate * 0.25) } };
+    }
+    const near = foes.filter((f) => dist(f, p) < 46);
+    if (near.length && p.cd <= 0 && Math.random() < 0.05) {
+      const m = bestMate(g, p, false);
+      if (m && (m.x - p.x) * dir > -60) return { mx: 0, my: 0, pass: m };
+    }
+    // run at goal, steering away from nearby defenders
+    let sx = gx - p.x, sy = (H / 2 - p.y) * (toGoal < 220 ? 1 : 0.3);
+    const l = Math.hypot(sx, sy) || 1; sx /= l; sy /= l;
+    for (const f of foes) { const d = dist(f, p); if (d < 70 && (f.x - p.x) * dir > -10) { sx -= ((f.x - p.x) / d) * (26 / d); sy -= ((f.y - p.y) / d) * (60 / d); } }
+    return { mx: sx * 50, my: sy * 50 };
+  }
+
+  const carrier = b.owner;
+  const shift = (k: number, push: number) => ({
+    mx: clamp(p.hx + (b.x - W / 2) * k + dir * push, MX + 30, W - MX - 30) - p.x,
+    my: clamp(p.hy + (b.y - H / 2) * 0.3, MY + 10, H - MY - 10) - p.y,
+  });
+
+  if (!carrier) {
+    if (p === presser && !b.sup) return { mx: b.x + b.vx * 8 - p.x, my: b.y + b.vy * 8 - p.y };
+    return shift(0.45, 0);
+  }
+  if (carrier.side === p.side) {
+    // support the attack: striker hangs near the box, the rest follow the ball up the pitch
+    const a = shift(0.55, p.role === 4 ? 150 : p.role === 1 ? 20 : 90);
+    if (p.role === 4) a.my = clamp(H / 2 + (carrier.y < H / 2 ? 70 : -70), MY, H - MY) - p.y;
+    return a;
+  }
+  if (carrier.gk) return shift(0.4, -20);
+  if (p === presser) {
+    const d = dist(p, carrier);
+    return { mx: carrier.x + carrier.vx * 6 - p.x, my: carrier.y + carrier.vy * 6 - p.y, tackle: d < 30 && d > 12 && p.cd <= 0 && Math.random() < cfg.tackleP };
+  }
+  if (p === cover) {
+    const own = { x: goalX(p.side === 0 ? 1 : 0), y: H / 2 };
+    return { mx: carrier.x + (own.x - carrier.x) * 0.35 - p.x, my: carrier.y + (own.y - carrier.y) * 0.35 - p.y };
+  }
+  return shift(0.45, -40);
+}
+
+function chooseCtl(g: Game, wantSwitch: boolean) {
+  const b = g.ball, mates = field(g, 0);
   if (b.owner && b.owner.side === 0 && !b.owner.gk) { g.ctl = b.owner; return; }
-  const ref = b.owner ?? b;
-  const near = mates.reduce((a, c) => (dist(c, ref) < dist(a, ref) ? c : a));
-  if (near !== g.ctl && dist(g.ctl, ref) - dist(near, ref) > 25) g.ctl = near;
+  if (g.ctl.slide > 0) return;
+  const ref = b.owner ?? { x: b.x + b.vx * 6, y: b.y + b.vy * 6 };
+  const sorted = mates.filter((m) => m.down === 0).sort((a, c) => dist(a, ref) - dist(c, ref));
+  if (!sorted.length) return;
+  if (wantSwitch) { g.ctl = sorted[0] === g.ctl && sorted[1] ? sorted[1] : sorted[0]; return; }
+  if (g.ctl.down > 0 || (sorted[0] !== g.ctl && dist(g.ctl, ref) - dist(sorted[0], ref) > 45)) g.ctl = sorted[0];
 }
 
 function act(g: Game, p: P, a: Act, human: boolean, inp: Input | null) {
-  const b = g.ball;
+  const b = g.ball, cfg = cfgOf(g, p);
   if (p.cd > 0) p.cd--;
+  if (p.safe > 0) p.safe--;
+  if (p.kickT > 0) p.kickT--;
+  p.sprint = false;
   if (p.down > 0) {
-    p.down--; p.vx = p.vy = 0; p.slide = 0; p.charge = 0;
-    if (b.owner === p) b.owner = null;
+    p.down--; p.vx *= 0.8; p.vy *= 0.8; p.slide = 0; p.charge = 0;
+    if (b.owner === p) { b.owner = null; b.vx = p.fx * 1.5; b.vy = p.fy * 1.5; }
     return;
   }
-  let mx = a.mx, my = a.my;
-  const sp = (human ? 1.7 : p.side === 1 ? 1.3 : 1.6) * (b.owner === p ? 0.9 : 1) * (p.gk ? 0.8 : 1);
+  const holding = b.owner === p;
+  let sp = human ? 1.95 : (a.spd ?? cfg.spd);
+  if (!p.gk) sp *= spdF(p);
+  if (holding) sp *= 0.9;
+  if (human && inp?.sprint && g.stamina > 1 && (inp.dx || inp.dy)) { sp *= 1.4; g.stamina = Math.max(0, g.stamina - 0.45); p.sprint = true; }
+  if (p.charge > 8) sp *= 0.75; // winding up a shot slows you down
   if (p.slide > 0) {
-    p.slide--; p.vx = p.fx * 3.4; p.vy = p.fy * 3.4;
+    p.slide--; p.vx = p.fx * 4; p.vy = p.fy * 4;
   } else {
-    const l = Math.hypot(mx, my);
-    if (l > (human ? 0.1 : 3)) { // keys give a 0..1 vector, AI gives a pixel offset to its target
-      mx /= l; my /= l; p.fx = mx; p.fy = my; p.vx = mx * sp; p.vy = my * sp; } else { p.vx = p.vy = 0; }
+    const l = Math.hypot(a.mx, a.my);
+    let tx = 0, ty = 0;
+    if (l > (human ? 0.15 : 3)) { // sticks give a 0..1 vector, AI gives a pixel offset to its target
+      tx = (a.mx / l) * sp; ty = (a.my / l) * sp;
+      if (!human && l < 12) { tx *= l / 12; ty *= l / 12; }
+      p.fx = a.mx / l; p.fy = a.my / l;
+    }
+    p.vx += (tx - p.vx) * 0.3; p.vy += (ty - p.vy) * 0.3;
   }
   p.x = clamp(p.x + p.vx, MX, W - MX); p.y = clamp(p.y + p.vy, MY, H - MY);
 
-  const holding = b.owner === p;
   if (human && inp) {
-    if (inp.shoot && holding) p.charge++;
-    if (!inp.shoot && g.prevShoot && holding) shoot(g, p, p.charge >= 60, false);
-    else if (!inp.shoot) p.charge = 0;
-    if (inp.pass && holding && p.cd <= 0) pass(g, p);
-  } else {
-    if (a.shoot && holding) shoot(g, p, a.shoot === 's', true);
-    if (a.pass && holding) pass(g, p);
+    if (holding) {
+      if (inp.shoot) p.charge = Math.min(p.charge + 1, 60);
+      else if (g.prevShoot && p.charge > 0) {
+        const dir = dirOf(p.side);
+        if (p.charge >= CHARGE_FULL && g.ki[p.side] >= 100) special(g, p);
+        else if (p.fx * dir < -0.25) clearBall(g, p, Math.min(1, p.charge / CHARGE_FULL));
+        else shootAt(g, p, H / 2 + (Math.abs(inp.dy) > 0.3 ? Math.sign(inp.dy) * 46 + rnd(-14, 14) : rnd(-30, 30)), 0.35 + 0.65 * Math.min(1, p.charge / CHARGE_FULL));
+      } else p.charge = 0;
+      if (inp.pass && !g.prevPass && b.owner === p && p.cd <= 0) { const m = bestMate(g, p, true); if (m) passTo(g, p, m); }
+    } else p.charge = 0;
+  } else if (holding) {
+    if (a.special) special(g, p);
+    else if (a.shoot) shootAt(g, p, a.shoot.ty, a.shoot.power);
+    else if (a.pass) passTo(g, p, a.pass, a.lob);
   }
-  const wantsTackle = human ? inp?.tackle : a.tackle;
-  if (wantsTackle && p.cd <= 0 && p.slide === 0 && !p.gk && !holding) { p.slide = 14; p.cd = 45; }
 
+  const still = b.owner !== p;
+  if ((human ? inp?.tackle : a.tackle) && still && p.cd <= 0 && p.slide === 0 && !p.gk) { p.slide = 16; p.cd = 50; emit(g, 'slide', p); }
+
+  const carrier = b.owner;
   if (p.slide > 0) {
+    const reach = 12 + CHARS[p.ch].tac;
     for (const q of g.ps) {
-      if (q.side === p.side || q.down > 0 || dist(p, q) > 14) continue;
-      q.down = 55; g.ev.push('tackle');
-      if (b.owner === q) { b.owner = p; p.hold = 0; b.sup = false; }
+      if (q.side === p.side || q.down > 0 || q.gk || dist(p, q) > reach) continue;
+      q.down = 50; q.vx = p.fx * 2; q.vy = p.fy * 2; emit(g, 'tackle', q);
+      if (b.owner === q) { b.owner = p; p.safe = 30; p.hold = 0; addKi(g, p.side, 12); }
     }
+  } else if (still && !p.gk && carrier && carrier.side !== p.side && !carrier.gk && carrier.safe <= 0 && dist(p, carrier) < 13
+    && Math.random() < (human ? 0.07 : cfg.stealP)) {
+    b.owner = p; p.safe = 30; p.hold = 0; carrier.cd = 20; addKi(g, p.side, 8); emit(g, 'steal', p);
   }
-  if (holding && p.gk) p.hold++; else if (!holding) p.hold = 0;
+  if (b.owner === p && p.gk) p.hold++; else p.hold = 0;
+}
+
+function endMatch(g: Game) {
+  g.phase = 'full';
+  say(g, 'HẾT GIỜ!', '#ffffff', 200);
+  emit(g, 'fulltime', g.ball);
+}
+
+function goal(g: Game, scorer: Side) {
+  const b = g.ball;
+  g.score[scorer]++; g.lastGoal = scorer; g.phase = 'goal'; g.phaseT = 150;
+  g.scorer = b.noP && b.noP.side === scorer ? b.noP : null;
+  say(g, scorer === 0 ? 'VÀOOOO!!! ⚽' : 'Bị thủng lưới…', scorer === 0 ? '#ffe14d' : '#ff8a8a', 130);
+  emit(g, 'goal', b, { side: scorer });
+  b.sup = null; b.shot = false; b.owner = null; b.vx *= 0.3; b.vy *= 0.3;
+  addKi(g, scorer === 0 ? 1 : 0, 15); // the side that conceded gets fired up
+  for (const p of g.ps) { p.charge = 0; p.slide = 0; }
+}
+
+function moveBall(g: Game) {
+  const b = g.ball;
+  if (b.owner) {
+    const o = b.owner;
+    b.x = clamp(o.x + o.fx * 10, 2, W - 2); b.y = clamp(o.y + o.fy * 10, 4, H - 4); b.z = 0; b.vx = o.vx; b.vy = o.vy; b.vz = 0; b.shot = false; b.pass = false;
+    return;
+  }
+  if (b.noPick > 0) b.noPick--;
+
+  if (b.sup) {
+    const s = b.sup, px = b.x, py = b.y;
+    s.t += 1 / s.dur;
+    const t = Math.min(1, s.t), lx = s.x1 - s.x0, ly = s.y1 - s.y0, len = Math.hypot(lx, ly) || 1;
+    const off = s.kind === 'zigzag' ? Math.sin(t * Math.PI * 5) * 30 * (1 - t) : 0;
+    b.x = s.x0 + lx * t + (-ly / len) * off; b.y = clamp(s.y0 + ly * t + (lx / len) * off, 6, H - 6);
+    b.z = s.kind === 'sky' ? Math.sin(Math.PI * t) * 120 : 8;
+    b.vx = b.x - px; b.vy = b.y - py;
+    for (const q of g.ps) {
+      if (q.side === b.ks || q.down > 0 || b.z > 30 || dist(q, b) > 17) continue;
+      if (q.gk && !s.rolled) {
+        s.rolled = true;
+        if (Math.random() < cfgOf(g, q).gkPunch) { // heroic punch-away
+          Object.assign(b, { sup: null, vx: dirOf(q.side) * rnd(3, 5), vy: rnd(-4, 4), vz: 4, noPick: 16, noP: q, shot: false });
+          say(g, 'ĐẤM BÓNG!', '#9fe8ff'); emit(g, 'save', q); return;
+        }
+      }
+      q.down = q.gk ? 90 : 70; q.vx = b.vx * 0.4; q.vy = b.vy * 0.4; emit(g, 'tackle', q);
+    }
+    if (s.t >= 1) goal(g, b.ks);
+    return;
+  }
+
+  b.x += b.vx; b.y += b.vy; b.z += b.vz;
+  if (b.z > 0) { b.vz -= 0.28; b.vx *= 0.996; b.vy *= 0.996; }
+  if (b.z <= 0) {
+    b.z = 0;
+    if (b.vz < -1.4) { b.vz = -b.vz * 0.45; emit(g, 'bounce', b); } else b.vz = 0;
+    b.vx *= 0.975; b.vy *= 0.975;
+  }
+  if (Math.hypot(b.vx, b.vy) < 0.06) { b.vx = b.vy = 0; b.shot = false; }
+  if (b.y < 6) { b.y = 6; b.vy = Math.abs(b.vy) * 0.75; }
+  if (b.y > H - 6) { b.y = H - 6; b.vy = -Math.abs(b.vy) * 0.75; }
+  if (b.x < 0 || b.x > W) {
+    const left = b.x < 0;
+    if (Math.abs(b.y - GY1) < 4 || Math.abs(b.y - GY2) < 4) {
+      b.x = left ? 0 : W; b.vx = -b.vx * 0.7; b.vy += b.y < H / 2 ? -1.5 : 1.5; b.shot = false;
+      say(g, 'CỘT DỌC!', '#ffffff', 50); emit(g, 'post', b); return;
+    }
+    if (b.y > GY1 && b.y < GY2 && b.z < 38) { goal(g, left ? 1 : 0); return; }
+    b.x = left ? 0 : W; b.vx = -b.vx * 0.7; b.shot = false;
+  }
+
+  let best: P | null = null;
+  for (const q of g.ps) {
+    if (q.down > 0 || (q === b.noP && b.noPick > 0)) continue;
+    const d = dist(q, b);
+    if (d < (q.gk ? 17 : 12) && b.z < (q.gk ? 42 : 14) && (!best || d < dist(best, b))) best = q;
+  }
+  if (!best) return;
+  const speed = Math.hypot(b.vx, b.vy);
+  if (best.gk && b.shot && b.ks !== best.side) {
+    addKi(g, b.ks, 6);
+    if (speed > 8.6) { // too hot to hold: parried back into play
+      Object.assign(b, { vx: dirOf(best.side) * rnd(2.5, 4.5), vy: rnd(-3.5, 3.5), vz: 3, noPick: 18, noP: best, shot: false });
+      say(g, 'CỨU THUA!', '#9fe8ff', 50); emit(g, 'save', best); return;
+    }
+    say(g, 'BẮT GỌN!', '#9fe8ff', 45); emit(g, 'save', best);
+  } else if (b.pass && b.ks === best.side && best !== b.noP) {
+    addKi(g, best.side, 10); emit(g, 'recv', best);
+  }
+  b.owner = best; best.hold = 0; best.safe = 22; b.vx = b.vy = b.vz = 0; b.z = 0; b.shot = false; b.pass = false;
 }
 
 export function step(g: Game, inp: Input | null) {
   g.frame++; g.ev.length = 0;
   g.msgs = g.msgs.filter((m) => --m.ttl > 0);
-  if (g.kick > 0) { if (--g.kick === 0) g.ev.push('whistle'); return; }
-  const b = g.ball;
-  chooseCtl(g);
+  if (g.phase === 'full') return;
+  if (g.freeze > 0) { g.freeze--; return; }
+  if (g.phase === 'goal') {
+    // ball rolls into the net, scorer runs off celebrating
+    const b = g.ball; b.x = clamp(b.x + b.vx, -14, W + 14); b.y += b.vy; b.vx *= 0.9; b.vy *= 0.9; b.z = Math.max(0, b.z + (b.vz -= 0.28));
+    for (const p of g.ps) { p.vx *= 0.85; p.vy *= 0.85; if (p.down > 0) p.down--; }
+    if (g.scorer) { const s = g.scorer; s.fx = -dirOf(s.side); s.fy = 0; s.vx = s.fx * 1.6; s.x = clamp(s.x + s.vx, MX, W - MX); }
+    if (--g.phaseT <= 0) { if (g.golden) endMatch(g); else kickoff(g, g.lastGoal === 0 ? 1 : 0); }
+    return;
+  }
+  if (g.kick > 0) { if (--g.kick === 0) emit(g, 'whistle', g.ball); g.prevShoot = !!inp?.shoot; g.prevPass = !!inp?.pass; return; }
 
-  const chaser: Record<number, P | undefined> = {};
+  if (!g.golden) {
+    if (--g.time <= 0) {
+      if (g.score[0] === g.score[1]) { g.golden = true; g.goldenT = 40 * 60; say(g, 'BÀN THẮNG VÀNG!', '#ffe14d', 120); emit(g, 'whistle', g.ball); }
+      else return endMatch(g);
+    }
+  } else if (--g.goldenT <= 0) return endMatch(g);
+
+  addKi(g, 0, 0.02); addKi(g, 1, 0.02);
+  if (!g.ctl.sprint) g.stamina = Math.min(100, g.stamina + 0.3);
+
+  const b = g.ball;
+  chooseCtl(g, !!inp?.pass && !g.prevPass && !(b.owner && b.owner.side === 0));
+
+  const presser: Record<number, P | undefined> = {}, cover: Record<number, P | undefined> = {};
   ([0, 1] as Side[]).forEach((s) => {
-    const ref = b.owner && b.owner.side !== s ? b.owner : b;
-    chaser[s] = field(g, s).filter((q) => q.down === 0 && q !== g.ctl).sort((a, c) => dist(a, ref) - dist(c, ref))[0];
+    const ref = b.owner ?? { x: b.x + b.vx * 8, y: b.y + b.vy * 8 };
+    const ai = field(g, s).filter((q) => q.down === 0 && !(inp && q === g.ctl)).sort((a, c) => dist(a, ref) - dist(c, ref));
+    if (s === 0 && inp) {
+      // the kid presses; one AI mate only helps when it is close or the kid is far away
+      const far = dist(g.ctl, ref) > 150;
+      presser[s] = ai[0] && (far || (b.owner && dist(ai[0], ref) < 110)) ? ai[0] : undefined;
+      cover[s] = presser[s] ? ai[1] : ai[0];
+    } else { presser[s] = ai[0]; cover[s] = ai[1]; }
   });
   for (const p of g.ps) {
     const human = p === g.ctl && inp !== null;
-    const a: Act = human ? { mx: inp!.dx, my: inp!.dy } : decide(g, p, chaser[p.side]);
-    act(g, p, a, human, inp);
+    act(g, p, human ? { mx: inp!.dx, my: inp!.dy } : decide(g, p, presser[p.side], cover[p.side]), human, inp);
   }
-  g.prevShoot = !!inp?.shoot;
+  g.prevShoot = !!inp?.shoot; g.prevPass = !!inp?.pass;
 
   // players shove each other apart a little so nobody stacks on one spot
   for (let i = 0; i < g.ps.length; i++) for (let j = i + 1; j < g.ps.length; j++) {
     const a = g.ps[i], c = g.ps[j], d = dist(a, c);
-    if (d > 0 && d < 12) { const k = (12 - d) / 2 / d; a.x -= (c.x - a.x) * k; a.y -= (c.y - a.y) * k; c.x += (c.x - a.x) * k; c.y += (c.y - a.y) * k; }
+    if (d > 0 && d < 13) { const k = (13 - d) / 2 / d, ox = (c.x - a.x) * k, oy = (c.y - a.y) * k; a.x -= ox; a.y -= oy; c.x += ox; c.y += oy; }
   }
-
   for (const p of g.ps) { p.x = clamp(p.x, MX, W - MX); p.y = clamp(p.y, MY, H - MY); }
 
-  if (b.owner) {
-    const o = b.owner;
-    b.x = o.x + o.fx * 9; b.y = o.y + o.fy * 9; b.vx = o.vx; b.vy = o.vy;
-    return;
-  }
-
-  b.x += b.vx; b.y += b.vy; b.vx *= 0.985; b.vy *= 0.985;
-  if (Math.hypot(b.vx, b.vy) < 0.05) { b.vx = b.vy = 0; }
-  if (b.sup && Math.hypot(b.vx, b.vy) < 5.5) b.sup = false;
-  if (b.noPick > 0) b.noPick--;
-
-  if (b.y < 6) { b.y = 6; b.vy = Math.abs(b.vy) * 0.8; }
-  if (b.y > H - 6) { b.y = H - 6; b.vy = -Math.abs(b.vy) * 0.8; }
-  if (b.x < 0 || b.x > W) {
-    const inMouth = b.y > GY1 && b.y < GY2;
-    if (inMouth) return goal(g, b.x < 0 ? 1 : 0);
-    b.x = b.x < 0 ? 0 : W; b.vx = -b.vx * 0.8;
-  }
-
-  // a special shot flattens whoever it touches (keeper included) and keeps flying
-  if (b.sup) {
-    for (const q of g.ps) if (q.side !== b.ks && q.down === 0 && dist(q, b) < 13) { q.down = 70; b.vx *= 0.92; b.vy *= 0.92; g.ev.push('tackle'); }
-    return;
-  }
-  let best: P | null = null;
-  for (const q of g.ps) {
-    if (q.down > 0 || (q === b.noP && b.noPick > 0)) continue;
-    const d = dist(q, b);
-    if (d < (q.gk ? 16 : 11) && (!best || d < dist(best, b))) best = q;
-  }
-  if (best) { b.owner = best; best.hold = 0; b.vx = b.vy = 0; if (best.gk) g.ev.push('save'); }
+  moveBall(g);
 }
-
-function goal(g: Game, scorer: Side) {
-  g.score[scorer]++;
-  g.ev.push('goal');
-  g.msgs.push({ text: scorer === 0 ? 'GOAL!! ⚽' : 'Họ ghi bàn…', ttl: 90, color: scorer === 0 ? '#ffe14d' : '#ff6b6b' });
-  const b = g.ball;
-  Object.assign(b, { x: W / 2, y: H / 2, vx: 0, vy: 0, owner: null, sup: false, noPick: 0, noP: null });
-  for (const p of g.ps) Object.assign(p, { x: p.hx, y: p.hy, vx: 0, vy: 0, down: 0, slide: 0, charge: 0, hold: 0 });
-  g.kick = 100;
-}
-
-/** Keyboard/touch state -> Input (diagonal movement is normalised in act()). */
-export const emptyInput = (): Input => ({ dx: 0, dy: 0, shoot: false, pass: false, tackle: false });

@@ -48,6 +48,14 @@ const gen = {
       ]);
       return strQ(q[0], q[1], q[2], q[3]);
     },
+    () => {
+      const d = rand(2, 9) * 10, n = rand(5, 30);
+      return decQ(`Một bánh xe có đường kính ${d} cm. Bánh xe lăn ${n} vòng thì đi được bao nhiêu xăng-ti-mét? (π = 3,14)`, d * 314 * n, 2,
+        `Mỗi vòng bánh xe đi được đúng một chu vi = ${d} × 3,14 = ${dec(d * 314, 2)} cm. ${n} vòng: ${dec(d * 314, 2)} × ${n} = ${dec(d * 314 * n, 2)} cm.`,
+        [d * 314, d * 157 * n, d * n * 100]);
+    },
+    () => strQ('Nếu bán kính hình tròn gấp lên 2 lần thì diện tích hình tròn gấp lên mấy lần?', '4 lần', ['2 lần', '3 lần', '6 lần'],
+      'Diện tích = r × r × 3,14. Bán kính gấp 2 lần thì r × r gấp 2 × 2 = 4 lần.'),
   ])(),
 
   hopChuNhat: (): Gen => pick<() => Gen>([
@@ -110,6 +118,18 @@ const gen = {
       ]);
       return strQ(q[0], q[1], q[2], q[3]);
     },
+    () => {
+      const a = rand(2, 15);
+      return numQ(`Hình lập phương có diện tích xung quanh ${a * a * 4} dm². Diện tích toàn phần là bao nhiêu đề-xi-mét vuông?`, a * a * 6,
+        `Diện tích một mặt = ${a * a * 4} : 4 = ${a * a} dm². Toàn phần = ${a * a} × 6 = ${a * a * 6} dm².`, [a * a * 4, a * a, a * a * 8]);
+    },
+    () => {
+      const a = rand(2, 12), n = rand(2, 3);
+      return numQ(`Một khối gỗ hình lập phương cạnh ${a} cm được sơn kín ${n === 2 ? 'hai' : 'ba'} mặt. Diện tích phần được sơn là bao nhiêu xăng-ti-mét vuông?`, a * a * n,
+        `Mỗi mặt có diện tích ${a} × ${a} = ${a * a} cm²; ${n} mặt là ${a * a} × ${n} = ${a * a * n} cm².`, [a * a, a * a * 6, a * a * 4]);
+    },
+    () => strQ('Nếu cạnh hình lập phương gấp lên 2 lần thì diện tích toàn phần gấp lên mấy lần?', '4 lần', ['2 lần', '6 lần', '8 lần'],
+      'Diện tích một mặt gấp 2 × 2 = 4 lần, sáu mặt đều như vậy nên diện tích toàn phần cũng gấp 4 lần.'),
   ])(),
 
   theTich: (): Gen => pick<() => Gen>([
@@ -362,9 +382,11 @@ const gen = {
       return numQ(`Một hộp gỗ hình hộp chữ nhật có dài ${a} dm, rộng ${b} dm, cao ${c} dm. Hộp chứa được bao nhiêu lít nước? (1 lít = 1 dm³)`, a * b * c, `V = ${a} × ${b} × ${c} = ${a * b * c} dm³ = ${a * b * c} lít.`, [a + b + c, a * b * c + a * b, (a + b) * 2 * c]);
     },
     () => {
-      const m = rand(12, 30), n = rand(3, 5), off = Array.from({ length: n - 1 }, () => rand(-4, 4));
-      off.push(-off.reduce((s, x) => s + x, 0));
-      const v = off.map((x) => m + x);
+      // Scores are out of 10, so every value has to land in 1…10 — otherwise draw again.
+      const m = rand(5, 9), n = rand(3, 5), off = Array.from({ length: n - 1 }, () => rand(-2, 2));
+      const last = -off.reduce((s, x) => s + x, 0);
+      if (m + last < 1 || m + last > 10) return gen.tongHop();
+      const v = [...off, last].map((x) => m + x);
       return numQ(`Điểm kiểm tra của ${n} bạn lần lượt là ${v.join('; ')}. Điểm trung bình của ${n} bạn là bao nhiêu?`, m, `Tổng = ${v.join(' + ')} = ${m * n}; chia ${n} được ${m}.`, [m + 1, m - 1, m * n]);
     },
   ])(),

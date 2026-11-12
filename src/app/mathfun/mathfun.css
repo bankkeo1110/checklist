@@ -46,3 +46,14 @@
 @media (prefers-reduced-motion: reduce) {
   .mathfun-root .mf-bob, .mathfun-root .mf-bounce, .mathfun-root .mf-fly, .mathfun-root .mf-glow, .mathfun-root .mf-sheet { animation: none; }
 }
+
+/* Practice battle */
+@keyframes mf-shake { 0%, 100% { transform: translate(0, 0) rotate(0); } 25% { transform: translate(-5px, -3px) rotate(-9deg); } 50% { transform: translate(5px, 2px) rotate(8deg); } 75% { transform: translate(-3px, 2px) rotate(-5deg); } }
+@keyframes mf-hero-hit { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-7px) rotate(-10deg); } 60% { transform: translateX(4px); } }
+@keyframes mf-combo-in { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+.mathfun-root .mf-shake { animation: mf-shake 0.42s ease-in-out; }
+.mathfun-root .mf-hero { animation: mf-hero-hit 0.42s ease-in-out; }
+.mathfun-root .mf-combo { animation: mf-combo-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-origin: left center; }
+@media (prefers-reduced-motion: reduce) {
+  .mathfun-root .mf-shake, .mathfun-root .mf-hero, .mathfun-root .mf-combo { animation: none; }
+}

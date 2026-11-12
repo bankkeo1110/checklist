@@ -173,6 +173,9 @@ function IslandNode({
           stroke="#7a4300" strokeWidth="0.8" paintOrder="stroke">{progress.complete ? '✓' : n}</text>
       </g>
 
+      {/* guard monster */}
+      <text x={x + 34} y={y - 14} textAnchor="middle" fontSize="30" className={current ? 'mf-bob' : ''}>{island.guard}</text>
+
       {/* symbol bubble */}
       <g transform={`translate(${x + 68} ${y - 44})`}>
         <circle r={iconR} fill="#fff" stroke="#e6efe6" strokeWidth="2" />
@@ -338,7 +341,7 @@ function LessonSheet({ island, badges, onClose }: { island: Island; badges: Badg
           <div className="flex-1 min-w-0">
             <h3 className="font-black text-xl leading-tight">Đảo {island.n}: {island.title}</h3>
             <p className="text-sm font-semibold text-gray-500">
-              {prog.done}/{prog.total} bài đã có huy hiệu{prog.complete ? ' · Hoàn thành đảo! 🎉' : ''}
+              {island.guard} {island.guardName} · {prog.done}/{prog.total} bài{prog.complete ? ' · Đã hạ xong! 🎉' : ''}
             </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Đóng"

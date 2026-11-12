@@ -1,6 +1,6 @@
 // Every curriculum lesson must sit on exactly one island: `npx tsx scripts/check-islands.ts`
 import { LESSONS } from '../src/lib/mathfun/curriculum';
-import { ISLANDS, MAP_W, MAP_H, islandProgress, currentIslandNumber } from '../src/lib/mathfun/islands';
+import { ISLANDS, JOURNEY, MAP_W, MAP_H, islandProgress, currentIslandNumber, nextLessonId } from '../src/lib/mathfun/islands';
 
 let bad = 0;
 const fail = (m: string) => { bad++; console.log('FAIL', m); };
@@ -8,6 +8,7 @@ const fail = (m: string) => { bad++; console.log('FAIL', m); };
 const owner = new Map<string, number>();
 for (const i of ISLANDS) {
   if (!i.lessonIds.length) fail(`island ${i.n} has no lessons`);
+  if (!i.guard || !i.guardName) fail(`island ${i.n} has no guard`);
   if (i.x < 0 || i.x > MAP_W || i.y < 0 || i.y > MAP_H) fail(`island ${i.n} outside the map`);
   for (const id of i.lessonIds) {
     if (owner.has(id)) fail(`${id} is on islands ${owner.get(id)} and ${i.n}`);
@@ -26,6 +27,11 @@ const first = ISLANDS[0].lessonIds.map((id) => ({ topic: id, badge: 'bronze', be
 if (currentIslandNumber(first) !== 2) fail('after island 1 the next island is 2');
 const p = islandProgress(ISLANDS[1], [{ topic: ISLANDS[1].lessonIds[0], badge: 'gold', bestScore: 100, attempts: 1 }]);
 if (p.done !== 1 || p.total !== 6 || p.complete || !p.started) fail('partial progress wrong');
+
+if (new Set(ISLANDS.map((i) => i.guardName)).size !== ISLANDS.length) fail('two islands share a guard name');
+if (JOURNEY.length !== LESSONS.length) fail('the journey must cover every lesson exactly once');
+if (nextLessonId(JOURNEY[JOURNEY.length - 1]) !== undefined) fail('the last lesson must have no next');
+if (nextLessonId(JOURNEY[0]) !== JOURNEY[1]) fail('journey order broken');
 
 console.log(`${LESSONS.length} lessons across ${ISLANDS.length} islands`);
 console.log(bad ? `${bad} problem(s)` : 'all ok');
