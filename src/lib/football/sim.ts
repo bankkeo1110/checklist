@@ -9,7 +9,32 @@ const MX = 12, MY = 14;
 export const CHARGE_FULL = 40;
 export const MATCH_SECONDS = 120;
 
-export type SupKind = 'blast' | 'zigzag' | 'sky';
+export type SupKind = 'blast' | 'zigzag' | 'arrow' | 'boomerang' | 'sky' | 'leaf' | 'kame' | 'void';
+export const SUP_KINDS: SupKind[] = ['blast', 'zigzag', 'arrow', 'boomerang', 'sky', 'leaf', 'kame', 'void'];
+
+/** How fast each special travels, in pixels per frame. */
+const SUP_SPEED: Record<SupKind, number> = { blast: 11.5, zigzag: 8.5, arrow: 14, boomerang: 7.5, sky: 7.5, leaf: 8, kame: 10, void: 6.5 };
+
+/** Sideways swing of a special, in pixels, at `t` of its flight (0…1). */
+export function supOffset(kind: SupKind, t: number): number {
+  switch (kind) {
+    case 'zigzag': return Math.sin(t * Math.PI * 5) * 30 * (1 - t);
+    case 'boomerang': return Math.sin(t * Math.PI) * 95;      // swings wide and curls back in
+    case 'leaf': return Math.sin(t * Math.PI * 3) * 42 * (1 - t * 0.5);
+    case 'void': return Math.sin(t * Math.PI * 2) * 18;
+    default: return 0;
+  }
+}
+
+/** Height of a special above the grass at `t` of its flight. */
+export function supHeight(kind: SupKind, t: number): number {
+  switch (kind) {
+    case 'sky': return Math.sin(Math.PI * t) * 120;           // drops out of the sky onto the goal
+    case 'arrow': return 6;
+    case 'kame': return 10;
+    default: return 8;
+  }
+}
 export type HairStyle = 'spiky' | 'long' | 'cap' | 'bun' | 'mohawk' | 'hood' | 'curly' | 'band';
 
 /** Original elemental warriors. spd / pow / tac are 1–5. */
@@ -21,12 +46,12 @@ export interface Char {
 export const CHARS: Char[] = [
   { id: 'lua', name: 'Lửa', skin: '#f2c48d', hair: '#e8452c', style: 'spiky', aura: '#ff7a1a', shot: 'CẦU LỬA!', kind: 'blast', spd: 3, pow: 5, tac: 2 },
   { id: 'sam', name: 'Sấm', skin: '#e9b98a', hair: '#ffd21f', style: 'mohawk', aura: '#ffe14d', shot: 'TIA SÉT!', kind: 'zigzag', spd: 5, pow: 3, tac: 2 },
-  { id: 'bang', name: 'Băng', skin: '#f6d7bd', hair: '#8fd8ff', style: 'long', aura: '#6fd3ff', shot: 'MŨI TÊN BĂNG!', kind: 'blast', spd: 3, pow: 4, tac: 3 },
-  { id: 'gio', name: 'Gió', skin: '#d9a273', hair: '#e9f5f2', style: 'band', aura: '#9ff5d8', shot: 'LỐC XOÁY!', kind: 'zigzag', spd: 5, pow: 2, tac: 3 },
+  { id: 'bang', name: 'Băng', skin: '#f6d7bd', hair: '#8fd8ff', style: 'long', aura: '#6fd3ff', shot: 'MŨI TÊN BĂNG!', kind: 'arrow', spd: 3, pow: 4, tac: 3 },
+  { id: 'gio', name: 'Gió', skin: '#d9a273', hair: '#e9f5f2', style: 'band', aura: '#ffd84d', shot: 'CHUỐI BAY VÒNG!', kind: 'boomerang', spd: 5, pow: 2, tac: 3 },
   { id: 'da', name: 'Đá', skin: '#b98258', hair: '#6b5a4b', style: 'cap', aura: '#c9a36b', shot: 'THIÊN THẠCH!', kind: 'sky', spd: 2, pow: 4, tac: 5 },
-  { id: 'la', name: 'Lá', skin: '#f2c48d', hair: '#3fae4c', style: 'bun', aura: '#7be07b', shot: 'BÃO LÁ!', kind: 'zigzag', spd: 4, pow: 2, tac: 4 },
-  { id: 'sao', name: 'Sao', skin: '#f6d7bd', hair: '#b58cff', style: 'curly', aura: '#d5b8ff', shot: 'SAO BĂNG!', kind: 'sky', spd: 4, pow: 4, tac: 2 },
-  { id: 'dem', name: 'Bóng Đêm', skin: '#c99872', hair: '#2b2440', style: 'hood', aura: '#8f6bff', shot: 'HỐ ĐEN!', kind: 'blast', spd: 3, pow: 3, tac: 4 },
+  { id: 'la', name: 'Lá', skin: '#f2c48d', hair: '#3fae4c', style: 'bun', aura: '#7be07b', shot: 'BÃO LÁ!', kind: 'leaf', spd: 4, pow: 2, tac: 4 },
+  { id: 'sao', name: 'Sao', skin: '#f6d7bd', hair: '#b58cff', style: 'curly', aura: '#9fe8ff', shot: 'SÓNG ÁNH SAO!', kind: 'kame', spd: 4, pow: 4, tac: 2 },
+  { id: 'dem', name: 'Bóng Đêm', skin: '#c99872', hair: '#2b2440', style: 'hood', aura: '#8f6bff', shot: 'HỐ ĐEN!', kind: 'void', spd: 3, pow: 3, tac: 4 },
 ];
 
 /** How strong a CPU team (or the kid's own AI team-mates) plays. */
@@ -58,17 +83,18 @@ export interface Difficulty {
   myGk: number;     // <1 = your keeper reacts sooner and moves faster
   shot: number;     // your shot power
   aim: number;      // 0…1 shooting help
+  myKi: number;     // how fast your ki bar fills
   allySpd: number;  // your AI team-mates' speed
   allyAggro: number;// how hard your team-mates fight for the ball
 }
 
 export const DIFFICULTIES: Difficulty[] = [
   { id: 'de', name: 'Dễ', emoji: '😊', blurb: 'Đối thủ chạy chậm và ít sút, cú sút của bạn tự nhắm vào góc trống.',
-    cpu: 0.8, aggro: 0.4, theirGk: 1.15, myGk: 0.65, shot: 1.05, aim: 0.6, allySpd: 1.1, allyAggro: 1.7 },
+    cpu: 0.8, aggro: 0.4, theirGk: 1.15, myGk: 0.65, shot: 1.05, aim: 0.6, myKi: 1.6, allySpd: 1.1, allyAggro: 1.7 },
   { id: 'vua', name: 'Vừa', emoji: '😐', blurb: 'Đối thủ đá rắn hơn, trợ giúp nhắm bóng ít đi. Phải biết chuyền và xoạc.',
-    cpu: 0.9, aggro: 0.7, theirGk: 1.05, myGk: 0.85, shot: 1, aim: 0.4, allySpd: 1.04, allyAggro: 1.2 },
+    cpu: 0.9, aggro: 0.7, theirGk: 1.05, myGk: 0.85, shot: 1, aim: 0.4, myKi: 1.3, allySpd: 1.04, allyAggro: 1.2 },
   { id: 'kho', name: 'Khó', emoji: '😤', blurb: 'Luật chơi gốc: đối thủ lì đòn, thủ môn bắt giỏi, không có trợ giúp nhắm bóng.',
-    cpu: 1, aggro: 1, theirGk: 0.95, myGk: 1, shot: 1, aim: 0, allySpd: 1, allyAggro: 1 },
+    cpu: 1, aggro: 1, theirGk: 0.95, myGk: 1, shot: 1, aim: 0, myKi: 1, allySpd: 1, allyAggro: 1 },
 ];
 export const DEFAULT_DIFFICULTY = 0;
 
@@ -112,7 +138,7 @@ export interface Ball {
   owner: P | null; ks: Side; noPick: number; noP: P | null; sup: Sup | null; shot: boolean; pass: boolean;
 }
 export interface Msg { text: string; ttl: number; max: number; color: string }
-export interface Ev { t: string; x: number; y: number; side?: Side; color?: string }
+export interface Ev { t: string; x: number; y: number; side?: Side; color?: string; kind?: SupKind }
 export interface Game {
   ps: P[]; ball: Ball; score: [number, number]; ctl: P; kick: number; freeze: number;
   phase: 'play' | 'goal' | 'full'; phaseT: number; lastGoal: Side; scorer: P | null;
@@ -136,7 +162,7 @@ const powF = (p: P) => 0.88 + CHARS[p.ch].pow * 0.04;
 const cfgOf = (g: Game, p: P) => (p.side === 1 ? g.level : g.ally);
 const say = (g: Game, text: string, color: string, ttl = 80) => { g.msgs = g.msgs.slice(-1); g.msgs.push({ text, ttl, max: ttl, color }); };
 const emit = (g: Game, t: string, at: Pt, extra: Partial<Ev> = {}) => g.ev.push({ t, x: at.x, y: at.y, ...extra });
-const addKi = (g: Game, s: Side, n: number) => { g.ki[s] = clamp(g.ki[s] + n * (s === 1 ? g.level.kiRate : 1), 0, 100); };
+const addKi = (g: Game, s: Side, n: number) => { g.ki[s] = clamp(g.ki[s] + n * (s === 1 ? g.level.kiRate : g.diff.myKi), 0, 100); };
 
 function segDist(p: Pt, a: Pt, b: Pt) {
   const dx = b.x - a.x, dy = b.y - a.y;
@@ -201,13 +227,13 @@ function clearBall(g: Game, p: P, power: number) {
 
 function special(g: Game, p: P) {
   const c = CHARS[p.ch], gx = goalX(p.side), y1 = H / 2 + rnd(-38, 38);
-  const sp = c.kind === 'blast' ? 11.5 : c.kind === 'zigzag' ? 8.5 : 7.5;
+  const sp = SUP_SPEED[c.kind];
   g.ball.sup = { kind: c.kind, ch: p.ch, x0: p.x, y0: p.y, x1: gx + dirOf(p.side) * 6, y1, t: 0, dur: Math.max(14, Math.hypot(gx - p.x, y1 - p.y) / sp), rolled: false };
   Object.assign(g.ball, { owner: null, ks: p.side, noPick: 0, noP: p, shot: false, pass: false, vz: 0 });
   g.ki[p.side] = 0; p.cd = 30; p.charge = 0; p.kickT = 16; p.fx = dirOf(p.side); p.fy = 0;
   g.freeze = 26;
   say(g, c.shot, c.aura, 90);
-  emit(g, 'super', p, { color: c.aura, side: p.side });
+  emit(g, 'super', p, { color: c.aura, side: p.side, kind: c.kind });
 }
 
 /** Where a human shot goes. With aim help it drifts to the corner the keeper has left open. */
@@ -394,11 +420,11 @@ function act(g: Game, p: P, a: Act, human: boolean, inp: Input | null) {
     for (const q of g.ps) {
       if (q.side === p.side || q.down > 0 || q.gk || dist(p, q) > reach) continue;
       q.down = 50; q.vx = p.fx * 2; q.vy = p.fy * 2; emit(g, 'tackle', q);
-      if (b.owner === q) { b.owner = p; p.safe = 30; p.hold = 0; addKi(g, p.side, 12); }
+      if (b.owner === q) { b.owner = p; p.safe = 30; p.hold = 0; addKi(g, p.side, 16); }
     }
   } else if (still && !p.gk && carrier && carrier.side !== p.side && !carrier.gk && carrier.safe <= 0 && dist(p, carrier) < 13
     && Math.random() < (human ? 0.07 : cfg.stealP)) {
-    b.owner = p; p.safe = 30; p.hold = 0; carrier.cd = 20; addKi(g, p.side, 8); emit(g, 'steal', p);
+    b.owner = p; p.safe = 30; p.hold = 0; carrier.cd = 20; addKi(g, p.side, 12); emit(g, 'steal', p);
   }
   if (b.owner === p && p.gk) p.hold++; else p.hold = 0;
 }
@@ -416,7 +442,7 @@ function goal(g: Game, scorer: Side) {
   say(g, scorer === 0 ? 'VÀOOOO!!! ⚽' : 'Bị thủng lưới…', scorer === 0 ? '#ffe14d' : '#ff8a8a', 130);
   emit(g, 'goal', b, { side: scorer });
   b.sup = null; b.shot = false; b.owner = null; b.vx *= 0.3; b.vy *= 0.3;
-  addKi(g, scorer === 0 ? 1 : 0, 15); // the side that conceded gets fired up
+  addKi(g, scorer === 0 ? 1 : 0, 20); // the side that conceded gets fired up
   for (const p of g.ps) { p.charge = 0; p.slide = 0; }
 }
 
@@ -433,9 +459,10 @@ function moveBall(g: Game) {
     const s = b.sup, px = b.x, py = b.y;
     s.t += 1 / s.dur;
     const t = Math.min(1, s.t), lx = s.x1 - s.x0, ly = s.y1 - s.y0, len = Math.hypot(lx, ly) || 1;
-    const off = s.kind === 'zigzag' ? Math.sin(t * Math.PI * 5) * 30 * (1 - t) : 0;
-    b.x = s.x0 + lx * t + (-ly / len) * off; b.y = clamp(s.y0 + ly * t + (lx / len) * off, 6, H - 6);
-    b.z = s.kind === 'sky' ? Math.sin(Math.PI * t) * 120 : 8;
+    const off = supOffset(s.kind, t);
+    // the sideways swing has to stay on the pitch: a wide curve on a steep shot would fly off the side
+    b.x = clamp(s.x0 + lx * t + (-ly / len) * off, -14, W + 14); b.y = clamp(s.y0 + ly * t + (lx / len) * off, 6, H - 6);
+    b.z = supHeight(s.kind, t);
     b.vx = b.x - px; b.vy = b.y - py;
     for (const q of g.ps) {
       if (q.side === b.ks || q.down > 0 || b.z > 30 || dist(q, b) > 17) continue;
@@ -481,14 +508,14 @@ function moveBall(g: Game) {
   if (!best) return;
   const speed = Math.hypot(b.vx, b.vy);
   if (best.gk && b.shot && b.ks !== best.side) {
-    addKi(g, b.ks, 6);
+    addKi(g, b.ks, 9);
     if (speed > 8.6) { // too hot to hold: parried back into play
       Object.assign(b, { vx: dirOf(best.side) * rnd(2.5, 4.5), vy: rnd(-3.5, 3.5), vz: 3, noPick: 18, noP: best, shot: false });
       say(g, 'CỨU THUA!', '#9fe8ff', 50); emit(g, 'save', best); return;
     }
     say(g, 'BẮT GỌN!', '#9fe8ff', 45); emit(g, 'save', best);
   } else if (b.pass && b.ks === best.side && best !== b.noP) {
-    addKi(g, best.side, 10); emit(g, 'recv', best);
+    addKi(g, best.side, 14); emit(g, 'recv', best);
   }
   b.owner = best; best.hold = 0; best.safe = 22; b.vx = b.vy = b.vz = 0; b.z = 0; b.shot = false; b.pass = false;
 }
@@ -515,7 +542,7 @@ export function step(g: Game, inp: Input | null) {
     }
   } else if (--g.goldenT <= 0) return endMatch(g);
 
-  addKi(g, 0, 0.02); addKi(g, 1, 0.02);
+  addKi(g, 0, 0.04); addKi(g, 1, 0.04);
   if (g.shotCd[0] > 0) g.shotCd[0]--;
   if (g.shotCd[1] > 0) g.shotCd[1]--;
   if (!g.ctl.sprint) g.stamina = Math.min(100, g.stamina + 0.3);

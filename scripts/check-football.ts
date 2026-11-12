@@ -1,13 +1,15 @@
 // Headless check for the football sim: `npx tsx scripts/check-football.ts`
 // Two scripted players (a careful one and a clumsy young one) play full matches so the
 // difficulty levels can be checked for real: Dễ has to be winnable, Khó has to bite.
-import { newGame, step, emptyInput, W, H, LEVELS, DIFFICULTIES, CHARGE_FULL, type Game } from '../src/lib/football/sim';
+import { newGame, step, emptyInput, supHeight, supOffset, W, H, CHARS, LEVELS, DIFFICULTIES, SUP_KINDS, CHARGE_FULL, type Game } from '../src/lib/football/sim';
 
 interface Skill { name: string; react: number; err: number; charge: number; sprintP: number; idleP: number; corner: boolean }
 /** A 10-year-old: reacts a quarter-second late, runs crooked, taps the shoot button. */
 const KID: Skill = { name: 'bé', react: 15, err: 0.75, charge: 10, sprintP: 0.2, idleP: 0.2, corner: false };
 /** Someone who knows the controls: instant, straight, charges every shot and picks a corner. */
 const PRO: Skill = { name: 'giỏi', react: 1, err: 0.03, charge: 44, sprintP: 0.9, idleP: 0, corner: true };
+
+const kinds = new Set<string>();
 
 function playMatch(level: number, difficulty: number, skill: Skill) {
   const g: Game = newGame([0, 1, 2, 3], [4, 5, 6, 7], level, difficulty);
@@ -36,7 +38,7 @@ function playMatch(level: number, difficulty: number, skill: Skill) {
     }
     if (!idle) { inp.dx = dx; inp.dy = dy; }
     step(g, inp);
-    for (const e of g.ev) seen.add(e.t);
+    for (const e of g.ev) { seen.add(e.t); if (e.kind) kinds.add(e.kind); }
     for (const p of g.ps) if (![p.x, p.y, p.vx, p.vy].every(Number.isFinite) || p.x < 0 || p.x > W || p.y < 0 || p.y > H) throw new Error(`player out of bounds at frame ${frames}`);
     if (![b.x, b.y, b.z, b.vx, b.vy].every(Number.isFinite) || b.x < -20 || b.x > W + 20 || b.y < 0 || b.y > H || b.z < 0) throw new Error(`ball out of bounds at frame ${frames}: ${b.x},${b.y},${b.z}`);
     if (g.ki.some((k) => k < 0 || k > 100) || g.stamina < 0 || g.stamina > 100) throw new Error('meter out of range');
@@ -87,6 +89,19 @@ if (kidK.winRate >= kidD.winRate) fail('a kid should win less often on Khó than
 if (Math.abs(diff(proBoss)) > 1.5) fail(`Khó: the final team ends ${diff(proBoss).toFixed(1)} goals apart on average — not an even fight`);
 if (proBoss.winRate < 0.2) fail(`Khó: the final team is won ${(proBoss.winRate * 100).toFixed(0)}% of the time even played well`);
 if (proBoss.winRate > 0.8) fail('Khó: the final team is no challenge');
+
+// Every warrior has a special of their own, and each has to stay on the pitch.
+if (new Set(CHARS.map((c) => c.kind)).size !== SUP_KINDS.length) fail('two warriors share a special, or one kind is unused');
+for (const k of SUP_KINDS) {
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20, off = supOffset(k, t), z = supHeight(k, t);
+    if (!Number.isFinite(off) || Math.abs(off) > 110) fail(`${k}: swings ${off.toFixed(0)}px sideways — off the pitch`);
+    if (!Number.isFinite(z) || z < 0 || z > 130) fail(`${k}: flies at height ${z.toFixed(0)}`);
+  }
+  if (Math.abs(supOffset(k, 0)) > 0.01 || Math.abs(supOffset(k, 1)) > 0.01) fail(`${k}: must leave the foot and reach the goal on the aim line`);
+}
+if (kinds.size < 5) fail(`only ${kinds.size} of ${SUP_KINDS.length} specials were ever fired in the test matches`);
+console.log(`tuyệt chiêu đã bắn trong lúc test: ${[...kinds].sort().join(', ')}`);
 
 const need = ['goal', 'kick', 'save', 'super', 'tackle', 'whistle', 'fulltime'];
 const allSeen = new Set([...kidEasy.seen, ...kidD.seen, ...kidV.seen, ...kidK.seen, ...proBoss.seen]);

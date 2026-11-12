@@ -146,19 +146,149 @@ function drawStadium(ctx: CanvasRenderingContext2D, v: View, awayColor: string) 
   }
 }
 
+/** One distinct look per special move — the whole point of charging the ki bar. */
+function drawSuper(ctx: CanvasRenderingContext2D, g: Game, v: View, by: number) {
+  const b = g.ball, sup = b.sup!, c = CHARS[sup.ch], col = c.aura;
+  const ang = Math.atan2(b.vy, b.vx) || 0, tick = v.tick;
+  const tail = (n: number, step: number, fn: (x: number, y: number, k: number) => void) => {
+    for (let k = 1; k <= n; k++) fn(b.x - Math.cos(ang) * k * step, by - Math.sin(ang) * k * step, k);
+  };
+
+  switch (sup.kind) {
+    case 'blast': {                                   // Cầu lửa: a rolling ball of flame
+      tail(7, 9, (x, y, k) => {
+        const w = Math.sin(tick * 0.6 + k) * 3;
+        ctx.fillStyle = k > 4 ? '#ff6b1a66' : k > 2 ? '#ff8c1aaa' : '#ffb020';
+        disc(ctx, x + w * 0.3, y + w, 11 - k);
+      });
+      ctx.fillStyle = col + '44'; disc(ctx, b.x, by, 18 + Math.sin(tick * 0.8) * 2);
+      ctx.fillStyle = '#ff7a1a'; disc(ctx, b.x, by, 12);
+      ctx.fillStyle = '#ffc93c'; disc(ctx, b.x, by, 8);
+      ctx.fillStyle = '#fff6cf'; disc(ctx, b.x - Math.cos(ang) * 1.5, by - Math.sin(ang) * 1.5, 4.5);
+      break;
+    }
+    case 'zigzag': {                                  // Tia sét: a crackling bolt
+      if (v.trail.length > 1) {
+        for (const [w, color] of [[8, col + '55'], [3.5, col], [1.6, '#ffffff']] as const) {
+          ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.beginPath();
+          v.trail.forEach((t, i) => (i ? ctx.lineTo(t.x, t.y + (i % 2 ? 5 : -5)) : ctx.moveTo(t.x, t.y)));
+          ctx.stroke();
+        }
+      }
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        const a = tick * 0.5 + i * 1.6;
+        ctx.beginPath(); ctx.moveTo(b.x + Math.cos(a) * 9, by + Math.sin(a) * 9);
+        ctx.lineTo(b.x + Math.cos(a) * 19, by + Math.sin(a) * 19); ctx.stroke();
+      }
+      ctx.fillStyle = col + '77'; disc(ctx, b.x, by, 13);
+      ctx.fillStyle = '#ffffff'; disc(ctx, b.x, by, 6.5);
+      break;
+    }
+    case 'arrow': {                                   // Mũi tên băng: a frozen dart
+      tail(4, 13, (x, y, k) => {
+        ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+        ctx.fillStyle = col + (k > 2 ? '44' : '88');
+        poly(ctx, [[-6, -4 + k], [4, 0], [-6, 4 + k]]);
+        ctx.restore();
+      });
+      ctx.save(); ctx.translate(b.x, by); ctx.rotate(ang);
+      ctx.fillStyle = col + '55'; ctx.beginPath(); ctx.roundRect(-26, -7, 44, 14, 7); ctx.fill();
+      ctx.fillStyle = col; ctx.fillRect(-18, -2.6, 28, 5.2);
+      ctx.fillStyle = '#eafaff'; ctx.strokeStyle = col; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(8, -10); ctx.lineTo(24, 0); ctx.lineTo(8, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = col; poly(ctx, [[-18, -3], [-26, -10], [-12, -3]]); poly(ctx, [[-18, 3], [-26, 10], [-12, 3]]);
+      ctx.restore();
+      break;
+    }
+    case 'boomerang': {                               // Chuối bay vòng: a spinning banana
+      const spin = tick * 0.65;
+      for (let k = 3; k >= 0; k--) {
+        ctx.save();
+        ctx.translate(b.x - Math.cos(ang) * k * 7, by - Math.sin(ang) * k * 7);
+        ctx.rotate(spin - k * 0.5);
+        ctx.globalAlpha = k === 0 ? 1 : 0.22;
+        ctx.fillStyle = '#ffd84d'; ctx.strokeStyle = '#a97c00'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-15, 7); ctx.quadraticCurveTo(0, -20, 15, 7);
+        ctx.quadraticCurveTo(0, -5, -15, 7); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#6b4423'; disc(ctx, -15, 7, 2.4); disc(ctx, 15, 7, 2.4);
+        ctx.restore();
+      }
+      ctx.globalAlpha = 1;
+      break;
+    }
+    case 'sky': {                                     // Thiên thạch: a rock falling on the goal
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(sup.x1, sup.y1, 10 + (tick % 20), 0, Math.PI * 2); ctx.stroke();
+      for (let k = 7; k >= 1; k--) {                  // flame tail points back up the arc
+        const x = b.x - Math.cos(ang) * k * 10, y = by - Math.sin(ang) * k * 10 - k * 3;
+        ctx.fillStyle = k > 4 ? '#ff6b1a55' : '#ffa52aaa'; disc(ctx, x, y, 12 - k);
+      }
+      ctx.fillStyle = '#ffd36b88'; disc(ctx, b.x, by, 19);
+      ctx.fillStyle = '#6b5a4b'; disc(ctx, b.x, by, 11);
+      ctx.fillStyle = '#4a3d33'; disc(ctx, b.x - 3, by - 2, 3); disc(ctx, b.x + 4, by + 3, 2.2);
+      break;
+    }
+    case 'leaf': {                                    // Bão lá: leaves whirling round the ball
+      ctx.fillStyle = col + '44'; disc(ctx, b.x, by, 26);
+      for (let i = 0; i < 9; i++) {
+        const a = tick * 0.26 + (i * Math.PI * 2) / 9, r = 23 + Math.sin(tick * 0.2 + i) * 6;
+        ctx.save(); ctx.translate(b.x + Math.cos(a) * r, by + Math.sin(a) * r); ctx.rotate(a + tick * 0.1);
+        ctx.fillStyle = ['#3fae4c', '#7be07b', '#2d8f3a'][i % 3];
+        ctx.beginPath(); ctx.ellipse(0, 0, 4.6, 10, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#1f6b2a'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, -9.5); ctx.lineTo(0, 9.5); ctx.stroke();
+        ctx.restore();
+      }
+      ctx.fillStyle = '#eafde9'; disc(ctx, b.x, by, 9);
+      break;
+    }
+    case 'kame': {                                    // Sóng ánh sao: a beam fired from the hands
+      const dx = b.x - sup.x0, dy = by - sup.y0, len = Math.hypot(dx, dy);
+      const w = 18 + Math.sin(tick * 0.7) * 4;
+      ctx.save(); ctx.translate(sup.x0, sup.y0); ctx.rotate(Math.atan2(dy, dx));
+      ctx.fillStyle = col + '44'; ctx.fillRect(0, -w / 2, len, w);
+      ctx.fillStyle = col + 'bb'; ctx.fillRect(0, -w / 3.2, len, w / 1.6);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, -w / 7, len, w / 3.5);
+      ctx.restore();
+      ctx.fillStyle = col + '55'; disc(ctx, b.x, by, 24 + Math.sin(tick * 0.7) * 3);
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(b.x, by, 17 + Math.sin(tick * 0.5) * 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = col; disc(ctx, b.x, by, 13);
+      ctx.fillStyle = '#ffffff'; disc(ctx, b.x, by, 8);
+      break;
+    }
+    case 'void': {                                    // Hố đen: everything spirals inward
+      ctx.fillStyle = col + '33'; disc(ctx, b.x, by, 34);
+      ctx.fillStyle = col + '22'; disc(ctx, b.x, by, 44 + Math.sin(tick * 0.3) * 3);
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i++) {                   // debris being sucked in
+        const a = tick * 0.14 + (i * Math.PI) / 4, r1 = 46 - ((tick * 1.6 + i * 6) % 22);
+        ctx.beginPath(); ctx.moveTo(b.x + Math.cos(a) * r1, by + Math.sin(a) * r1);
+        ctx.lineTo(b.x + Math.cos(a) * (r1 - 12), by + Math.sin(a) * (r1 - 12)); ctx.stroke();
+      }
+      ctx.strokeStyle = col; ctx.lineWidth = 4.5;
+      ctx.beginPath(); ctx.arc(b.x, by, 19 + Math.sin(tick * 0.4) * 2.5, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#140c22'; disc(ctx, b.x, by, 17);
+      ctx.fillStyle = '#ffffff'; disc(ctx, b.x + Math.cos(tick * 0.3) * 3, by + Math.sin(tick * 0.3) * 3, 1.8);
+      break;
+    }
+  }
+}
+
 function drawBall(ctx: CanvasRenderingContext2D, g: Game, v: View) {
   const b = g.ball, by = b.y - b.z * 0.85, speed = Math.hypot(b.vx, b.vy);
   const aura = b.sup ? CHARS[b.sup.ch].aura : '#ffffff';
   if (b.sup || speed > 7.5) { v.trail.push({ x: b.x, y: by }); if (v.trail.length > (b.sup ? 14 : 7)) v.trail.shift(); } else if (v.trail.length) v.trail.shift();
-  if (b.sup?.kind === 'zigzag' && v.trail.length > 1) {
-    ctx.strokeStyle = aura; ctx.lineWidth = 3; ctx.beginPath();
-    v.trail.forEach((t, i) => (i ? ctx.lineTo(t.x + (i % 2 ? 4 : -4), t.y) : ctx.moveTo(t.x, t.y))); ctx.stroke();
-  }
-  v.trail.forEach((t, i) => { ctx.fillStyle = aura + Math.round((i / v.trail.length) * (b.sup ? 170 : 90) + 16).toString(16).padStart(2, '0'); disc(ctx, t.x, t.y, (b.sup ? 4 : 2) + i * (b.sup ? 0.9 : 0.4)); });
-  if (b.sup?.kind === 'sky') { ctx.strokeStyle = aura; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(b.sup.x1, b.sup.y1, 10 + (v.tick % 20), 0, Math.PI * 2); ctx.stroke(); }
-  ctx.fillStyle = `rgba(0,0,0,${0.3 - Math.min(0.18, b.z * 0.002)})`; ctx.beginPath(); ctx.ellipse(b.x, b.y + 4, 5 - Math.min(2, b.z * 0.03), 2.4, 0, 0, Math.PI * 2); ctx.fill();
+
+  // ground shadow, bigger the lower the ball flies
+  ctx.fillStyle = `rgba(0,0,0,${0.3 - Math.min(0.18, b.z * 0.002)})`;
+  ctx.beginPath(); ctx.ellipse(b.x, b.y + 4, 5 - Math.min(2, b.z * 0.03), 2.4, 0, 0, Math.PI * 2); ctx.fill();
+
+  if (b.sup) { drawSuper(ctx, g, v, by); return; }
+
+  v.trail.forEach((t, i) => { ctx.fillStyle = aura + Math.round((i / v.trail.length) * 90 + 16).toString(16).padStart(2, '0'); disc(ctx, t.x, t.y, 2 + i * 0.4); });
   const r = 5 + Math.min(4, b.z * 0.035);
-  if (b.sup) { ctx.fillStyle = aura + '88'; disc(ctx, b.x, by, r + 9 + Math.sin(v.tick * 0.8) * 2); ctx.fillStyle = aura; disc(ctx, b.x, by, r + 4); }
   ctx.fillStyle = '#fff'; ctx.strokeStyle = '#111'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(b.x, by, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   const rot = (b.x + b.y) * 0.12;
   ctx.fillStyle = '#111'; disc(ctx, b.x + Math.cos(rot) * r * 0.45, by + Math.sin(rot) * r * 0.45, r * 0.3); disc(ctx, b.x - Math.cos(rot) * r * 0.5, by - Math.sin(rot) * r * 0.5, r * 0.22);
