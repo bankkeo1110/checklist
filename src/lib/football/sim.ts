@@ -45,6 +45,59 @@ export const LEVELS: Level[] = [
 ];
 const ALLY: Level = { ...LEVELS[2], name: '', gkReact: 11, gkSpd: 2.9, gkPunch: 0.15, tackleP: 0.03, stealP: 0.02 };
 
+/**
+ * How hard the game plays, on top of which team you are facing.
+ * `aim` is the shooting help a young player gets: 1 = the ball goes to the corner the keeper left open.
+ */
+export interface Difficulty {
+  id: 'de' | 'vua' | 'kho';
+  name: string; emoji: string; blurb: string;
+  cpu: number;      // their outfield speed
+  aggro: number;    // how often they shoot, tackle and steal
+  theirGk: number;  // >1 = their keeper reacts later and moves slower
+  myGk: number;     // <1 = your keeper reacts sooner and moves faster
+  shot: number;     // your shot power
+  aim: number;      // 0…1 shooting help
+  allySpd: number;  // your AI team-mates' speed
+  allyAggro: number;// how hard your team-mates fight for the ball
+}
+
+export const DIFFICULTIES: Difficulty[] = [
+  { id: 'de', name: 'Dễ', emoji: '😊', blurb: 'Đối thủ chạy chậm và ít sút, cú sút của bạn tự nhắm vào góc trống.',
+    cpu: 0.8, aggro: 0.4, theirGk: 1.15, myGk: 0.65, shot: 1.05, aim: 0.6, allySpd: 1.1, allyAggro: 1.7 },
+  { id: 'vua', name: 'Vừa', emoji: '😐', blurb: 'Đối thủ đá rắn hơn, trợ giúp nhắm bóng ít đi. Phải biết chuyền và xoạc.',
+    cpu: 0.9, aggro: 0.7, theirGk: 1.05, myGk: 0.85, shot: 1, aim: 0.4, allySpd: 1.04, allyAggro: 1.2 },
+  { id: 'kho', name: 'Khó', emoji: '😤', blurb: 'Luật chơi gốc: đối thủ lì đòn, thủ môn bắt giỏi, không có trợ giúp nhắm bóng.',
+    cpu: 1, aggro: 1, theirGk: 0.95, myGk: 1, shot: 1, aim: 0, allySpd: 1, allyAggro: 1 },
+];
+export const DEFAULT_DIFFICULTY = 0;
+
+const scaleFoe = (base: Level, d: Difficulty): Level => ({
+  ...base,
+  spd: base.spd * d.cpu,
+  shootP: base.shootP * d.aggro,
+  tackleP: base.tackleP * d.aggro,
+  stealP: base.stealP * d.aggro,
+  kiRate: base.kiRate * d.aggro,
+  gkReact: Math.round(base.gkReact * d.theirGk),
+  gkSpd: base.gkSpd / d.theirGk,
+  gkPunch: base.gkPunch / d.theirGk,
+});
+
+/** Your AI team-mates and keeper keep pace with the team you are facing, then bend with the difficulty. */
+const scaleAlly = (d: Difficulty, level: number): Level => {
+  const base = LEVELS[clamp(level, 1, LEVELS.length - 1)];
+  return {
+    ...base, name: '',
+    spd: base.spd * d.allySpd,
+    tackleP: ALLY.tackleP * d.allyAggro,
+    stealP: ALLY.stealP * d.allyAggro,
+    gkReact: Math.round(base.gkReact * d.myGk),
+    gkSpd: base.gkSpd / d.myGk,
+    gkPunch: base.gkPunch,
+  };
+};
+
 export type Side = 0 | 1; // 0 = the kid (attacks right), 1 = CPU (attacks left)
 
 export interface P {
@@ -64,7 +117,8 @@ export interface Game {
   ps: P[]; ball: Ball; score: [number, number]; ctl: P; kick: number; freeze: number;
   phase: 'play' | 'goal' | 'full'; phaseT: number; lastGoal: Side; scorer: P | null;
   msgs: Msg[]; ev: Ev[]; frame: number; prevShoot: boolean; prevPass: boolean;
-  ki: [number, number]; stamina: number; time: number; golden: boolean; goldenT: number; level: Level;
+  ki: [number, number]; stamina: number; time: number; golden: boolean; goldenT: number; shotCd: [number, number];
+  level: Level; ally: Level; diff: Difficulty;
 }
 export interface Input { dx: number; dy: number; shoot: boolean; pass: boolean; tackle: boolean; sprint: boolean }
 export const emptyInput = (): Input => ({ dx: 0, dy: 0, shoot: false, pass: false, tackle: false, sprint: false });
@@ -79,7 +133,7 @@ const dirOf = (s: Side) => (s === 0 ? 1 : -1);
 const goalX = (s: Side) => (s === 0 ? W : 0); // the goal this side attacks
 const spdF = (p: P) => 0.9 + CHARS[p.ch].spd * 0.04;
 const powF = (p: P) => 0.88 + CHARS[p.ch].pow * 0.04;
-const cfgOf = (g: Game, p: P) => (p.side === 1 ? g.level : ALLY);
+const cfgOf = (g: Game, p: P) => (p.side === 1 ? g.level : g.ally);
 const say = (g: Game, text: string, color: string, ttl = 80) => { g.msgs = g.msgs.slice(-1); g.msgs.push({ text, ttl, max: ttl, color }); };
 const emit = (g: Game, t: string, at: Pt, extra: Partial<Ev> = {}) => g.ev.push({ t, x: at.x, y: at.y, ...extra });
 const addKi = (g: Game, s: Side, n: number) => { g.ki[s] = clamp(g.ki[s] + n * (s === 1 ? g.level.kiRate : 1), 0, 100); };
@@ -90,7 +144,8 @@ function segDist(p: Pt, a: Pt, b: Pt) {
   return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
-export function newGame(mine: number[], theirs: number[], level = 0, seconds = MATCH_SECONDS): Game {
+export function newGame(mine: number[], theirs: number[], level = 0, difficulty = DEFAULT_DIFFICULTY, seconds = MATCH_SECONDS): Game {
+  const diff = DIFFICULTIES[clamp(difficulty, 0, DIFFICULTIES.length - 1)];
   const ps: P[] = [];
   ([0, 1] as Side[]).forEach((side) => {
     const team = side === 0 ? mine : theirs;
@@ -107,7 +162,8 @@ export function newGame(mine: number[], theirs: number[], level = 0, seconds = M
     ps, ball: { x: W / 2, y: H / 2, z: 0, vx: 0, vy: 0, vz: 0, owner: null, ks: 0, noPick: 0, noP: null, sup: null, shot: false, pass: false },
     score: [0, 0], ctl: ps[4], kick: 0, freeze: 0, phase: 'play', phaseT: 0, lastGoal: 0, scorer: null,
     msgs: [], ev: [], frame: 0, prevShoot: false, prevPass: false,
-    ki: [30, 0], stamina: 100, time: seconds * 60, golden: false, goldenT: 0, level: LEVELS[clamp(level, 0, LEVELS.length - 1)],
+    ki: [30, 0], shotCd: [0, 0], stamina: 100, time: seconds * 60, golden: false, goldenT: 0,
+    level: scaleFoe(LEVELS[clamp(level, 0, LEVELS.length - 1)], diff), ally: scaleAlly(diff, level), diff,
   };
   kickoff(g, 0);
   return g;
@@ -152,6 +208,15 @@ function special(g: Game, p: P) {
   g.freeze = 26;
   say(g, c.shot, c.aura, 90);
   emit(g, 'super', p, { color: c.aura, side: p.side });
+}
+
+/** Where a human shot goes. With aim help it drifts to the corner the keeper has left open. */
+function humanAim(g: Game, p: P, dy: number): number {
+  const a = g.diff.aim;
+  if (Math.abs(dy) > 0.3) return H / 2 + Math.sign(dy) * 46 + rnd(-14, 14) * (1 - a); // kid picked a corner: help only tightens it
+  const k = g.ps.find((q) => q.gk && q.side !== p.side);
+  const open = k ? H / 2 + (k.y <= H / 2 ? 1 : -1) * 46 : H / 2;
+  return (H / 2 + rnd(-30, 30)) * (1 - a) + open * a;
 }
 
 function passTo(g: Game, p: P, q: P, lob = false) {
@@ -214,7 +279,7 @@ function decide(g: Game, p: P, presser: P | undefined, cover: P | undefined): Ac
     if (g.ki[p.side] >= 100 && toGoal < 360 && Math.random() < 0.06) return { mx: 0, my: 0, special: true };
     const target = { x: gx, y: H / 2 };
     const lane = !foes.some((f) => segDist(f, p, target) < 15 && dist(f, p) < 130);
-    if (toGoal < cfg.range && p.cd <= 0 && (lane || toGoal < 110) && Math.random() < cfg.shootP * (lane ? 2 : 0.7)) {
+    if (toGoal < cfg.range && p.cd <= 0 && g.shotCd[p.side] <= 0 && (lane || toGoal < 110) && Math.random() < cfg.shootP * (lane ? 2 : 0.7)) {
       const corner = Math.random() < 0.35 + cfg.kiRate * 0.4;
       return { mx: 0, my: 0, shoot: { ty: H / 2 + (corner ? (Math.random() < 0.5 ? -1 : 1) * rnd(34, 54) : rnd(-30, 30)), power: rnd(0.55, 0.75 + cfg.kiRate * 0.25) } };
     }
@@ -307,13 +372,16 @@ function act(g: Game, p: P, a: Act, human: boolean, inp: Input | null) {
         const dir = dirOf(p.side);
         if (p.charge >= CHARGE_FULL && g.ki[p.side] >= 100) special(g, p);
         else if (p.fx * dir < -0.25) clearBall(g, p, Math.min(1, p.charge / CHARGE_FULL));
-        else shootAt(g, p, H / 2 + (Math.abs(inp.dy) > 0.3 ? Math.sign(inp.dy) * 46 + rnd(-14, 14) : rnd(-30, 30)), 0.35 + 0.65 * Math.min(1, p.charge / CHARGE_FULL));
+        else {
+          const f = Math.min(1, p.charge / CHARGE_FULL);
+          shootAt(g, p, humanAim(g, p, inp.dy), Math.min(1.2, (0.35 + 0.15 * g.diff.aim + 0.65 * f) * g.diff.shot));
+        }
       } else p.charge = 0;
       if (inp.pass && !g.prevPass && b.owner === p && p.cd <= 0) { const m = bestMate(g, p, true); if (m) passTo(g, p, m); }
     } else p.charge = 0;
   } else if (holding) {
     if (a.special) special(g, p);
-    else if (a.shoot) shootAt(g, p, a.shoot.ty, a.shoot.power);
+    else if (a.shoot) { shootAt(g, p, a.shoot.ty, a.shoot.power); g.shotCd[p.side] = 50; }
     else if (a.pass) passTo(g, p, a.pass, a.lob);
   }
 
@@ -448,6 +516,8 @@ export function step(g: Game, inp: Input | null) {
   } else if (--g.goldenT <= 0) return endMatch(g);
 
   addKi(g, 0, 0.02); addKi(g, 1, 0.02);
+  if (g.shotCd[0] > 0) g.shotCd[0]--;
+  if (g.shotCd[1] > 0) g.shotCd[1]--;
   if (!g.ctl.sprint) g.stamina = Math.min(100, g.stamina + 0.3);
 
   const b = g.ball;

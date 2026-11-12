@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { sfx } from '@/lib/sfx';
 import { getCredit, setCredit } from '@/lib/mathfun/footballCredit';
-import { CHARS, LEVELS, MATCH_SECONDS, VH, VW, emptyInput, newGame, step, type Char, type Input } from '@/lib/football/sim';
+import { CHARS, DEFAULT_DIFFICULTY, DIFFICULTIES, LEVELS, MATCH_SECONDS, VH, VW, emptyInput, newGame, step, type Char, type Input } from '@/lib/football/sim';
 import { MY_SHIRT, draw, drawChar, newView, onEvents } from './footballDraw';
 
 type Stage = 'menu' | 'play' | 'result' | 'over';
@@ -12,6 +12,7 @@ interface Cup { stage: number; trophies: number }
 interface Result { mine: number; theirs: number; level: number; champion: boolean }
 
 const CUP_KEY = 'football_cup_v1';
+const DIFF_KEY = 'football_difficulty_v1';
 const SCALE = 2; // canvas backing store is 2× the logical view so sprites stay crisp
 
 function loadCup(): Cup {
@@ -21,6 +22,13 @@ function loadCup(): Cup {
   } catch { return { stage: 0, trophies: 0 }; }
 }
 function saveCup(c: Cup) { try { localStorage.setItem(CUP_KEY, JSON.stringify(c)); } catch { /* storage blocked */ } }
+
+function loadDiff(): number {
+  try {
+    const n = Number(localStorage.getItem(DIFF_KEY));
+    return Number.isInteger(n) && n >= 0 && n < DIFFICULTIES.length ? n : DEFAULT_DIFFICULTY;
+  } catch { return DEFAULT_DIFFICULTY; }
+}
 
 function CharThumb({ c }: { c: Char }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -50,6 +58,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
   const [secondsLeft, setSecondsLeft] = useState<number | null>(preview ? Infinity : null);
   const [cup, setCup] = useState<Cup>({ stage: 0, trophies: 0 });
   const [level, setLevel] = useState(0);
+  const [diff, setDiff] = useState(DEFAULT_DIFFICULTY);
   const [result, setResult] = useState<Result | null>(null);
   const [paused, setPaused] = useState(false);
   const [touch, setTouch] = useState(false);
@@ -63,6 +72,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
     /* eslint-disable react-hooks/set-state-in-effect -- localStorage / matchMedia are only readable after mount */
     const c = loadCup();
     setCup(c); setLevel(c.stage);
+    setDiff(loadDiff());
     setTouch(window.matchMedia('(pointer: coarse)').matches);
     if (!preview) setSecondsLeft(getCredit());
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -89,7 +99,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return;
     const others = CHARS.map((_, i) => i).filter((i) => !picked.includes(i)).sort(() => Math.random() - 0.5);
-    const g = newGame(picked, others, level);
+    const g = newGame(picked, others, level, diff);
     const view = newView();
     const k = keys.current;
     Object.assign(k, { left: false, right: false, up: false, down: false, shoot: false, pass: false, tackle: false, sprint: false, ax: 0, ay: 0 });
@@ -132,7 +142,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [stage, picked, level, preview, matchNo]);
+  }, [stage, picked, level, diff, preview, matchNo]);
 
   // keyboard
   useEffect(() => {
@@ -170,6 +180,11 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
     setStick({ x, y });
   };
   const endStick = () => { keys.current.ax = keys.current.ay = 0; setStick({ x: 0, y: 0 }); };
+
+  const pickDiff = (i: number) => {
+    setDiff(i);
+    try { localStorage.setItem(DIFF_KEY, String(i)); } catch { /* storage blocked */ }
+  };
 
   const startMatch = (lv: number) => { setLevel(lv); setResult(null); setPaused(false); setMatchNo((n) => n + 1); setStage('play'); };
 
@@ -213,7 +228,20 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
           </button>
           <button onClick={() => setStage('menu')} className="rounded-full bg-gray-100 px-6 py-3 font-bold text-gray-700">Đổi đội hình</button>
         </div>
-        {!preview && <p className="text-sm font-bold text-gray-400">⏱️ Giờ chơi còn {clock}</p>}
+        <p className="text-sm font-bold text-gray-400">
+          Mức {DIFFICULTIES[diff].emoji} {DIFFICULTIES[diff].name}
+          {!preview && <> · ⏱️ Giờ chơi còn {clock}</>}
+        </p>
+        {won && diff < DIFFICULTIES.length - 1 && (
+          <button onClick={() => { pickDiff(diff + 1); setStage('menu'); }} className="text-sm font-black text-blue-600 underline">
+            Thấy dễ quá? Thử mức {DIFFICULTIES[diff + 1].emoji} {DIFFICULTIES[diff + 1].name} →
+          </button>
+        )}
+        {!won && diff > 0 && (
+          <button onClick={() => { pickDiff(diff - 1); setStage('menu'); }} className="text-sm font-black text-blue-600 underline">
+            Khó quá? Chuyển về mức {DIFFICULTIES[diff - 1].emoji} {DIFFICULTIES[diff - 1].name} →
+          </button>
+        )}
       </div>
     );
   }
@@ -228,6 +256,20 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
             Hạ 5 đội để vô địch! {cup.trophies > 0 && <b>Cúp vàng: {'🏆'.repeat(Math.min(cup.trophies, 5))}{cup.trophies > 5 ? ` ×${cup.trophies}` : ''}</b>}
             {!preview && <> · ⏱️ Giờ chơi còn <b>{clock}</b></>}
           </p>
+        </div>
+
+        <div>
+          <p className="mb-1 text-center text-sm font-black">Mức chơi</p>
+          <div className="grid grid-cols-3 gap-2">
+            {DIFFICULTIES.map((d, i) => (
+              <button key={d.id} onClick={() => pickDiff(i)} aria-pressed={i === diff}
+                className={`flex flex-col items-center rounded-2xl border-4 bg-white p-2 ${i === diff ? 'border-yellow-400 shadow-lg' : 'border-transparent opacity-70'}`}>
+                <span className="text-2xl">{d.emoji}</span>
+                <span className="text-sm font-black">{d.name}{i === DEFAULT_DIFFICULTY ? ' ⭐' : ''}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-center text-xs font-semibold text-gray-500">{DIFFICULTIES[diff].blurb}</p>
         </div>
 
         <div className="grid grid-cols-5 gap-2">
@@ -267,7 +309,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
 
         <button disabled={picked.length !== 4} onClick={() => startMatch(level)}
           className="rounded-full bg-green-500 py-3 text-lg font-bold text-white shadow-lg disabled:opacity-40">
-          ▶ Vào trận gặp {LEVELS[level].emoji} {LEVELS[level].name} ({MATCH_SECONDS / 60} phút){preview ? ' — phụ huynh chơi thử' : ''}
+          ▶ Vào trận gặp {LEVELS[level].emoji} {LEVELS[level].name} · mức {DIFFICULTIES[diff].name} ({MATCH_SECONDS / 60} phút){preview ? ' — phụ huynh chơi thử' : ''}
         </button>
       </div>
     );

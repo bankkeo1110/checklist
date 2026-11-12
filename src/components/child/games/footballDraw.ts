@@ -202,6 +202,11 @@ function hud(ctx: CanvasRenderingContext2D, g: Game, v: View) {
   ctx.font = 'bold 13px sans-serif'; ctx.fillStyle = g.golden ? '#ffe14d' : sec <= 10 ? '#ff8a8a' : '#e2e8f0';
   ctx.fillText(g.golden ? 'VÀNG' : `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, VW / 2 - 7, 21);
 
+  // difficulty badge
+  ctx.fillStyle = 'rgba(15,23,42,.7)'; ctx.beginPath(); ctx.roundRect(8, 8, 74, 22, 8); ctx.fill();
+  ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(`Mức: ${g.diff.name}`, 45, 19.5);
+
   // ki + stamina
   const bar = (x: number, y: number, w: number, h: number, f: number, color: string) => {
     ctx.fillStyle = 'rgba(15,23,42,.8)'; ctx.beginPath(); ctx.roundRect(x - 2, y - 2, w + 4, h + 4, 5); ctx.fill();

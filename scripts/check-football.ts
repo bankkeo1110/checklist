@@ -1,57 +1,96 @@
-// Headless sanity check for the football sim: `npx tsx scripts/check-football.ts`
-// A scripted stand-in for the kid plays full matches against the weakest and the strongest CPU team.
-import { newGame, step, emptyInput, W, H, LEVELS, CHARGE_FULL, type Game } from '../src/lib/football/sim';
+// Headless check for the football sim: `npx tsx scripts/check-football.ts`
+// Two scripted players (a careful one and a clumsy young one) play full matches so the
+// difficulty levels can be checked for real: Dễ has to be winnable, Khó has to bite.
+import { newGame, step, emptyInput, W, H, LEVELS, DIFFICULTIES, CHARGE_FULL, type Game } from '../src/lib/football/sim';
 
-const unit = (dx: number, dy: number) => { const l = Math.hypot(dx, dy) || 1; return [dx / l, dy / l]; };
+interface Skill { name: string; react: number; err: number; charge: number; sprintP: number; idleP: number; corner: boolean }
+/** A 10-year-old: reacts a quarter-second late, runs crooked, taps the shoot button. */
+const KID: Skill = { name: 'bé', react: 15, err: 0.75, charge: 10, sprintP: 0.2, idleP: 0.2, corner: false };
+/** Someone who knows the controls: instant, straight, charges every shot and picks a corner. */
+const PRO: Skill = { name: 'giỏi', react: 1, err: 0.03, charge: 44, sprintP: 0.9, idleP: 0, corner: true };
 
-function playMatch(level: number) {
-  const g: Game = newGame([0, 1, 2, 3], [4, 5, 6, 7], level);
+function playMatch(level: number, difficulty: number, skill: Skill) {
+  const g: Game = newGame([0, 1, 2, 3], [4, 5, 6, 7], level, difficulty);
   const seen = new Set<string>();
-  let charge = 0, corner = 1, frames = 0;
+  let dx = 0, dy = 0, idle = false, hold = 0, frames = 0, corner = 1;
   while (g.phase !== 'full') {
     if (++frames > 60 * 60 * 6) throw new Error('match never ended');
-    const inp = emptyInput(), b = g.ball, me = g.ctl;
-    if (b.owner === me) {
-      [inp.dx, inp.dy] = unit(W - me.x, H / 2 - me.y);
-      if (W - me.x < 230) { // wind up, then release aiming at a corner
-        if (charge < (g.ki[0] >= 100 ? CHARGE_FULL + 2 : 24)) { inp.shoot = true; charge++; } else { charge = 0; corner = -corner; }
-        inp.dy = corner;
-      }
-      inp.sprint = W - me.x > 300;
-    } else {
-      charge = 0;
-      const t = b.owner ?? b;
-      [inp.dx, inp.dy] = unit(t.x - me.x, t.y - me.y);
-      inp.tackle = !!b.owner && b.owner.side === 1 && Math.hypot(t.x - me.x, t.y - me.y) < 28 && frames % 20 === 0;
+    const inp = emptyInput(), b = g.ball, me = g.ctl, mine = b.owner === me;
+    if (frames % skill.react === 0) {
+      const t = mine ? { x: W, y: H / 2 } : (b.owner ?? b);
+      const a = Math.atan2(t.y - me.y, t.x - me.x) + (Math.random() * 2 - 1) * skill.err;
+      dx = Math.cos(a); dy = Math.sin(a);
+      idle = Math.random() < skill.idleP;
     }
+    if (mine) {
+      inp.sprint = Math.random() < skill.sprintP;
+      if (W - me.x < 240) {
+        if (skill.corner) { dx = 1; dy = corner; }  // a good player shoots at a corner, not at the keeper
+        hold++;
+        const want = g.ki[0] >= 100 ? CHARGE_FULL + 4 : skill.charge; // full ki: hold for the special
+        if (hold <= want) inp.shoot = true; else if (hold > want + 2) { hold = 0; corner = -corner; }
+      } else hold = 0;
+    } else {
+      hold = 0;
+      inp.tackle = !!b.owner && b.owner.side === 1 && Math.hypot(b.x - me.x, b.y - me.y) < 28 && frames % 40 === 0;
+    }
+    if (!idle) { inp.dx = dx; inp.dy = dy; }
     step(g, inp);
     for (const e of g.ev) seen.add(e.t);
     for (const p of g.ps) if (![p.x, p.y, p.vx, p.vy].every(Number.isFinite) || p.x < 0 || p.x > W || p.y < 0 || p.y > H) throw new Error(`player out of bounds at frame ${frames}`);
     if (![b.x, b.y, b.z, b.vx, b.vy].every(Number.isFinite) || b.x < -20 || b.x > W + 20 || b.y < 0 || b.y > H || b.z < 0) throw new Error(`ball out of bounds at frame ${frames}: ${b.x},${b.y},${b.z}`);
     if (g.ki.some((k) => k < 0 || k > 100) || g.stamina < 0 || g.stamina > 100) throw new Error('meter out of range');
   }
-  return { score: g.score, seen, frames };
+  return { score: g.score, seen };
 }
 
-const N = 12;
-const summary = [0, LEVELS.length - 1].map((level) => {
+const N = 14;
+/** The boss fight swings a lot match to match, so it is measured over more of them. */
+const N_BOSS = 50;
+function run(label: string, level: number, difficulty: number, skill: Skill, n = N) {
   let w = 0, d = 0, l = 0, gf = 0, ga = 0;
   const seen = new Set<string>();
-  for (let i = 0; i < N; i++) {
-    const m = playMatch(level);
+  for (let i = 0; i < n; i++) {
+    const m = playMatch(level, difficulty, skill);
     gf += m.score[0]; ga += m.score[1];
     if (m.score[0] > m.score[1]) w++; else if (m.score[0] < m.score[1]) l++; else d++;
     m.seen.forEach((e) => seen.add(e));
   }
-  console.log(`${LEVELS[level].name.padEnd(14)} ${N} matches: W${w} D${d} L${l}, goals ${gf}-${ga} (${(gf / N).toFixed(1)} / ${(ga / N).toFixed(1)} per match), events: ${[...seen].sort().join(' ')}`);
-  return { w, l, gf, ga, seen };
-});
+  console.log(`${label.padEnd(30)} ${n} trận: T${w} H${d} B${l} · bàn ${gf}-${ga} (${(gf / n).toFixed(1)} / ${(ga / n).toFixed(1)} mỗi trận)`);
+  return { w, d, l, gf, ga, n, winRate: w / n, seen };
+}
 
-const [easy, hard] = summary;
+let bad = 0;
+const fail = (m: string) => { bad++; console.log('FAIL', m); };
+
+// The default experience: a child, easiest setting, first team on the ladder.
+const kidEasy = run(`${DIFFICULTIES[0].name} · ${LEVELS[0].name} · bé`, 0, 0, KID, 30);
+// Same child, same opponent, all three settings — a controlled comparison.
+const kidD = run(`${DIFFICULTIES[0].name} · ${LEVELS[1].name} · bé`, 1, 0, KID);
+const kidV = run(`${DIFFICULTIES[1].name} · ${LEVELS[1].name} · bé`, 1, 1, KID);
+const kidK = run(`${DIFFICULTIES[2].name} · ${LEVELS[1].name} · bé`, 1, 2, KID);
+// The boss fight: best team, hardest setting, played well.
+const proBoss = run(`${DIFFICULTIES[2].name} · ${LEVELS[4].name} · giỏi`, 4, 2, PRO, N_BOSS);
+
+const diff = (r: { gf: number; ga: number; n: number }) => (r.gf - r.ga) / r.n;
+
+// A child on the default setting wins comfortably, scores plenty and is not buried…
+if (kidEasy.winRate < 0.8) fail(`Dễ: a kid wins only ${(kidEasy.winRate * 100).toFixed(0)}% of matches — still too hard`);
+if (kidEasy.gf / kidEasy.n < 2) fail(`Dễ: a kid scores ${(kidEasy.gf / kidEasy.n).toFixed(1)} goals a match — not rewarding enough`);
+if (kidEasy.ga / kidEasy.n > 1.2) fail(`Dễ: a kid concedes ${(kidEasy.ga / kidEasy.n).toFixed(1)} a match — too punishing`);
+if (kidEasy.gf / kidEasy.n > 11) fail(`Dễ: ${(kidEasy.gf / kidEasy.n).toFixed(1)} goals a match is a walkover, not a game`);
+// …and against one and the same opponent each step up has to bite.
+if (diff(kidD) <= diff(kidV)) fail('Vừa is not harder than Dễ');
+if (diff(kidV) <= diff(kidK)) fail('Khó is not harder than Vừa');
+if (kidK.winRate >= kidD.winRate) fail('a kid should win less often on Khó than on Dễ');
+// The last team on Khó is a boss: an even fight for someone who plays well, decided by a goal or two.
+if (Math.abs(diff(proBoss)) > 1.5) fail(`Khó: the final team ends ${diff(proBoss).toFixed(1)} goals apart on average — not an even fight`);
+if (proBoss.winRate < 0.2) fail(`Khó: the final team is won ${(proBoss.winRate * 100).toFixed(0)}% of the time even played well`);
+if (proBoss.winRate > 0.8) fail('Khó: the final team is no challenge');
+
 const need = ['goal', 'kick', 'save', 'super', 'tackle', 'whistle', 'fulltime'];
-for (const e of need) if (!easy.seen.has(e) && !hard.seen.has(e)) throw new Error(`event "${e}" never happened`);
-if (easy.gf / N < 1.5) throw new Error('the scripted kid barely scores against the easiest team — too hard');
-if (easy.w <= easy.l) throw new Error('the easiest team should usually lose');
-if (hard.ga <= easy.ga) throw new Error('the strongest team should score more than the weakest');
-if (hard.ga / N < 1) throw new Error('the strongest team barely scores — no challenge');
-console.log('ok');
+const allSeen = new Set([...kidEasy.seen, ...kidD.seen, ...kidV.seen, ...kidK.seen, ...proBoss.seen]);
+for (const e of need) if (!allSeen.has(e)) fail(`event "${e}" never happened`);
+
+console.log(bad ? `${bad} problem(s)` : 'ok');
+process.exit(bad ? 1 : 0);
