@@ -12,6 +12,20 @@ export const MATCH_SECONDS = 120;
 export type SupKind = 'blast' | 'zigzag' | 'arrow' | 'boomerang' | 'sky' | 'leaf' | 'kame' | 'void';
 export const SUP_KINDS: SupKind[] = ['kame', 'blast', 'zigzag', 'arrow', 'boomerang', 'sky', 'leaf', 'void'];
 
+/** The first special of the match is always the beam; after that one of the others is drawn at random. */
+export const FIRST_SUP: SupKind = 'kame';
+
+export const SUPERS: Record<SupKind, { name: string; color: string }> = {
+  kame: { name: 'SÓNG ÁNH SAO!', color: '#9fe8ff' },
+  blast: { name: 'CẦU LỬA!', color: '#ff7a1a' },
+  zigzag: { name: 'TIA SÉT!', color: '#ffe14d' },
+  arrow: { name: 'MŨI TÊN BĂNG!', color: '#6fd3ff' },
+  boomerang: { name: 'CHUỐI BAY VÒNG!', color: '#ffd84d' },
+  sky: { name: 'THIÊN THẠCH!', color: '#c9a36b' },
+  leaf: { name: 'BÃO LÁ!', color: '#7be07b' },
+  void: { name: 'HỐ ĐEN!', color: '#8f6bff' },
+};
+
 /** How fast each special travels, in pixels per frame. */
 const SUP_SPEED: Record<SupKind, number> = { blast: 11.5, zigzag: 8.5, arrow: 14, boomerang: 7.5, sky: 7.5, leaf: 8, kame: 10, void: 6.5 };
 
@@ -40,18 +54,18 @@ export type HairStyle = 'spiky' | 'long' | 'cap' | 'bun' | 'mohawk' | 'hood' | '
 /** Original elemental warriors. spd / pow / tac are 1–5. */
 export interface Char {
   id: string; name: string; skin: string; hair: string; style: HairStyle;
-  aura: string; shot: string; kind: SupKind; spd: number; pow: number; tac: number;
+  aura: string; spd: number; pow: number; tac: number;
 }
 
 export const CHARS: Char[] = [
-  { id: 'sao', name: 'Sao', skin: '#f6d7bd', hair: '#b58cff', style: 'curly', aura: '#9fe8ff', shot: 'SÓNG ÁNH SAO!', kind: 'kame', spd: 4, pow: 4, tac: 2 },
-  { id: 'lua', name: 'Lửa', skin: '#f2c48d', hair: '#e8452c', style: 'spiky', aura: '#ff7a1a', shot: 'CẦU LỬA!', kind: 'blast', spd: 3, pow: 5, tac: 2 },
-  { id: 'sam', name: 'Sấm', skin: '#e9b98a', hair: '#ffd21f', style: 'mohawk', aura: '#ffe14d', shot: 'TIA SÉT!', kind: 'zigzag', spd: 5, pow: 3, tac: 2 },
-  { id: 'bang', name: 'Băng', skin: '#f6d7bd', hair: '#8fd8ff', style: 'long', aura: '#6fd3ff', shot: 'MŨI TÊN BĂNG!', kind: 'arrow', spd: 3, pow: 4, tac: 3 },
-  { id: 'gio', name: 'Gió', skin: '#d9a273', hair: '#e9f5f2', style: 'band', aura: '#ffd84d', shot: 'CHUỐI BAY VÒNG!', kind: 'boomerang', spd: 5, pow: 2, tac: 3 },
-  { id: 'da', name: 'Đá', skin: '#b98258', hair: '#6b5a4b', style: 'cap', aura: '#c9a36b', shot: 'THIÊN THẠCH!', kind: 'sky', spd: 2, pow: 4, tac: 5 },
-  { id: 'la', name: 'Lá', skin: '#f2c48d', hair: '#3fae4c', style: 'bun', aura: '#7be07b', shot: 'BÃO LÁ!', kind: 'leaf', spd: 4, pow: 2, tac: 4 },
-  { id: 'dem', name: 'Bóng Đêm', skin: '#c99872', hair: '#2b2440', style: 'hood', aura: '#8f6bff', shot: 'HỐ ĐEN!', kind: 'void', spd: 3, pow: 3, tac: 4 },
+  { id: 'sao', name: 'Sao', skin: '#f6d7bd', hair: '#b58cff', style: 'curly', aura: '#9fe8ff', spd: 4, pow: 4, tac: 2 },
+  { id: 'lua', name: 'Lửa', skin: '#f2c48d', hair: '#e8452c', style: 'spiky', aura: '#ff7a1a', spd: 3, pow: 5, tac: 2 },
+  { id: 'sam', name: 'Sấm', skin: '#e9b98a', hair: '#ffd21f', style: 'mohawk', aura: '#ffe14d', spd: 5, pow: 3, tac: 2 },
+  { id: 'bang', name: 'Băng', skin: '#f6d7bd', hair: '#8fd8ff', style: 'long', aura: '#6fd3ff', spd: 3, pow: 4, tac: 3 },
+  { id: 'gio', name: 'Gió', skin: '#d9a273', hair: '#e9f5f2', style: 'band', aura: '#ffd84d', spd: 5, pow: 2, tac: 3 },
+  { id: 'da', name: 'Đá', skin: '#b98258', hair: '#6b5a4b', style: 'cap', aura: '#c9a36b', spd: 2, pow: 4, tac: 5 },
+  { id: 'la', name: 'Lá', skin: '#f2c48d', hair: '#3fae4c', style: 'bun', aura: '#7be07b', spd: 4, pow: 2, tac: 4 },
+  { id: 'dem', name: 'Bóng Đêm', skin: '#c99872', hair: '#2b2440', style: 'hood', aura: '#8f6bff', spd: 3, pow: 3, tac: 4 },
 ];
 
 /** How strong a CPU team (or the kid's own AI team-mates) plays. */
@@ -132,7 +146,7 @@ export interface P {
   down: number; cd: number; charge: number; slide: number; hold: number; hx: number; hy: number;
   react: number; dive: number; safe: number; kickT: number; sprint: boolean;
 }
-export interface Sup { kind: SupKind; ch: number; x0: number; y0: number; x1: number; y1: number; t: number; dur: number; rolled: boolean }
+export interface Sup { kind: SupKind; x0: number; y0: number; x1: number; y1: number; t: number; dur: number; rolled: boolean }
 export interface Ball {
   x: number; y: number; z: number; vx: number; vy: number; vz: number;
   owner: P | null; ks: Side; noPick: number; noP: P | null; sup: Sup | null; shot: boolean; pass: boolean;
@@ -143,7 +157,7 @@ export interface Game {
   ps: P[]; ball: Ball; score: [number, number]; ctl: P; kick: number; freeze: number;
   phase: 'play' | 'goal' | 'full'; phaseT: number; lastGoal: Side; scorer: P | null;
   msgs: Msg[]; ev: Ev[]; frame: number; prevShoot: boolean; prevPass: boolean;
-  ki: [number, number]; stamina: number; time: number; golden: boolean; goldenT: number; shotCd: [number, number];
+  ki: [number, number]; sups: [number, number]; stamina: number; time: number; golden: boolean; goldenT: number; shotCd: [number, number];
   level: Level; ally: Level; diff: Difficulty;
 }
 export interface Input { dx: number; dy: number; shoot: boolean; pass: boolean; tackle: boolean; sprint: boolean }
@@ -191,7 +205,7 @@ export function newGame(mine: number[], theirs: number[], level = 0, difficulty 
     ps, ball: { x: W / 2, y: H / 2, z: 0, vx: 0, vy: 0, vz: 0, owner: null, ks: 0, noPick: 0, noP: null, sup: null, shot: false, pass: false },
     score: [0, 0], ctl: ps[4], kick: 0, freeze: 0, phase: 'play', phaseT: 0, lastGoal: 0, scorer: null,
     msgs: [], ev: [], frame: 0, prevShoot: false, prevPass: false,
-    ki: [30, 0], shotCd: [0, 0], stamina: 100, time: seconds * 60, golden: false, goldenT: 0,
+    ki: [30, 0], sups: [0, 0], shotCd: [0, 0], stamina: 100, time: seconds * 60, golden: false, goldenT: 0,
     level: scaleFoe(LEVELS[clamp(level, 0, LEVELS.length - 1)], diff), ally: scaleAlly(diff, level), diff,
   };
   kickoff(g, 0);
@@ -228,15 +242,23 @@ function clearBall(g: Game, p: P, power: number) {
   emit(g, 'kick', p);
 }
 
+/** Beam first, then any of the others at random — the shot does not depend on who takes it. */
+function pickSup(g: Game, side: Side): SupKind {
+  if (g.sups[side]++ === 0) return FIRST_SUP;
+  const rest = SUP_KINDS.filter((k) => k !== FIRST_SUP);
+  return rest[Math.floor(Math.random() * rest.length)];
+}
+
 function special(g: Game, p: P) {
-  const c = CHARS[p.ch], gx = goalX(p.side), y1 = H / 2 + rnd(-38, 38);
-  const sp = SUP_SPEED[c.kind];
-  g.ball.sup = { kind: c.kind, ch: p.ch, x0: p.x, y0: p.y, x1: gx + dirOf(p.side) * 6, y1, t: 0, dur: Math.max(14, Math.hypot(gx - p.x, y1 - p.y) / sp), rolled: false };
+  const kind = pickSup(g, p.side), meta = SUPERS[kind];
+  const gx = goalX(p.side), y1 = H / 2 + rnd(-38, 38);
+  const sp = SUP_SPEED[kind];
+  g.ball.sup = { kind, x0: p.x, y0: p.y, x1: gx + dirOf(p.side) * 6, y1, t: 0, dur: Math.max(14, Math.hypot(gx - p.x, y1 - p.y) / sp), rolled: false };
   Object.assign(g.ball, { owner: null, ks: p.side, noPick: 0, noP: p, shot: false, pass: false, vz: 0 });
   g.ki[p.side] = 0; p.cd = 30; p.charge = 0; p.kickT = 16; p.fx = dirOf(p.side); p.fy = 0;
   g.freeze = 26;
-  say(g, c.shot, c.aura, 90);
-  emit(g, 'super', p, { color: c.aura, side: p.side, kind: c.kind });
+  say(g, meta.name, meta.color, 90);
+  emit(g, 'super', p, { color: meta.color, side: p.side, kind });
 }
 
 /** Where a human shot goes. With aim help it drifts to the corner the keeper has left open. */

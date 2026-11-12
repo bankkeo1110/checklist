@@ -1,5 +1,5 @@
 // Canvas renderer for the football reward game: scrolling camera, cartoon sprites, particles, HUD.
-import { CHARS, CHARGE_FULL, GY1, GY2, H, VH, VW, W, type Char, type Ev, type Game, type P } from '@/lib/football/sim';
+import { CHARS, CHARGE_FULL, GY1, GY2, H, SUPERS, VH, VW, W, type Char, type Ev, type Game, type P } from '@/lib/football/sim';
 
 export const MY_SHIRT = '#2563eb';
 const GK_SHIRT = ['#f59e0b', '#f472b6'];
@@ -148,7 +148,7 @@ function drawStadium(ctx: CanvasRenderingContext2D, v: View, awayColor: string) 
 
 /** One distinct look per special move — the whole point of charging the ki bar. */
 function drawSuper(ctx: CanvasRenderingContext2D, g: Game, v: View, by: number) {
-  const b = g.ball, sup = b.sup!, c = CHARS[sup.ch], col = c.aura;
+  const b = g.ball, sup = b.sup!, col = SUPERS[sup.kind].color;
   const ang = Math.atan2(b.vy, b.vx) || 0, tick = v.tick;
   const tail = (n: number, step: number, fn: (x: number, y: number, k: number) => void) => {
     for (let k = 1; k <= n; k++) fn(b.x - Math.cos(ang) * k * step, by - Math.sin(ang) * k * step, k);
@@ -278,7 +278,7 @@ function drawSuper(ctx: CanvasRenderingContext2D, g: Game, v: View, by: number) 
 
 function drawBall(ctx: CanvasRenderingContext2D, g: Game, v: View) {
   const b = g.ball, by = b.y - b.z * 0.85, speed = Math.hypot(b.vx, b.vy);
-  const aura = b.sup ? CHARS[b.sup.ch].aura : '#ffffff';
+  const aura = b.sup ? SUPERS[b.sup.kind].color : '#ffffff';
   if (b.sup || speed > 7.5) { v.trail.push({ x: b.x, y: by }); if (v.trail.length > (b.sup ? 14 : 7)) v.trail.shift(); } else if (v.trail.length) v.trail.shift();
 
   // ground shadow, bigger the lower the ball flies
@@ -387,7 +387,7 @@ export function draw(ctx: CanvasRenderingContext2D, g: Game, v: View, scale: num
 
   if (g.freeze > 0 && b.noP) { // special-shot wind-up: dim the pitch, speed lines around the shooter
     ctx.fillStyle = 'rgba(8,10,30,.55)'; ctx.fillRect(v.cx - 60, v.cy - 80, VW + 120, VH + 160);
-    const s = b.noP, col = CHARS[s.ch].aura;
+    const s = b.noP, col = b.sup ? SUPERS[b.sup.kind].color : CHARS[s.ch].aura;
     ctx.strokeStyle = col; ctx.lineWidth = 2;
     for (let i = 0; i < 18; i++) { const a = i * 0.35 + v.tick * 0.05, r1 = 34 + ((v.tick * 6 + i * 17) % 40), r2 = r1 + 40; ctx.beginPath(); ctx.moveTo(s.x + Math.cos(a) * r1, s.y - 8 + Math.sin(a) * r1); ctx.lineTo(s.x + Math.cos(a) * r2, s.y - 8 + Math.sin(a) * r2); ctx.stroke(); }
   }

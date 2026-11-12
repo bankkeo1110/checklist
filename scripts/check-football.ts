@@ -1,7 +1,7 @@
 // Headless check for the football sim: `npx tsx scripts/check-football.ts`
 // Two scripted players (a careful one and a clumsy young one) play full matches so the
 // difficulty levels can be checked for real: Dễ has to be winnable, Khó has to bite.
-import { newGame, step, emptyInput, supHeight, supOffset, W, H, CHARS, LEVELS, DIFFICULTIES, SUP_KINDS, CHARGE_FULL, type Game } from '../src/lib/football/sim';
+import { newGame, step, emptyInput, supHeight, supOffset, W, H, CHARS, LEVELS, DIFFICULTIES, SUP_KINDS, FIRST_SUP, CHARGE_FULL, type Game } from '../src/lib/football/sim';
 
 interface Skill { name: string; react: number; err: number; charge: number; sprintP: number; idleP: number; corner: boolean }
 /** A 10-year-old: reacts a quarter-second late, runs crooked, taps the shoot button. */
@@ -10,11 +10,15 @@ const KID: Skill = { name: 'bé', react: 15, err: 0.75, charge: 10, sprintP: 0.2
 const PRO: Skill = { name: 'giỏi', react: 1, err: 0.03, charge: 44, sprintP: 0.9, idleP: 0, corner: true };
 
 const kinds = new Set<string>();
+/** The opening special of every match, per side, and everything fired after it. */
+const firstSup: [string[], string[]] = [[], []];
+const laterSups = new Set<string>();
 
 function playMatch(level: number, difficulty: number, skill: Skill) {
   const g: Game = newGame([0, 1, 2, 3], [4, 5, 6, 7], level, difficulty);
   const seen = new Set<string>();
   let dx = 0, dy = 0, idle = false, hold = 0, frames = 0, corner = 1;
+  const fired: [number, number] = [0, 0];
   while (g.phase !== 'full') {
     if (++frames > 60 * 60 * 6) throw new Error('match never ended');
     const inp = emptyInput(), b = g.ball, me = g.ctl, mine = b.owner === me;
@@ -38,7 +42,13 @@ function playMatch(level: number, difficulty: number, skill: Skill) {
     }
     if (!idle) { inp.dx = dx; inp.dy = dy; }
     step(g, inp);
-    for (const e of g.ev) { seen.add(e.t); if (e.kind) kinds.add(e.kind); }
+    for (const e of g.ev) {
+      seen.add(e.t);
+      if (!e.kind) continue;
+      kinds.add(e.kind);
+      const side = e.side ?? 0;
+      if (fired[side]++ === 0) firstSup[side].push(e.kind); else laterSups.add(e.kind);
+    }
     for (const p of g.ps) if (![p.x, p.y, p.vx, p.vy].every(Number.isFinite) || p.x < 0 || p.x > W || p.y < 0 || p.y > H) throw new Error(`player out of bounds at frame ${frames}`);
     if (![b.x, b.y, b.z, b.vx, b.vy].every(Number.isFinite) || b.x < -20 || b.x > W + 20 || b.y < 0 || b.y > H || b.z < 0) throw new Error(`ball out of bounds at frame ${frames}: ${b.x},${b.y},${b.z}`);
     if (g.ki.some((k) => k < 0 || k > 100) || g.stamina < 0 || g.stamina > 100) throw new Error('meter out of range');
@@ -101,11 +111,17 @@ if (proBoss.winRate > 0.8) fail('Khó: the final team is no challenge');
   if (mine.includes(keeper.ch)) fail(`${CHARS[keeper.ch].name} is both keeper and outfielder`);
   const outfield = g.ps.filter((p) => p.side === 0 && !p.gk).map((p) => p.ch).sort();
   if (outfield.join() !== [...mine].sort().join()) fail('the four picks must each take one outfield spot');
-  if (CHARS[0].kind !== 'kame') fail('Sóng ánh sao should be the first warrior on the list');
 }
 
-// Every warrior has a special of their own, and each has to stay on the pitch.
-if (new Set(CHARS.map((c) => c.kind)).size !== SUP_KINDS.length) fail('two warriors share a special, or one kind is unused');
+// Whoever takes it, the first special of the match is the beam; the rest are drawn from the others.
+for (const side of [0, 1] as const) {
+  const firsts = new Set(firstSup[side]);
+  if (firsts.size !== 1 || !firsts.has(FIRST_SUP)) fail(`side ${side} opened with ${[...firsts].join('/')} instead of ${FIRST_SUP}`);
+}
+if (laterSups.has(FIRST_SUP)) fail(`${FIRST_SUP} should not come round again after the opening special`);
+if (laterSups.size < SUP_KINDS.length - 2) fail(`only ${laterSups.size} different specials followed the opening one`);
+
+// Every special has to stay on the pitch.
 for (const k of SUP_KINDS) {
   for (let i = 0; i <= 20; i++) {
     const t = i / 20, off = supOffset(k, t), z = supHeight(k, t);
@@ -114,7 +130,7 @@ for (const k of SUP_KINDS) {
   }
   if (Math.abs(supOffset(k, 0)) > 0.01 || Math.abs(supOffset(k, 1)) > 0.01) fail(`${k}: must leave the foot and reach the goal on the aim line`);
 }
-if (kinds.size < 5) fail(`only ${kinds.size} of ${SUP_KINDS.length} specials were ever fired in the test matches`);
+if (kinds.size < SUP_KINDS.length - 1) fail(`only ${kinds.size} of ${SUP_KINDS.length} specials were ever fired in the test matches`);
 console.log(`tuyệt chiêu đã bắn trong lúc test: ${[...kinds].sort().join(', ')}`);
 
 const need = ['goal', 'kick', 'save', 'super', 'tackle', 'whistle', 'fulltime'];

@@ -292,6 +292,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
         <div>
           <p className="mb-1 text-center text-sm font-black">Chọn 4 chiến binh ({picked.length}/4)</p>
           <p className="mb-1 text-center text-xs font-semibold text-gray-500">Người chọn đầu tiên đá tiền đạo — bạn điều khiển bạn ấy khi giao bóng. Thủ môn tự vào sân.</p>
+          <p className="mb-1 text-center text-xs font-semibold text-gray-500">Tuyệt chiêu không phụ thuộc nhân vật: lần đầu luôn là <b>Sóng Ánh Sao</b>, những lần sau bốc ngẫu nhiên trong 7 chiêu còn lại.</p>
           <div className="grid grid-cols-4 gap-2">
             {CHARS.map((c, i) => (
               <button key={c.id} onClick={() => toggle(i)} aria-pressed={picked.includes(i)}
@@ -303,7 +304,6 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
                 )}
                 <CharThumb c={c} />
                 <span className="text-xs font-black">{c.name}</span>
-                <span className="text-[10px] font-bold" style={{ color: c.aura, filter: 'brightness(.7)' }}>{c.shot}</span>
                 <Stat label="Tốc" n={c.spd} /><Stat label="Sút" n={c.pow} /><Stat label="Xoạc" n={c.tac} />
               </button>
             ))}
@@ -313,7 +313,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
         <div className="rounded-xl bg-white p-3 text-[12.5px] font-semibold leading-relaxed text-gray-600 shadow">
           <p>🕹️ <b>Mũi tên / WASD</b> chạy · <b>Shift</b> tăng tốc · <b>Space</b> sút — giữ càng lâu sút càng mạnh, bấm thêm ↑/↓ để nhắm <b>góc khung thành</b>.</p>
           <p><b>X</b> chuyền (không có bóng: đổi cầu thủ) · <b>Z</b> xoạc bóng · <b>P</b> tạm dừng.</p>
-          <p>⚡ Chuyền và cướp bóng để nạp <b>KI</b>. KI đầy → giữ SÚT thật lâu rồi thả = <b>tuyệt chiêu</b> của chiến binh!</p>
+          <p>⚡ Chuyền và cướp bóng để nạp <b>KI</b>. KI đầy → giữ SÚT thật lâu rồi thả = <b>tuyệt chiêu</b>! Chiêu đầu tiên là Sóng Ánh Sao, sau đó mỗi lần một chiêu khác nhau.</p>
         </div>
 
         <button disabled={picked.length !== 4} onClick={() => startMatch(level)}
