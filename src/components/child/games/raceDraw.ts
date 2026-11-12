@@ -2,6 +2,7 @@
 // with haze, shaded cars, lit coins, glow and particles — so it stays crisp at any size and
 // needs no image files.
 import { ROAD_Y, TRACK, VH, VW, type Ev, type Power, type Race, type Theme } from '@/lib/race/sim';
+import { CARS, type CarKind, type CarModel } from '@/lib/race/cars';
 
 const CAR_X = 210;                       // the car sits here; the world scrolls past it
 const ROAD_H = 74;
@@ -9,10 +10,11 @@ type C2D = CanvasRenderingContext2D;
 
 interface Part { x: number; y: number; vx: number; vy: number; life: number; max: number; c: string; r: number; g: number; glow: boolean }
 export interface View {
+  car: CarModel; rival: CarModel;
   tick: number; parts: Part[]; shake: number; flash: number;
   banner: { text: string; sub: string; color: string; ttl: number } | null;
 }
-export const newView = (): View => ({ tick: 0, parts: [], banner: null, shake: 0, flash: 0 });
+export const newView = (car: CarModel = CARS[0], rival: CarModel = CARS[1]): View => ({ car, rival: { ...rival, color: '#e23b3b', accent: '#ffffff' }, tick: 0, parts: [], banner: null, shake: 0, flash: 0 });
 
 // ── small helpers ───────────────────────────────────────────────────────────
 const hash = (i: number) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -300,63 +302,213 @@ function items(ctx: C2D, r: Race, v: View, off: number) {
   }
 }
 
-function wheel(ctx: C2D, x: number, y: number, rot: number) {
-  ctx.fillStyle = '#15171c'; disc(ctx, x, y, 10.5);
-  ctx.fillStyle = '#2a2d35'; disc(ctx, x, y, 8.4);
-  const g = ctx.createRadialGradient(x - 2, y - 2, 1, x, y, 7);
+function wheel(ctx: C2D, x: number, y: number, rot: number, R = 10.5) {
+  const k = R / 10.5;
+  ctx.fillStyle = '#15171c'; disc(ctx, x, y, R);
+  if (R > 12) {                                     // chunky off-road tread
+    ctx.strokeStyle = '#0b0c0f'; ctx.lineWidth = 2.4 * k;
+    for (let i = 0; i < 14; i++) { const a = rot + (i * Math.PI) / 7; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * R * 0.86, y + Math.sin(a) * R * 0.86); ctx.lineTo(x + Math.cos(a) * (R + 1.2), y + Math.sin(a) * (R + 1.2)); ctx.stroke(); }
+  }
+  ctx.fillStyle = '#2a2d35'; disc(ctx, x, y, R * 0.8);
+  const g = ctx.createRadialGradient(x - 2 * k, y - 2 * k, 1, x, y, R * 0.66);
   g.addColorStop(0, '#f2f4f8'); g.addColorStop(1, '#8b93a1');
-  ctx.fillStyle = g; disc(ctx, x, y, 6.6);
-  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.fillStyle = '#3a3e48';
+  ctx.fillStyle = g; disc(ctx, x, y, R * 0.63);
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(k, k); ctx.fillStyle = '#3a3e48';
   for (let i = 0; i < 5; i++) { ctx.rotate((Math.PI * 2) / 5); ctx.beginPath(); ctx.moveTo(1.6, -1.6); ctx.lineTo(6, -1); ctx.lineTo(6, 1); ctx.lineTo(1.6, 1.6); ctx.fill(); }
   ctx.restore();
-  ctx.fillStyle = '#d7dbe3'; disc(ctx, x, y, 2);
+  ctx.fillStyle = '#d7dbe3'; disc(ctx, x, y, 2 * k);
 }
 
-/** A side-on sports car, nose to the right, with a painted gradient body, glass and lights. */
-function car(ctx: C2D, x: number, y: number, body: string, rot: number, o: { tilt?: number; flame?: number; lights?: boolean; scale?: number } = {}) {
-  ctx.save(); ctx.translate(x, y); ctx.scale(o.scale ?? 1, o.scale ?? 1);
-  ctx.fillStyle = 'rgba(0,0,0,.34)'; ctx.beginPath(); ctx.ellipse(0, 18, 44, 6, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.rotate(o.tilt ?? 0);
+/** Where each kind of vehicle keeps its wheels, how high it rides, and where its tail and nose are. */
+interface Spec { wr: number; rear: number; front: number; lift: number; half: number; tail: number; nose: number }
+const SPEC: Record<CarKind, Spec> = {
+  sport: { wr: 10.5, rear: -25, front: 26, lift: 0, half: 44, tail: -42, nose: 42 },
+  super: { wr: 10.5, rear: -27, front: 28, lift: 0, half: 48, tail: -45, nose: 46 },
+  f1: { wr: 10.5, rear: -28, front: 31, lift: 0, half: 52, tail: -42, nose: 50 },
+  rally: { wr: 11, rear: -24, front: 25, lift: 1, half: 43, tail: -40, nose: 41 },
+  jeep: { wr: 13.5, rear: -24, front: 25, lift: 5, half: 46, tail: -40, nose: 42 },
+  pickup: { wr: 12.5, rear: -27, front: 27, lift: 4, half: 49, tail: -46, nose: 45 },
+  monster: { wr: 19, rear: -29, front: 29, lift: 17, half: 54, tail: -40, nose: 42 },
+  buggy: { wr: 12, rear: -25, front: 27, lift: 2, half: 45, tail: -38, nose: 40 },
+  kart: { wr: 7, rear: -17, front: 19, lift: -6, half: 32, tail: -26, nose: 30 },
+  van: { wr: 10, rear: -25, front: 26, lift: 0, half: 47, tail: -44, nose: 44 },
+};
 
+function helmet(ctx: C2D, x: number, y: number, r: number, color: string) {
+  ctx.fillStyle = color; disc(ctx, x, y, r);
+  ctx.fillStyle = '#10131a'; ctx.beginPath(); ctx.arc(x, y, r * 0.86, -0.75, 0.55); ctx.lineTo(x, y); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.6)'; disc(ctx, x - r * 0.35, y - r * 0.4, r * 0.22);
+}
+
+/** The bodywork of one vehicle kind, drawn with its sills at y = 10. */
+function bodywork(ctx: C2D, m: CarModel, s: Spec, rot: number) {
+  const c = m.color, a = m.accent;
+  const paint = (y0: number, y1: number, col = c) => {
+    ctx.fillStyle = vgrad(ctx, y0, y1, [[0, lighten(col, 0.45)], [0.35, col], [1, darken(col, 0.4)]]);
+    ctx.strokeStyle = darken(col, 0.6); ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+  };
+  const glassFill = (y0: number, y1: number) => { ctx.fillStyle = vgrad(ctx, y0, y1, [[0, '#dff4ff'], [1, '#6fb6e6']]); };
+  const done = () => { ctx.closePath(); ctx.fill(); ctx.stroke(); };
+  const lamp = (x: number, y: number) => { ctx.fillStyle = '#fff6b8'; ctx.beginPath(); ctx.ellipse(x, y, 3.2, 2.6, 0, 0, Math.PI * 2); ctx.fill(); };
+  const tail = (x: number, y: number) => { ctx.fillStyle = '#ff3b3b'; ctx.fillRect(x, y, 2.6, 5); };
+
+  switch (m.kind) {
+    case 'sport': {
+      paint(-22, 14); ctx.beginPath();
+      ctx.moveTo(-42, 10); ctx.lineTo(-43, -2); ctx.quadraticCurveTo(-42, -8, -34, -9); ctx.lineTo(-25, -10);
+      ctx.quadraticCurveTo(-16, -23, -2, -23); ctx.lineTo(8, -23); ctx.quadraticCurveTo(20, -22, 27, -11);
+      ctx.quadraticCurveTo(40, -9, 43, -2); ctx.quadraticCurveTo(46, 4, 44, 10); done();
+      ctx.fillStyle = darken(c, 0.25); ctx.beginPath(); ctx.roundRect(-46, -17, 15, 3.6, 1.6); ctx.fill(); ctx.fillRect(-40, -14, 2.6, 6);
+      glassFill(-22, -9); ctx.beginPath(); ctx.moveTo(-22, -10.5); ctx.quadraticCurveTo(-14, -20.5, -3, -20.5); ctx.lineTo(7, -20.5); ctx.quadraticCurveTo(17, -20, 23, -10.5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = darken(c, 0.2); ctx.fillRect(-0.8, -20.5, 2.6, 10);
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; poly(ctx, [[-14, -18.5], [-9, -19.5], [-15, -11.5], [-19, -11.5]]);
+      ctx.fillStyle = a; ctx.globalAlpha = 0.9; ctx.fillRect(-42, -1.5, 86, 2.4); ctx.globalAlpha = 1;
+      lamp(42, -2.5); tail(-43.6, -5); break;
+    }
+    case 'super': {
+      paint(-20, 14); ctx.beginPath();
+      ctx.moveTo(-45, 10); ctx.lineTo(-46, -1); ctx.quadraticCurveTo(-45, -9, -35, -10); ctx.lineTo(-17, -12);
+      ctx.quadraticCurveTo(-5, -21, 9, -19); ctx.quadraticCurveTo(24, -14, 34, -6); ctx.lineTo(46, 0); ctx.quadraticCurveTo(50, 5, 47, 10); done();
+      glassFill(-19, -8); ctx.beginPath(); ctx.moveTo(-13, -11.5); ctx.quadraticCurveTo(-4, -18.5, 8, -17); ctx.quadraticCurveTo(18, -13.5, 25, -8); ctx.lineTo(-13, -8.6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.5)'; poly(ctx, [[-8, -15.5], [-3, -17], [-9, -9.5], [-12, -9.5]]);
+      ctx.fillStyle = a; poly(ctx, [[-22, -4], [-8, -2], [-10, 5], [-26, 5]]);                 // side intake
+      ctx.fillStyle = darken(c, 0.3); ctx.beginPath(); ctx.roundRect(-49, -16, 14, 3, 1.5); ctx.fill(); ctx.fillRect(-43, -13.5, 2.4, 4.5);
+      ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(12, -17); ctx.quadraticCurveTo(26, -11, 44, -1); ctx.stroke();
+      lamp(44, 0.5); tail(-46.6, -5); break;
+    }
+    case 'f1': {
+      ctx.fillStyle = darken(c, 0.35); ctx.fillRect(-45, -19, 3, 16); ctx.fillRect(42, 6.5, 14, 3.4);         // wing strut, front wing
+      paint(-24, -18, a); ctx.beginPath(); ctx.roundRect(-53, -24, 17, 4.6, 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = a; ctx.fillRect(-54, -25, 3, 13);
+      paint(-12, 12); ctx.beginPath();
+      ctx.moveTo(-40, 8); ctx.lineTo(-40, -3); ctx.lineTo(-22, -9); ctx.lineTo(-6, -10.5); ctx.quadraticCurveTo(3, -10, 9, -6); ctx.lineTo(51, 3.5); ctx.lineTo(51, 8); done();
+      paint(-20, -8, a); ctx.beginPath(); ctx.moveTo(-23, -8.5); ctx.lineTo(-19, -19); ctx.lineTo(-9, -19); ctx.lineTo(-5, -10.5); done();   // airbox
+      helmet(ctx, 1.5, -12, 5.4, '#ffffff');
+      ctx.fillStyle = '#ffffff'; ctx.globalAlpha = 0.85; poly(ctx, [[-36, -1], [30, 1.5], [30, 3.6], [-36, 2]]); ctx.globalAlpha = 1;
+      break;
+    }
+    case 'rally': {
+      paint(-25, 14); ctx.beginPath();
+      ctx.moveTo(-40, 10); ctx.lineTo(-41, -4); ctx.quadraticCurveTo(-40, -10, -35, -12); ctx.lineTo(-29, -22); ctx.quadraticCurveTo(-27, -24.5, -21, -24.5);
+      ctx.lineTo(8, -24.5); ctx.quadraticCurveTo(18, -23.5, 25, -11.5); ctx.quadraticCurveTo(37, -9.5, 40, -3); ctx.quadraticCurveTo(43, 4, 41, 10); done();
+      ctx.fillStyle = a; ctx.beginPath(); ctx.roundRect(-38, -28, 12, 3.2, 1.5); ctx.fill();
+      glassFill(-23, -11); ctx.beginPath(); ctx.moveTo(-26, -21.5); ctx.lineTo(7, -21.5); ctx.quadraticCurveTo(15, -20.5, 21, -12); ctx.lineTo(-31, -12); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = darken(c, 0.25); ctx.fillRect(-6, -21.5, 2.6, 9.6);
+      ctx.fillStyle = a; poly(ctx, [[-40, 1], [41, -2], [41, 2], [-40, 5]]); poly(ctx, [[14, -10], [22, -10], [16, 9], [8, 9]]);
+      ctx.fillStyle = '#ffffff'; disc(ctx, -15, -1, 6.4); ctx.strokeStyle = '#111'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = '#111'; ctx.font = '900 9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('5', -15, -0.5);
+      ctx.fillStyle = '#ffe14d'; disc(ctx, 30, -13, 2.8); disc(ctx, 35.5, -11.5, 2.8);
+      ctx.fillStyle = '#1b1e24'; ctx.fillRect(-37.5, 9, 3, 8);
+      lamp(40, -3.5); tail(-41.5, -7); break;
+    }
+    case 'jeep': {
+      ctx.strokeStyle = a; ctx.lineWidth = 3.4; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(-28, -8); ctx.lineTo(-28, -26); ctx.lineTo(3, -26); ctx.moveTo(-12, -26); ctx.lineTo(-12, -8); ctx.stroke();
+      glassFill(-26, -8); poly(ctx, [[3, -26], [6, -26], [13, -8], [9, -8]]);
+      ctx.fillStyle = '#2b2f38'; ctx.beginPath(); ctx.roundRect(-9, -18, 9, 11, 2); ctx.fill();          // seat
+      paint(-9, 12); ctx.beginPath(); ctx.moveTo(-40, 10); ctx.lineTo(-40, -8); ctx.lineTo(14, -8); ctx.lineTo(38, -6); ctx.quadraticCurveTo(42, -5, 42, 0); ctx.lineTo(42, 10); done();
+      ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1; ctx.strokeRect(-10, -5, 17, 13);
+      ctx.fillStyle = a; for (const wx of [s.rear, s.front]) { ctx.beginPath(); ctx.arc(wx, 10, s.wr + 3.5, Math.PI, 0); ctx.arc(wx, 10, s.wr + 0.5, 0, Math.PI, true); ctx.fill(); }
+      ctx.fillStyle = '#9aa3b1'; ctx.beginPath(); ctx.roundRect(40, 3, 6, 6, 1.5); ctx.fill();
+      wheel(ctx, -45, -2, 0.6, 9);                                                                    // spare
+      lamp(41, -2.5); break;
+    }
+    case 'pickup': {
+      ctx.fillStyle = '#8a5a2b'; ctx.fillRect(-40, -13, 16, 8); ctx.strokeStyle = '#5c3a17'; ctx.lineWidth = 1; ctx.strokeRect(-40, -13, 16, 8);   // crate in the bed
+      paint(-8, 12); ctx.beginPath(); ctx.moveTo(-46, 10); ctx.lineTo(-46, -7); ctx.lineTo(-12, -7); ctx.lineTo(-12, 10); done();
+      paint(-25, 12); ctx.beginPath(); ctx.moveTo(-13, 10); ctx.lineTo(-13, -22); ctx.quadraticCurveTo(-12, -24.5, -7, -24.5); ctx.lineTo(9, -24.5);
+      ctx.quadraticCurveTo(18, -23.5, 24, -10.5); ctx.lineTo(40, -8.5); ctx.quadraticCurveTo(45, -7, 45, 0); ctx.lineTo(45, 10); done();
+      glassFill(-23, -10); ctx.beginPath(); ctx.moveTo(-9, -21.5); ctx.lineTo(8, -21.5); ctx.quadraticCurveTo(15, -20.5, 20, -11); ctx.lineTo(-9, -11); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = a; ctx.fillRect(-46, -1, 91, 2.6);
+      ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.fillRect(-45, -6.4, 32, 1.4);
+      ctx.fillStyle = '#9aa3b1'; ctx.beginPath(); ctx.roundRect(43, 3, 5, 6, 1.5); ctx.fill();
+      lamp(44, -3); tail(-47, -5); break;
+    }
+    case 'monster': {
+      const ay = 21 - s.wr + s.lift;                                                                  // axle height in body space
+      ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 3.2;
+      for (const wx of [s.rear, s.front]) { ctx.beginPath(); ctx.moveTo(wx - 9, 8); ctx.lineTo(wx, ay); ctx.lineTo(wx + 9, 8); ctx.stroke(); }
+      ctx.strokeStyle = '#facc15'; ctx.lineWidth = 2.4;
+      for (const wx of [s.rear, s.front]) { ctx.beginPath(); for (let k = 0; k < 5; k++) ctx.lineTo(wx + (k % 2 ? 3 : -3), 8 + (k * (ay - 8)) / 4); ctx.stroke(); }
+      paint(-24, 10); ctx.beginPath(); ctx.moveTo(-40, 8); ctx.lineTo(-40, -6); ctx.lineTo(-15, -8); ctx.lineTo(-9, -23); ctx.lineTo(13, -23); ctx.lineTo(22, -8); ctx.lineTo(40, -5.5); ctx.quadraticCurveTo(43, -4, 43, 2); ctx.lineTo(42, 8); done();
+      glassFill(-21, -8); poly(ctx, [[-7, -20.5], [11.5, -20.5], [18, -9], [-11.5, -9]]);
+      ctx.fillStyle = a; poly(ctx, [[-40, 3], [-22, -3], [-28, 1], [-8, -2], [-16, 3], [4, 1], [-6, 6], [-40, 7]]);       // flame decal
+      ctx.fillStyle = '#ffe14d'; for (const lx of [-4, 2, 8]) disc(ctx, lx, -25.5, 2.2);
+      lamp(42, -1); tail(-41.5, -4); break;
+    }
+    case 'buggy': {
+      ctx.fillStyle = '#9aa3b1'; ctx.beginPath(); ctx.roundRect(-40, -9, 13, 14, 2); ctx.fill(); ctx.fillStyle = '#6b7280'; for (let i = 0; i < 3; i++) ctx.fillRect(-38.5, -7 + i * 4, 10, 1.6);   // engine
+      ctx.fillStyle = '#2b2f38'; ctx.beginPath(); ctx.roundRect(-12, -12, 9, 16, 2); ctx.fill();
+      helmet(ctx, -2, -15, 5.6, '#ffffff');
+      paint(-6, 12); ctx.beginPath(); ctx.moveTo(-36, 10); ctx.lineTo(-36, 4); ctx.lineTo(12, 4); ctx.lineTo(16, -6); ctx.lineTo(38, 0); ctx.quadraticCurveTo(41, 2, 40, 10); done();
+      ctx.strokeStyle = a; ctx.lineWidth = 3.4; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-34, 5); ctx.lineTo(-30, -15); ctx.lineTo(-7, -26); ctx.lineTo(14, -21); ctx.lineTo(35, -1); ctx.moveTo(-7, -26); ctx.lineTo(-13, 5); ctx.moveTo(14, -21); ctx.lineTo(12, 5); ctx.stroke();
+      ctx.fillStyle = '#ffe14d'; disc(ctx, 22, -15, 2.6); disc(ctx, 27, -10.5, 2.6);
+      break;
+    }
+    case 'kart': {
+      ctx.fillStyle = '#9aa3b1'; ctx.beginPath(); ctx.roundRect(-27, 1, 10, 9, 2); ctx.fill();
+      ctx.fillStyle = '#2b2f38'; poly(ctx, [[-14, 10], [-18, -4], [-11, -4], [-8, 10]]);
+      ctx.fillStyle = a; ctx.beginPath(); ctx.roundRect(-10, -6, 10, 15, 3); ctx.fill();                 // driver
+      ctx.strokeStyle = a; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(8, 0); ctx.stroke();
+      helmet(ctx, -4, -12, 6.6, c);
+      ctx.strokeStyle = '#1b1e24'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(9, -3); ctx.lineTo(13, 9); ctx.stroke(); disc(ctx, 9, -3, 2.2);
+      paint(8, 17); ctx.beginPath(); ctx.roundRect(-26, 9, 46, 6, 3); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(16, 9); ctx.lineTo(31, 6.5); ctx.quadraticCurveTo(33, 10, 31, 15); ctx.lineTo(16, 15); done();
+      ctx.fillStyle = '#ffffff'; disc(ctx, 24, 10.6, 3); ctx.fillStyle = '#111'; ctx.font = '900 5px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('7', 24, 10.9);
+      break;
+    }
+    case 'van': {
+      paint(-28, 14); ctx.beginPath(); ctx.roundRect(-44, -27, 88, 37, [9, 15, 4, 4]); ctx.fill(); ctx.stroke();
+      glassFill(-23, -8);
+      for (const wx of [-37, -18, 1]) { ctx.beginPath(); ctx.roundRect(wx, -22, 16, 12, 2.5); ctx.fill(); }
+      ctx.beginPath(); ctx.moveTo(22, -22); ctx.lineTo(34, -22); ctx.quadraticCurveTo(40, -19, 41.5, -10); ctx.lineTo(22, -10); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.5)'; poly(ctx, [[-33, -21], [-29, -21], [-34, -11], [-36, -11]]); poly(ctx, [[26, -21], [30, -21], [26, -11], [23.5, -11]]);
+      ctx.fillStyle = a; ctx.fillRect(-44, -5, 88, 5);
+      ctx.fillStyle = darken(c, 0.3); ctx.beginPath(); ctx.roundRect(-30, -31, 44, 4, 2); ctx.fill();
+      ctx.fillStyle = '#9aa3b1'; ctx.beginPath(); ctx.roundRect(42, 3, 5, 6, 1.5); ctx.fill();
+      lamp(43, -1.5); tail(-45, -3); break;
+    }
+  }
+  ctx.textBaseline = 'alphabetic';
+  void rot;
+}
+
+/** Any vehicle from the garage, side on, nose to the right. */
+function car(ctx: C2D, x: number, y: number, m: CarModel, rot: number, o: { tilt?: number; flame?: number; lights?: boolean; scale?: number; bounce?: number } = {}) {
+  const s = SPEC[m.kind];
+  ctx.save(); ctx.translate(x, y); ctx.scale(o.scale ?? 1, o.scale ?? 1);
+  ctx.fillStyle = 'rgba(0,0,0,.34)'; ctx.beginPath(); ctx.ellipse(0, 19, s.half + 2, 6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.rotate(o.tilt ?? 0);
+  const axle = 21 - s.wr;
+
+  ctx.save(); ctx.translate(0, -s.lift + (o.bounce ?? 0));
   if (o.flame) {                                    // exhaust flame
-    const f = o.flame;
+    const f = o.flame, tx = s.tail + 2;
     for (const [len, w, col] of [[30 * f, 7, 'rgba(255,120,30,.85)'], [20 * f, 4.5, '#ffd84a'], [10 * f, 2.6, '#ffffff']] as const) {
-      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(-40, 5 - w); ctx.quadraticCurveTo(-46 - len * 0.6, 5, -44 - len - Math.random() * 6, 6); ctx.quadraticCurveTo(-46 - len * 0.6, 7, -40, 5 + w); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(tx, 5 - w); ctx.quadraticCurveTo(tx - 6 - len * 0.6, 5, tx - 4 - len - Math.random() * 6, 6); ctx.quadraticCurveTo(tx - 6 - len * 0.6, 7, tx, 5 + w); ctx.fill();
     }
   }
   if (o.lights) {                                   // headlight beam
-    const g = ctx.createLinearGradient(40, 0, 150, 0);
+    const g = ctx.createLinearGradient(s.nose, 0, s.nose + 110, 0);
     g.addColorStop(0, 'rgba(255,246,190,.5)'); g.addColorStop(1, 'rgba(255,246,190,0)');
-    ctx.fillStyle = g; poly(ctx, [[40, 0], [150, -16], [150, 22], [40, 6]]);
+    ctx.fillStyle = g; poly(ctx, [[s.nose - 2, -3], [s.nose + 108, -18], [s.nose + 108, 20], [s.nose - 2, 3]]);
   }
-
-  // body
-  ctx.fillStyle = vgrad(ctx, -22, 14, [[0, lighten(body, 0.45)], [0.35, body], [1, darken(body, 0.4)]]);
-  ctx.strokeStyle = darken(body, 0.6); ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(-42, 10); ctx.lineTo(-43, -2); ctx.quadraticCurveTo(-42, -8, -34, -9);
-  ctx.lineTo(-25, -10); ctx.quadraticCurveTo(-16, -23, -2, -23); ctx.lineTo(8, -23);
-  ctx.quadraticCurveTo(20, -22, 27, -11); ctx.quadraticCurveTo(40, -9, 43, -2); ctx.quadraticCurveTo(46, 4, 44, 10); ctx.closePath();
-  ctx.fill(); ctx.stroke();
-  // spoiler
-  ctx.fillStyle = darken(body, 0.25); ctx.beginPath(); ctx.roundRect(-46, -17, 15, 3.6, 1.6); ctx.fill(); ctx.fillRect(-40, -14, 2.6, 6);
-  // glass
-  ctx.fillStyle = vgrad(ctx, -22, -9, [[0, '#dff4ff'], [1, '#6fb6e6']]);
-  ctx.beginPath(); ctx.moveTo(-22, -10.5); ctx.quadraticCurveTo(-14, -20.5, -3, -20.5); ctx.lineTo(7, -20.5); ctx.quadraticCurveTo(17, -20, 23, -10.5); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = darken(body, 0.2); ctx.fillRect(-0.8, -20.5, 2.6, 10);
-  ctx.fillStyle = 'rgba(255,255,255,.55)'; poly(ctx, [[-14, -18.5], [-9, -19.5], [-15, -11.5], [-19, -11.5]]);
-  // highlight along the shoulder, stripe, door seam
-  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(-36, -7.5); ctx.lineTo(-25, -8.4); ctx.moveTo(27, -9.2); ctx.quadraticCurveTo(37, -7.8, 41, -3.5); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillRect(-42, -1.5, 86, 2.4);
-  ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(1, -9.5); ctx.lineTo(1, 8.5); ctx.stroke();
-  // lights
-  ctx.fillStyle = '#fff6b8'; ctx.beginPath(); ctx.ellipse(42, -2.5, 3.2, 2.6, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#ff3b3b'; ctx.fillRect(-43.6, -5, 2.6, 5);
-  // wheel arches and wheels
-  ctx.fillStyle = '#0f1115'; for (const wx of [-25, 26]) { ctx.beginPath(); ctx.arc(wx, 10, 12.5, Math.PI, 0); ctx.fill(); }
-  wheel(ctx, -25, 10.5, rot); wheel(ctx, 26, 10.5, rot);
+  bodywork(ctx, m, s, rot);
   ctx.restore();
+
+  if (m.kind !== 'f1' && m.kind !== 'kart' && m.kind !== 'buggy' && m.kind !== 'monster' && m.kind !== 'jeep') {
+    ctx.fillStyle = '#0f1115';                      // arches cut into the bodywork
+    for (const wx of [s.rear, s.front]) { ctx.beginPath(); ctx.arc(wx, axle - s.lift * 0.5, s.wr + 2, Math.PI, 0); ctx.fill(); }
+  }
+  wheel(ctx, s.rear, axle, rot, m.kind === 'buggy' ? s.wr + 1.5 : s.wr);
+  wheel(ctx, s.front, m.kind === 'buggy' ? axle + 2 : axle, rot, m.kind === 'buggy' ? s.wr - 2 : s.wr);
+  ctx.restore();
+}
+
+/** A still of one vehicle for the garage screen. */
+export function drawCarThumb(ctx: C2D, m: CarModel, w: number, h: number) {
+  ctx.clearRect(0, 0, w, h);
+  const s = m.kind === 'monster' ? 0.95 : m.kind === 'kart' ? 1.5 : 1.15;
+  car(ctx, w / 2, h * 0.58, m, 0.4, { scale: s });
 }
 
 // ── power-ups ───────────────────────────────────────────────────────────────
@@ -555,11 +707,11 @@ export function draw(ctx: C2D, r: Race, v: View, scale: number) {
 
   // the rival, drawn relative to you but never allowed off screen
   const gap = (r.rx - r.x) * 0.9, rivalX = CAR_X + Math.max(-175, Math.min(gap, VW - CAR_X - 70));
-  car(ctx, rivalX, ROAD_Y + 24, '#e23b3b', v.tick * 0.45, { scale: 0.9 });
+  car(ctx, rivalX, ROAD_Y + 9, v.rival, v.tick * 0.45, { scale: 0.84 });   // the far lane, so the two never overlap
   if (r.power?.id === 'freeze') {
     ctx.fillStyle = vgrad(ctx, ROAD_Y - 14, ROAD_Y + 46, [[0, 'rgba(220,245,255,.75)'], [1, 'rgba(120,200,255,.5)']]);
-    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(rivalX - 50, ROAD_Y - 14, 100, 60, 10); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.7)'; poly(ctx, [[rivalX - 40, ROAD_Y - 8], [rivalX - 26, ROAD_Y - 8], [rivalX - 44, ROAD_Y + 22]]);
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(rivalX - 50, ROAD_Y - 30, 100, 62, 10); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.7)'; poly(ctx, [[rivalX - 40, ROAD_Y - 24], [rivalX - 26, ROAD_Y - 24], [rivalX - 44, ROAD_Y + 6]]);
   }
   if (gap > VW - CAR_X - 70) { ctx.fillStyle = '#ff5d5d'; poly(ctx, [[VW - 20, ROAD_Y - 2], [VW - 5, ROAD_Y + 7], [VW - 20, ROAD_Y + 16]]); }
 
@@ -567,7 +719,8 @@ export function draw(ctx: C2D, r: Race, v: View, scale: number) {
   if (r.fly > 0.05) { ctx.fillStyle = `rgba(0,0,0,${0.28 - r.fly * 0.14})`; ctx.beginPath(); ctx.ellipse(CAR_X, ROAD_Y + 44, 40 * (1 - r.fly * 0.4), 6, 0, 0, Math.PI * 2); ctx.fill(); }
   if (r.power) powerFx(ctx, r.power, CAR_X, carY, v);
   const flame = r.power?.id === 'rocket' ? 2.2 : r.boost > 0 ? 1 : 0;
-  car(ctx, CAR_X, carY, '#2f6bff', v.tick * (r.v / 2.2) * 0.4, { tilt: -fast * 0.05 - r.fly * 0.06, flame, lights: true });
+  const bounce = v.car.kind === 'monster' || v.car.kind === 'jeep' ? Math.sin(v.tick * 0.3) * 1.6 : 0;
+  car(ctx, CAR_X, carY, v.car, v.tick * (r.v / 2.2) * 0.4, { tilt: -fast * 0.05 - r.fly * 0.06, flame, lights: true, bounce });
   if (r.slow > 0) for (let i = 0; i < 4; i++) { ctx.fillStyle = `rgba(150,130,110,${0.5 - i * 0.1})`; disc(ctx, CAR_X - 44 - i * 13 - wrap(v.tick * 2, 13), carY + 12 - i * 2, 7 + i * 2); }
 
   // sparks and dust

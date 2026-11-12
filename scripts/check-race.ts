@@ -3,6 +3,7 @@
 import { LESSONS } from '../src/lib/mathfun/curriculum';
 import { ISLANDS } from '../src/lib/mathfun/islands';
 import { generateQuestion } from '../src/lib/mathfun/questions';
+import { CARS, carById } from '../src/lib/race/cars';
 import { POWERS, STREAK_FOR_POWER, THEMES, TRACK, answer, drain, newRace, stars, step, type PowerId } from '../src/lib/race/sim';
 
 let bad = 0;
@@ -70,6 +71,13 @@ for (const l of LESSONS) {
   const q = generateQuestion(l.id);
   if (!q.choices.includes(q.answer)) fail(`${l.id}: question has no right answer`);
 }
+
+// The garage: distinct vehicles, each a kind of its own, and an unknown id falls back to the first.
+if (CARS.length < 8) fail('the garage is thin');
+if (new Set(CARS.map((c) => c.id)).size !== CARS.length || new Set(CARS.map((c) => c.kind)).size !== CARS.length) fail('two cars share an id or a shape');
+if (new Set(CARS.map((c) => c.name)).size !== CARS.length) fail('two cars share a name');
+for (const c of CARS) if (!/^#[0-9a-f]{6}$/i.test(c.color) || !/^#[0-9a-f]{6}$/i.test(c.accent)) fail(`${c.id}: colours must be #rrggbb for the shader`);
+if (carById('nope') !== CARS[0] || carById(null) !== CARS[0] || carById(CARS[3].id) !== CARS[3]) fail('carById lookup is wrong');
 
 // Stars reward winning and accuracy.
 {

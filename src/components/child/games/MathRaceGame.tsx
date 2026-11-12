@@ -5,18 +5,32 @@ import { generateQuestion, type Question } from '@/lib/mathfun/questions';
 import { LESSONS } from '@/lib/mathfun/curriculum';
 import { ISLANDS } from '@/lib/mathfun/islands';
 import { POWERS, STREAK_FOR_POWER, VH, VW, answer, drain, newRace, stars, step, type Race } from '@/lib/race/sim';
-import { draw, newView, onEvents } from './raceDraw';
+import { CARS, carById, type CarModel } from '@/lib/race/cars';
+import { draw, drawCarThumb, newView, onEvents } from './raceDraw';
 import MathText from '@/components/mathfun/MathText';
 import { sfx } from '@/lib/sfx';
 
 const SCALE = 2;
 const LAST_KEY = 'mathrace.stage';
+const CAR_KEY = 'mathrace.car';
+
+function CarThumb({ car }: { car: CarModel }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const ctx = ref.current?.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    drawCarThumb(ctx, car, 130, 76);
+  }, [car]);
+  return <canvas ref={ref} width={260} height={152} className="h-[76px] w-[130px] max-w-full" />;
+}
 
 type Phase = 'pick' | 'race' | 'done';
 
 export default function MathRaceGame() {
   const [phase, setPhase] = useState<Phase>('pick');
   const [stage, setStage] = useState(LESSONS[0].id);
+  const [carId, setCarId] = useState(CARS[0].id);
   const [question, setQuestion] = useState<Question | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
   const [summary, setSummary] = useState<{ won: boolean; score: number; coins: number; correct: number; wrong: number; best: number; stars: number } | null>(null);
@@ -34,6 +48,8 @@ export default function MathRaceGame() {
       const saved = localStorage.getItem(LAST_KEY);
       // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after mount
       if (saved && LESSONS.some((l) => l.id === saved)) setStage(saved);
+       
+      setCarId(carById(localStorage.getItem(CAR_KEY)).id);
     } catch { /* storage blocked */ }
   }, []);
 
@@ -51,7 +67,8 @@ export default function MathRaceGame() {
     if (!ctx) return;
     const r = newRace(stage, island?.n ?? 1);
     raceRef.current = r;
-    const v = newView();
+    const others = CARS.filter((c) => c.id !== carId);
+    const v = newView(carById(carId), others[Math.floor(Math.random() * others.length)]);
     let last = performance.now(), acc = 0, raf = 0;
     const loop = (now: number) => {
       acc += Math.min(100, now - last); last = now;
@@ -77,7 +94,7 @@ export default function MathRaceGame() {
     raf = requestAnimationFrame(loop);
     ask(stage);
     return () => cancelAnimationFrame(raf);
-  }, [phase, stage, island, run, ask]);
+  }, [phase, stage, island, run, ask, carId]);
 
   const start = (topic: string) => {
     setStage(topic);
@@ -119,6 +136,21 @@ export default function MathRaceGame() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="rounded-2xl bg-white p-3 shadow">
+          <p className="mb-2 text-center text-sm font-black">🚗 Ga-ra — chọn xe của bạn</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {CARS.map((c) => (
+              <button key={c.id} aria-pressed={c.id === carId} title={c.blurb}
+                onClick={() => { setCarId(c.id); try { localStorage.setItem(CAR_KEY, c.id); } catch { /* storage blocked */ } }}
+                className={`flex flex-col items-center rounded-xl border-4 bg-gradient-to-b from-sky-50 to-slate-100 p-1 transition ${c.id === carId ? 'border-yellow-400 shadow-lg' : 'border-transparent opacity-75 hover:opacity-100'}`}>
+                <CarThumb car={c} />
+                <span className="text-[11px] font-black leading-tight">{c.name}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-center text-xs font-semibold text-gray-500">{carById(carId).name}: {carById(carId).blurb}. Xe nào cũng chạy nhanh như nhau — thắng thua là do trả lời đúng.</p>
         </div>
 
         <div className="flex flex-col gap-3">
