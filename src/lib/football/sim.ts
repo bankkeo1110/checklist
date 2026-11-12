@@ -10,7 +10,7 @@ export const CHARGE_FULL = 40;
 export const MATCH_SECONDS = 120;
 
 export type SupKind = 'blast' | 'zigzag' | 'arrow' | 'boomerang' | 'sky' | 'leaf' | 'kame' | 'void';
-export const SUP_KINDS: SupKind[] = ['blast', 'zigzag', 'arrow', 'boomerang', 'sky', 'leaf', 'kame', 'void'];
+export const SUP_KINDS: SupKind[] = ['kame', 'blast', 'zigzag', 'arrow', 'boomerang', 'sky', 'leaf', 'void'];
 
 /** How fast each special travels, in pixels per frame. */
 const SUP_SPEED: Record<SupKind, number> = { blast: 11.5, zigzag: 8.5, arrow: 14, boomerang: 7.5, sky: 7.5, leaf: 8, kame: 10, void: 6.5 };
@@ -44,13 +44,13 @@ export interface Char {
 }
 
 export const CHARS: Char[] = [
+  { id: 'sao', name: 'Sao', skin: '#f6d7bd', hair: '#b58cff', style: 'curly', aura: '#9fe8ff', shot: 'SÓNG ÁNH SAO!', kind: 'kame', spd: 4, pow: 4, tac: 2 },
   { id: 'lua', name: 'Lửa', skin: '#f2c48d', hair: '#e8452c', style: 'spiky', aura: '#ff7a1a', shot: 'CẦU LỬA!', kind: 'blast', spd: 3, pow: 5, tac: 2 },
   { id: 'sam', name: 'Sấm', skin: '#e9b98a', hair: '#ffd21f', style: 'mohawk', aura: '#ffe14d', shot: 'TIA SÉT!', kind: 'zigzag', spd: 5, pow: 3, tac: 2 },
   { id: 'bang', name: 'Băng', skin: '#f6d7bd', hair: '#8fd8ff', style: 'long', aura: '#6fd3ff', shot: 'MŨI TÊN BĂNG!', kind: 'arrow', spd: 3, pow: 4, tac: 3 },
   { id: 'gio', name: 'Gió', skin: '#d9a273', hair: '#e9f5f2', style: 'band', aura: '#ffd84d', shot: 'CHUỐI BAY VÒNG!', kind: 'boomerang', spd: 5, pow: 2, tac: 3 },
   { id: 'da', name: 'Đá', skin: '#b98258', hair: '#6b5a4b', style: 'cap', aura: '#c9a36b', shot: 'THIÊN THẠCH!', kind: 'sky', spd: 2, pow: 4, tac: 5 },
   { id: 'la', name: 'Lá', skin: '#f2c48d', hair: '#3fae4c', style: 'bun', aura: '#7be07b', shot: 'BÃO LÁ!', kind: 'leaf', spd: 4, pow: 2, tac: 4 },
-  { id: 'sao', name: 'Sao', skin: '#f6d7bd', hair: '#b58cff', style: 'curly', aura: '#9fe8ff', shot: 'SÓNG ÁNH SAO!', kind: 'kame', spd: 4, pow: 4, tac: 2 },
   { id: 'dem', name: 'Bóng Đêm', skin: '#c99872', hair: '#2b2440', style: 'hood', aura: '#8f6bff', shot: 'HỐ ĐEN!', kind: 'void', spd: 3, pow: 3, tac: 4 },
 ];
 
@@ -175,10 +175,13 @@ export function newGame(mine: number[], theirs: number[], level = 0, difficulty 
   const ps: P[] = [];
   ([0, 1] as Side[]).forEach((side) => {
     const team = side === 0 ? mine : theirs;
+    // The keeper is a warrior nobody picked; the four picks fill the outfield from the front,
+    // so pick #1 is the striker you start out controlling.
+    const gkCh = CHARS.findIndex((_, i) => !team.includes(i));
     HOME.forEach(([hx, hy], i) => {
       const x = side === 0 ? hx : W - hx;
       ps.push({
-        side, gk: i === 0, ch: team[Math.max(0, i - 1) % team.length] ?? 0, role: i,
+        side, gk: i === 0, ch: i === 0 ? (gkCh < 0 ? 0 : gkCh) : team[(HOME.length - 1 - i) % team.length] ?? 0, role: i,
         x, y: hy, vx: 0, vy: 0, fx: dirOf(side), fy: 0, down: 0, cd: 0, charge: 0, slide: 0, hold: 0, hx: x, hy,
         react: -1, dive: 0, safe: 0, kickT: 0, sprint: false,
       });

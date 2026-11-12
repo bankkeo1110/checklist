@@ -90,6 +90,20 @@ if (Math.abs(diff(proBoss)) > 1.5) fail(`Khó: the final team ends ${diff(proBos
 if (proBoss.winRate < 0.2) fail(`Khó: the final team is won ${(proBoss.winRate * 100).toFixed(0)}% of the time even played well`);
 if (proBoss.winRate > 0.8) fail('Khó: the final team is no challenge');
 
+// Your first pick leads the line and is the one you start controlling; the keeper is someone else.
+{
+  const mine = [2, 5, 0, 7];
+  const g = newGame(mine, [1, 3, 4, 6], 0, 0);
+  const striker = g.ps.find((p) => p.side === 0 && p.role === 4)!;
+  const keeper = g.ps.find((p) => p.side === 0 && p.gk)!;
+  if (striker.ch !== mine[0]) fail(`the first pick should be the striker, got ${CHARS[striker.ch].name}`);
+  if (g.ctl !== striker) fail('the kick-off should hand you the striker');
+  if (mine.includes(keeper.ch)) fail(`${CHARS[keeper.ch].name} is both keeper and outfielder`);
+  const outfield = g.ps.filter((p) => p.side === 0 && !p.gk).map((p) => p.ch).sort();
+  if (outfield.join() !== [...mine].sort().join()) fail('the four picks must each take one outfield spot');
+  if (CHARS[0].kind !== 'kame') fail('Sóng ánh sao should be the first warrior on the list');
+}
+
 // Every warrior has a special of their own, and each has to stay on the pitch.
 if (new Set(CHARS.map((c) => c.kind)).size !== SUP_KINDS.length) fail('two warriors share a special, or one kind is unused');
 for (const k of SUP_KINDS) {

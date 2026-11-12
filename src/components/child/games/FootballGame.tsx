@@ -11,6 +11,9 @@ type Stage = 'menu' | 'play' | 'result' | 'over';
 interface Cup { stage: number; trophies: number }
 interface Result { mine: number; theirs: number; level: number; champion: boolean }
 
+/** Where each pick lines up: the first one leads the attack. */
+const POSITIONS = ['Tiền đạo', 'Tiền vệ', 'Tiền vệ', 'Hậu vệ'];
+
 const CUP_KEY = 'football_cup_v1';
 const DIFF_KEY = 'football_difficulty_v1';
 const SCALE = 2; // canvas backing store is 2× the logical view so sprites stay crisp
@@ -287,11 +290,17 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
         </div>
 
         <div>
-          <p className="mb-1 text-center text-sm font-black">Chọn 4 chiến binh ({picked.length}/4) — thủ môn tự vào sân</p>
+          <p className="mb-1 text-center text-sm font-black">Chọn 4 chiến binh ({picked.length}/4)</p>
+          <p className="mb-1 text-center text-xs font-semibold text-gray-500">Người chọn đầu tiên đá tiền đạo — bạn điều khiển bạn ấy khi giao bóng. Thủ môn tự vào sân.</p>
           <div className="grid grid-cols-4 gap-2">
             {CHARS.map((c, i) => (
               <button key={c.id} onClick={() => toggle(i)} aria-pressed={picked.includes(i)}
-                className={`flex flex-col items-center rounded-2xl border-4 bg-white p-1.5 ${picked.includes(i) ? 'border-yellow-400 shadow-lg' : 'border-transparent opacity-70'}`}>
+                className={`relative flex flex-col items-center rounded-2xl border-4 bg-white p-1.5 ${picked.includes(i) ? 'border-yellow-400 shadow-lg' : 'border-transparent opacity-70'}`}>
+                {picked.includes(i) && (
+                  <span className="absolute left-1 top-1 rounded-full bg-[#1a1a1a] px-1.5 text-[10px] font-black text-white">
+                    {POSITIONS[picked.indexOf(i)]}
+                  </span>
+                )}
                 <CharThumb c={c} />
                 <span className="text-xs font-black">{c.name}</span>
                 <span className="text-[10px] font-bold" style={{ color: c.aura, filter: 'brightness(.7)' }}>{c.shot}</span>
