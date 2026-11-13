@@ -157,7 +157,7 @@ export interface Game {
   ps: P[]; ball: Ball; score: [number, number]; ctl: P; kick: number; freeze: number;
   phase: 'play' | 'goal' | 'full'; phaseT: number; lastGoal: Side; scorer: P | null;
   msgs: Msg[]; ev: Ev[]; frame: number; prevShoot: boolean; prevPass: boolean;
-  ki: [number, number]; sups: [number, number]; stamina: number; time: number; golden: boolean; goldenT: number; shotCd: [number, number];
+  ki: [number, number]; sups: [number, number]; awake: [number, number]; stamina: number; time: number; golden: boolean; goldenT: number; shotCd: [number, number];
   level: Level; ally: Level; diff: Difficulty;
 }
 export interface Input { dx: number; dy: number; shoot: boolean; pass: boolean; tackle: boolean; sprint: boolean }
@@ -205,7 +205,7 @@ export function newGame(mine: number[], theirs: number[], level = 0, difficulty 
     ps, ball: { x: W / 2, y: H / 2, z: 0, vx: 0, vy: 0, vz: 0, owner: null, ks: 0, noPick: 0, noP: null, sup: null, shot: false, pass: false },
     score: [0, 0], ctl: ps[4], kick: 0, freeze: 0, phase: 'play', phaseT: 0, lastGoal: 0, scorer: null,
     msgs: [], ev: [], frame: 0, prevShoot: false, prevPass: false,
-    ki: [30, 0], sups: [0, 0], shotCd: [0, 0], stamina: 100, time: seconds * 60, golden: false, goldenT: 0,
+    ki: [30, 0], sups: [0, 0], awake: [0, 0], shotCd: [0, 0], stamina: 100, time: seconds * 60, golden: false, goldenT: 0,
     level: scaleFoe(LEVELS[clamp(level, 0, LEVELS.length - 1)], diff), ally: scaleAlly(diff, level), diff,
   };
   kickoff(g, 0);
@@ -229,7 +229,7 @@ function shootAt(g: Game, p: P, ty: number, power: number) {
   const b = g.ball, gx = goalX(p.side);
   let dx = gx - p.x, dy = ty - p.y;
   const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
-  const sp = (6.2 + 5 * power) * powF(p);
+  const sp = (6.2 + 5 * power) * powF(p) * (1 + AWAKE_SHOT * g.awake[p.side]);
   Object.assign(b, { vx: dx * sp, vy: dy * sp, vz: 1 + 2.2 * power, z: 2, owner: null, ks: p.side, noPick: 10, noP: p, shot: true, pass: false, sup: null });
   p.cd = 18; p.charge = 0; p.kickT = 12; p.fx = dx; p.fy = dy;
   emit(g, power > 0.75 ? 'bigkick' : 'kick', p);
@@ -240,6 +240,18 @@ function clearBall(g: Game, p: P, power: number) {
   Object.assign(g.ball, { vx: p.fx * sp, vy: p.fy * sp, vz: 2.5, z: 2, owner: null, ks: p.side, noPick: 10, noP: p, shot: false, pass: false, sup: null });
   p.cd = 18; p.charge = 0; p.kickT = 12;
   emit(g, 'kick', p);
+}
+
+/** A team's awakening: every goal and every special lifts the whole side one stage, up to three. */
+export const AWAKE = ['', 'THỨC TỈNH I', 'THỨC TỈNH II', 'THỨC TỈNH CỰC HẠN'];
+export const MAX_AWAKE = AWAKE.length - 1;
+const AWAKE_SPEED = 0.03, AWAKE_SHOT = 0.04;   // per stage: a little faster, a little harder shot
+
+function awaken(g: Game, side: Side, at: Pt) {
+  if (g.awake[side] >= MAX_AWAKE) return;
+  g.awake[side]++;
+  say(g, `${AWAKE[g.awake[side]]}!`, side === 0 ? '#ffe14d' : '#ff8a8a', 110);
+  emit(g, 'awake', at, { side });
 }
 
 /** Beam first, then any of the others at random — the shot does not depend on who takes it. */
@@ -259,6 +271,7 @@ function special(g: Game, p: P) {
   g.freeze = 26;
   say(g, meta.name, meta.color, 90);
   emit(g, 'super', p, { color: meta.color, side: p.side, kind });
+  awaken(g, p.side, p);
 }
 
 /** Where a human shot goes. With aim help it drifts to the corner the keeper has left open. */
@@ -398,7 +411,7 @@ function act(g: Game, p: P, a: Act, human: boolean, inp: Input | null) {
   }
   const holding = b.owner === p;
   let sp = human ? 1.95 : (a.spd ?? cfg.spd);
-  if (!p.gk) sp *= spdF(p);
+  if (!p.gk) sp *= spdF(p) * (1 + AWAKE_SPEED * g.awake[p.side]);
   if (holding) sp *= 0.9;
   if (human && inp?.sprint && g.stamina > 1 && (inp.dx || inp.dy)) { sp *= 1.4; g.stamina = Math.max(0, g.stamina - 0.45); p.sprint = true; }
   if (p.charge > 8) sp *= 0.75; // winding up a shot slows you down
@@ -468,6 +481,7 @@ function goal(g: Game, scorer: Side) {
   emit(g, 'goal', b, { side: scorer });
   b.sup = null; b.shot = false; b.owner = null; b.vx *= 0.3; b.vy *= 0.3;
   addKi(g, scorer === 0 ? 1 : 0, 20); // the side that conceded gets fired up
+  awaken(g, scorer, g.scorer ?? b);
   for (const p of g.ps) { p.charge = 0; p.slide = 0; }
 }
 

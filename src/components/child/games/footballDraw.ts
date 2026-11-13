@@ -31,6 +31,7 @@ export function onEvents(v: View, evs: Ev[]) {
     else if (e.t === 'save') { burst(v, e.x, e.y - 6, 10, '#9fe8ff', 2.8, 22); v.shake = Math.max(v.shake, 3); }
     else if (e.t === 'post') { burst(v, e.x, e.y, 12, '#ffffff', 3.2, 20); v.shake = Math.max(v.shake, 6); }
     else if (e.t === 'super') { burst(v, e.x, e.y - 6, 26, e.color ?? '#fff', 4, 34, 3.5); v.shake = Math.max(v.shake, 7); }
+    else if (e.t === 'awake') { burst(v, e.x, e.y - 10, 30, e.side === 0 ? '#ffe14d' : '#ff8a8a', 4.4, 40, 3.2); burst(v, e.x, e.y - 10, 12, '#ffffff', 3, 26, 2); v.shake = Math.max(v.shake, 6); v.flash = Math.max(v.flash, 8); }
     else if (e.t === 'goal') {
       for (let i = 0; i < 4; i++) burst(v, clamp(e.x, 20, W - 20) + (Math.random() - 0.5) * 120, e.y + (Math.random() - 0.5) * 120, 18, CONFETTI, 4.5, 80, 3.2, 0.06);
       v.shake = 11; v.cheer = 170; v.flash = 14;
@@ -42,66 +43,140 @@ const poly = (ctx: CanvasRenderingContext2D, pts: number[][]) => { ctx.beginPath
 const disc = (ctx: CanvasRenderingContext2D, x: number, y: number, r: number) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
 const cap = (ctx: CanvasRenderingContext2D) => { ctx.beginPath(); ctx.arc(0, -16, 7.9, Math.PI * 0.95, Math.PI * 2.05); ctx.fill(); };
 
-function drawHair(ctx: CanvasRenderingContext2D, c: Char, fx: number) {
-  ctx.fillStyle = c.hair;
+const hexMix = (c: string, to: string, t: number) => {
+  const n = parseInt(c.slice(1, 7), 16), m = parseInt(to.slice(1, 7), 16);
+  const ch = (sh: number) => Math.round(((n >> sh) & 255) + (((m >> sh) & 255) - ((n >> sh) & 255)) * t);
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+};
+
+function drawHair(ctx: CanvasRenderingContext2D, c: Char, fx: number, color: string, shine: string) {
+  ctx.fillStyle = color;
   switch (c.style) {
-    case 'spiky': cap(ctx); poly(ctx, [[-7.5, -17], [-11, -25], [-5.5, -22], [-3.5, -31], [0, -23], [4, -31], [5.5, -22], [11, -25], [7.5, -17]]); break;
-    case 'mohawk': cap(ctx); poly(ctx, [[-2.6, -19], [-3.2, -30], [0, -33], [3.2, -30], [2.6, -19]]); break;
-    case 'long': cap(ctx); ctx.fillRect(-9, -17, 3.2, 13); ctx.fillRect(5.8, -17, 3.2, 13); break;
-    case 'band': cap(ctx); ctx.fillStyle = c.aura; ctx.fillRect(-7.8, -19.5, 15.6, 2.4); ctx.fillRect(fx >= 0 ? -11 : 7, -19, 4, 1.6); break;
-    case 'cap': cap(ctx); ctx.fillRect(fx >= 0 ? 1 : -11, -17.6, 10, 2.6); ctx.fillStyle = c.aura; disc(ctx, 0, -23.5, 1.4); break;
-    case 'bun': cap(ctx); disc(ctx, 0, -25.5, 3.6); break;
-    case 'curly': [[-6, -19, 3.6], [-2, -22.5, 4], [3, -22.5, 4], [6.5, -19, 3.6], [-8, -15, 2.6], [8, -15, 2.6]].forEach(([x, y, r]) => disc(ctx, x, y, r)); break;
-    case 'hood': break; // drawn behind the head
+    case 'spiky': cap(ctx); poly(ctx, [[-8, -17], [-12.5, -26], [-6, -22.5], [-4.5, -32.5], [0, -24], [4.5, -32.5], [6, -22.5], [12.5, -26], [8, -17]]); break;
+    case 'mohawk': cap(ctx); poly(ctx, [[-3.2, -19], [-5, -28], [-2, -27], [-1, -35], [1.6, -28], [4.4, -31], [3.2, -19]]); break;
+    case 'long': cap(ctx); poly(ctx, [[-9.4, -18], [-10.4, -3], [-7.4, -6], [-6, -16]]); poly(ctx, [[9.4, -18], [10.4, -3], [7.4, -6], [6, -16]]); poly(ctx, [[-7, -20], [-2, -17], [3, -21], [7, -18], [7.5, -23], [-7.5, -23]]); break;
+    case 'band': cap(ctx); poly(ctx, [[-7, -21], [-3, -25.5], [0, -22], [3, -26], [7, -21]]); ctx.fillStyle = c.aura; ctx.fillRect(-7.9, -19.6, 15.8, 2.6); poly(ctx, fx >= 0 ? [[-7.5, -19.5], [-13, -22], [-12, -17], [-7.5, -17]] : [[7.5, -19.5], [13, -22], [12, -17], [7.5, -17]]); break;
+    case 'cap': cap(ctx); ctx.beginPath(); ctx.roundRect(fx >= 0 ? 0 : -12, -18, 12, 3, 1.5); ctx.fill(); ctx.fillStyle = c.aura; disc(ctx, 0, -23.6, 1.6); break;
+    case 'bun': cap(ctx); disc(ctx, 0, -26, 4.2); poly(ctx, [[-7, -19], [-2, -17.5], [2, -19.5], [7, -17.5], [7, -22], [-7, -22]]); break;
+    case 'curly': [[-6.4, -19, 4], [-2.2, -23, 4.4], [3, -23, 4.4], [7, -19, 4], [-8.4, -14.8, 2.9], [8.4, -14.8, 2.9]].forEach(([x, y, r]) => disc(ctx, x, y, r)); break;
+    case 'hood': return; // drawn behind the head
   }
+  ctx.fillStyle = shine; ctx.beginPath(); ctx.ellipse(-3, -21, 3.4, 1.5, -0.5, 0, Math.PI * 2); ctx.fill();
 }
 
-export interface Pose { fx: number; fy: number; shirt: string; gk?: boolean; side?: 0 | 1; tick: number; moving?: boolean; down?: boolean; slide?: boolean; kick?: boolean; cheer?: boolean; dive?: number; aura?: boolean; sprint?: boolean }
+/** Rising flame aura: a ring of flickering tongues, drawn behind the player. */
+function flameAura(ctx: CanvasRenderingContext2D, color: string, tick: number, size: number, alpha: number) {
+  ctx.globalAlpha = alpha; ctx.fillStyle = color;
+  ctx.beginPath(); ctx.moveTo(-13 * size, 9);
+  for (let i = 0; i <= 8; i++) {
+    const x = (-13 + i * 3.25) * size, edge = 1 - Math.abs(i - 4) / 5;
+    const h = (22 + edge * 24 + Math.sin(tick * 0.45 + i * 1.9) * 6) * size;
+    ctx.quadraticCurveTo(x - 1.6 * size, 9 - h * 0.55, x + Math.sin(tick * 0.3 + i) * 1.5, 9 - h);
+    ctx.quadraticCurveTo(x + 1.6 * size, 9 - h * 0.5, x + 1.6 * size, 9 - h * 0.25);
+  }
+  ctx.lineTo(13 * size, 9); ctx.quadraticCurveTo(0, 15, -13 * size, 9); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+export interface Pose { fx: number; fy: number; shirt: string; gk?: boolean; side?: 0 | 1; tick: number; moving?: boolean; down?: boolean; slide?: boolean; kick?: boolean; cheer?: boolean; dive?: number; aura?: boolean; sprint?: boolean; /** awakening stage 0…3 */ lv?: number }
 
 export function drawChar(ctx: CanvasRenderingContext2D, c: Char, x: number, y: number, o: Pose, scale = 1.45) {
+  const lv = o.lv ?? 0, t = o.tick;
+  const OUT = '#1b1f2a';
   ctx.save();
   ctx.translate(x, y); ctx.scale(scale, scale);
-  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(0, 10, 8.5, 3.2, 0, 0, Math.PI * 2); ctx.fill();
-  if (o.aura) {
-    for (let i = 0; i < 3; i++) {
-      ctx.fillStyle = c.aura + ['33', '44', '66'][i];
-      ctx.beginPath(); ctx.ellipse(Math.sin(o.tick * 0.5 + i) * 1.5, -9 - i * 2, 15 - i * 3, 22 - i * 4 + Math.sin(o.tick * 0.7 + i * 2) * 2, 0, 0, Math.PI * 2); ctx.fill();
-    }
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0, 10.5, 9, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+
+  // awakening: a glowing ring on the grass, then flames in the warrior's own colour
+  if (lv >= 3 && !o.down) { ctx.strokeStyle = c.aura; ctx.lineWidth = 1.6; ctx.globalAlpha = 0.5 + Math.sin(t * 0.3) * 0.3; ctx.beginPath(); ctx.ellipse(0, 10.5, 15 + Math.sin(t * 0.2) * 2, 5.6, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; }
+  if ((lv >= 1 || o.aura) && !o.down) {
+    const size = 0.8 + Math.max(lv, o.aura ? 1 : 0) * 0.13;
+    flameAura(ctx, c.aura, t, size, 0.38);
+    flameAura(ctx, hexMix(c.aura, '#ffffff', 0.55), t + 9, size * 0.68, lv >= 2 ? 0.5 : 0.3);
+    if (lv >= 3) flameAura(ctx, '#ffffff', t + 17, size * 0.42, 0.55);
   }
-  const ph = o.tick * (o.sprint ? 0.55 : 0.4), sw = o.moving ? Math.sin(ph) : 0;
+
+  const ph = t * (o.sprint ? 0.55 : 0.4), sw = o.moving ? Math.sin(ph) : 0;
   if (o.down) { ctx.translate(0, 6); ctx.rotate(o.fx >= 0 ? -Math.PI / 2 : Math.PI / 2); ctx.translate(0, 6); }
   else if (o.slide) { ctx.translate(0, 4); ctx.rotate(o.fx >= 0 ? -1.15 : 1.15); }
   else if (o.dive) { ctx.translate(0, 2); ctx.rotate(o.dive * 1.05); }
-  else if (o.cheer) ctx.translate(0, -Math.abs(Math.sin(o.tick * 0.28)) * 6);
+  else if (o.cheer) ctx.translate(0, -Math.abs(Math.sin(t * 0.28)) * 6);
   else if (o.moving) ctx.translate(0, Math.abs(sw) * -1.2);
 
-  // legs + boots
-  const leg = (lx: number, len: number) => { ctx.fillStyle = c.skin; ctx.fillRect(lx, 4, 3.2, len); ctx.fillStyle = '#1f2937'; ctx.fillRect(lx - 0.4, 4 + len - 1.6, 4, 2.2); };
+  ctx.lineJoin = 'round'; ctx.strokeStyle = OUT; ctx.lineWidth = 0.9;
+  // legs: skin, sock, boot
+  const leg = (lx: number, len: number) => {
+    ctx.fillStyle = c.skin; ctx.fillRect(lx, 4, 3.4, len);
+    ctx.fillStyle = '#f8fafc'; ctx.fillRect(lx, 4 + len - 4.2, 3.4, 2.8);
+    ctx.fillStyle = OUT; ctx.beginPath(); ctx.roundRect(lx - 0.6, 4 + len - 1.8, 5.2, 2.6, 1.2); ctx.fill();
+  };
   if (o.kick && !o.down) {
-    leg(-4.2, 6);
-    ctx.save(); ctx.translate(1.5, 5); ctx.rotate(o.fx >= 0 ? -1.1 : 1.1); ctx.fillStyle = c.skin; ctx.fillRect(-1.6, 0, 3.2, 7); ctx.fillStyle = '#1f2937'; ctx.fillRect(-2, 5.4, 4, 2.2); ctx.restore();
-  } else { leg(-4.2, 6 + sw * 2.4); leg(1, 6 - sw * 2.4); }
-  // shorts, shirt, arms
-  ctx.fillStyle = '#f8fafc'; ctx.fillRect(-5.4, 1, 10.8, 4.6);
-  ctx.fillStyle = o.shirt; ctx.beginPath(); ctx.roundRect(-6.2, -9.5, 12.4, 11.5, 2.5); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(-1.2, -9.5, 2.4, 11.5);
+    leg(-4.4, 6);
+    ctx.save(); ctx.translate(1.6, 5); ctx.rotate(o.fx >= 0 ? -1.1 : 1.1); ctx.translate(-1.7, -4); leg(0, 7.4); ctx.restore();
+  } else { leg(-4.4, 6 + sw * 2.4); leg(1, 6 - sw * 2.4); }
+  // shorts
+  ctx.fillStyle = '#f8fafc'; ctx.beginPath(); ctx.roundRect(-5.8, 0.6, 11.6, 5.2, 1.4); ctx.fill(); ctx.stroke();
+  // shirt, shaded
+  const sg = ctx.createLinearGradient(-6, 0, 6.5, 0);
+  sg.addColorStop(0, hexMix(o.shirt, '#ffffff', 0.28)); sg.addColorStop(0.55, o.shirt); sg.addColorStop(1, hexMix(o.shirt, '#000000', 0.3));
+  ctx.fillStyle = sg; ctx.beginPath(); ctx.roundRect(-6.6, -9.8, 13.2, 12, 3); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; poly(ctx, [[-2.4, -9.8], [2.4, -9.8], [0, -6.6]]);   // collar
+  ctx.fillStyle = c.aura; ctx.fillRect(-6.4, -1.4, 12.8, 1.5);                               // waistband in the warrior's colour
   const armUp = o.cheer || !!o.dive;
   for (const s of [-1, 1]) {
-    const ax = s * 7.6 - 1.5, ay = armUp ? -17 : -8.5 + (s > 0 ? sw : -sw) * 1.6;
-    ctx.fillStyle = o.shirt; ctx.fillRect(ax, armUp ? -13 : -8.5, 3, armUp ? 5 : 5.5);
-    ctx.fillStyle = o.gk ? '#ffffff' : c.skin; if (o.gk) disc(ctx, ax + 1.5, ay + (armUp ? 2 : 8), 2.6); else ctx.fillRect(ax, ay + (armUp ? 0 : 5.5), 3, 3.2);
+    const ax = s * 7.9 - 1.6, ay = armUp ? -17 : -8.6 + (s > 0 ? sw : -sw) * 1.6;
+    ctx.fillStyle = o.shirt; ctx.beginPath(); ctx.roundRect(ax, armUp ? -13.4 : -8.8, 3.3, armUp ? 5.4 : 5.8, 1.4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = o.gk ? '#ffffff' : c.skin;
+    if (o.gk) { disc(ctx, ax + 1.6, ay + (armUp ? 2 : 8), 2.9); ctx.stroke(); } else ctx.fillRect(ax + 0.2, ay + (armUp ? 0 : 5.6), 2.9, 3.3);
   }
+
   // head
-  if (c.style === 'hood') { ctx.fillStyle = c.hair; disc(ctx, 0, -15, 9.4); poly(ctx, [[-4, -23], [0, -29], [4, -23]]); }
-  ctx.fillStyle = c.skin; disc(ctx, 0, -15, c.style === 'hood' ? 6.6 : 7.5);
-  if (o.fy < -0.55 && !o.down) { ctx.fillStyle = c.hair; disc(ctx, 0, -15.4, 7.7); drawHair(ctx, c, o.fx); }
+  const hairCol = lv >= 2 ? hexMix(c.aura, '#ffffff', lv >= 3 ? 0.55 : 0.25) : c.hair;
+  const shine = lv >= 2 ? 'rgba(255,255,255,.75)' : 'rgba(255,255,255,.3)';
+  const hairUp = lv >= 2 && c.style !== 'hood' && c.style !== 'cap';
+  const hair = () => {
+    ctx.save();
+    if (hairUp) { ctx.translate(0, -15); ctx.scale(1.1, 1.24 + Math.sin(t * 0.5) * 0.04); ctx.translate(0, 15); }   // hair stands on end
+    drawHair(ctx, c, o.fx, hairCol, shine);
+    ctx.restore();
+  };
+  if (c.style === 'hood') { ctx.fillStyle = hairCol; disc(ctx, 0, -15, 9.6); poly(ctx, [[-4.4, -23], [0, -30], [4.4, -23]]); ctx.fillStyle = shine; ctx.beginPath(); ctx.ellipse(-4, -21, 3, 1.3, -0.6, 0, Math.PI * 2); ctx.fill(); }
+  const hr = c.style === 'hood' ? 6.7 : 7.7;
+  ctx.fillStyle = c.skin; disc(ctx, 0, -15, hr); ctx.strokeStyle = OUT; ctx.lineWidth = 0.9; ctx.stroke();
+  ctx.fillStyle = 'rgba(0,0,0,.1)'; ctx.beginPath(); ctx.arc(0, -15, hr - 0.5, 0.15, Math.PI - 0.15); ctx.fill();      // shade under the chin
+  if (o.fy < -0.55 && !o.down) { ctx.fillStyle = hairCol; disc(ctx, 0, -15.4, 7.9); hair(); }
   else {
-    drawHair(ctx, c, o.fx);
+    hair();
     const ex = o.fx * 2.3, ey = Math.max(0, o.fy) * 1.6;
     if (o.down) { ctx.strokeStyle = '#111'; ctx.lineWidth = 1; for (const s of [-3, 2.4]) { ctx.beginPath(); ctx.moveTo(s - 1.3 + ex, -16.3); ctx.lineTo(s + 1.3 + ex, -13.7); ctx.moveTo(s + 1.3 + ex, -16.3); ctx.lineTo(s - 1.3 + ex, -13.7); ctx.stroke(); } }
     else {
-      ctx.fillStyle = '#111'; ctx.fillRect(-3.6 + ex, -16.4 + ey, 1.9, 2.8); ctx.fillRect(1.7 + ex, -16.4 + ey, 1.9, 2.8);
-      if (o.cheer) { ctx.fillStyle = '#7a1f1f'; ctx.beginPath(); ctx.arc(ex, -11.6 + ey, 2.2, 0, Math.PI); ctx.fill(); }
+      for (const s of [-1, 1]) {
+        const cx = s * 2.9 + ex, cy = -14.8 + ey;
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.ellipse(cx, cy, 2, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = lv >= 3 ? c.aura : '#1b1f2a'; ctx.beginPath(); ctx.ellipse(cx + o.fx * 0.6, cy + 0.3, 1.25, 1.9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff'; disc(ctx, cx + o.fx * 0.6 - 0.4, cy - 0.6, 0.55);
+        ctx.strokeStyle = lv >= 2 ? hairCol : '#1b1f2a'; ctx.lineWidth = 1.1;                                       // brow, set low when powered up
+        ctx.beginPath(); ctx.moveTo(cx - s * 2.3, cy - 3.6 - (lv >= 1 ? 0.7 : 0)); ctx.lineTo(cx + s * 1.6, cy - 3 + (lv >= 1 ? 0.7 : 0)); ctx.stroke();
+      }
+      ctx.strokeStyle = '#7a1f1f'; ctx.lineWidth = 0.9; ctx.fillStyle = '#7a1f1f';
+      if (o.cheer) { ctx.beginPath(); ctx.arc(ex, -11.4 + ey, 2.2, 0, Math.PI); ctx.fill(); }
+      else { ctx.beginPath(); ctx.arc(ex, -11.6 + ey, 1.5, 0.15, Math.PI - 0.15); ctx.stroke(); }
+    }
+  }
+
+  // stage 2: sparks circling; stage 3: crackling arcs
+  if (lv >= 2 && !o.down) {
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 4; i++) { const a = t * 0.16 + i * 1.57; disc(ctx, Math.cos(a) * 13, -6 + Math.sin(a) * 15, 0.9 + (i % 2) * 0.5); }
+  }
+  if (lv >= 3 && !o.down) {
+    for (const [w, col] of [[2.2, c.aura], [0.9, '#ffffff']] as const) {
+      ctx.strokeStyle = col; ctx.lineWidth = w;
+      for (let i = 0; i < 3; i++) {
+        const k = Math.floor(t / 5) * 7 + i * 13, r = (n: number) => { const q = Math.sin(k * 12.9898 + n * 78.233) * 43758.5453; return q - Math.floor(q); };
+        const x0 = -12 + r(1) * 24, y0 = -26 + r(2) * 30;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + (r(3) - 0.5) * 9, y0 + 4); ctx.lineTo(x0 + (r(4) - 0.5) * 9, y0 + 8); ctx.lineTo(x0 + (r(5) - 0.5) * 9, y0 + 12); ctx.stroke();
+      }
     }
   }
   ctx.restore();
@@ -303,7 +378,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, g: Game, p: P, v: View, awayC
   drawChar(ctx, c, p.x, p.y, {
     fx: p.fx, fy: p.fy, shirt: p.gk ? GK_SHIRT[p.side] : p.side === 0 ? MY_SHIRT : awayColor, gk: p.gk, tick: v.tick + p.role * 5,
     moving, down: p.down > 0, slide: p.slide > 0, kick: p.kickT > 0, cheer, dive: p.gk && Math.abs(p.vy) > 1.6 ? p.dive : 0,
-    aura: (g.ki[p.side] >= 100 && g.ball.owner === p) || (g.freeze > 0 && g.ball.noP === p), sprint: p.sprint,
+    aura: (g.ki[p.side] >= 100 && g.ball.owner === p) || (g.freeze > 0 && g.ball.noP === p), sprint: p.sprint, lv: g.awake[p.side],
   });
   if (p.down > 0) { ctx.fillStyle = '#ffe14d'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; for (let i = 0; i < 3; i++) ctx.fillText('★', p.x + Math.cos(v.tick * 0.2 + i * 2.1) * 10, p.y - 26 + Math.sin(v.tick * 0.2 + i * 2.1) * 4); }
   if (isCtl) {
@@ -350,6 +425,12 @@ function hud(ctx: CanvasRenderingContext2D, g: Game, v: View) {
   label('KI', 12, VH - 15, '#ffe14d'); label('🏃', 12, VH - 31, '#fff');
   if (full) label('⚡ Giữ SÚT thật lâu = TUYỆT CHIÊU!', 162, VH - 15, blink ? '#fff' : '#ffe14d');
   bar(VW - 80, 40, 66, 5, g.ki[1] / 100, g.ki[1] >= 100 ? '#ff6b6b' : '#fca5a5');
+  // awakening stage of each side: three diamonds
+  const pips = (x: number, y: number, n: number, on: string) => {
+    for (let i = 0; i < 3; i++) { ctx.fillStyle = i < n ? on : 'rgba(15,23,42,.7)'; ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + i * 13, y - 5.5); ctx.lineTo(x + i * 13 + 5, y); ctx.lineTo(x + i * 13, y + 5.5); ctx.lineTo(x + i * 13 - 5, y); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  };
+  label('THỨC TỈNH', 12, VH - 47, '#fff'); pips(82, VH - 47.5, g.awake[0], '#ffe14d');
+  pips(VW - 40, 54, g.awake[1], '#ff6b6b');
 
   // radar
   const rw = 96, rh = 56, rx = VW - rw - 8, ry = VH - rh - 8;

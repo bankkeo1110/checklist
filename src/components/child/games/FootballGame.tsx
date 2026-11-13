@@ -33,15 +33,15 @@ function loadDiff(): number {
   } catch { return DEFAULT_DIFFICULTY; }
 }
 
-function CharThumb({ c }: { c: Char }) {
+function CharThumb({ c, lv = 0 }: { c: Char; lv?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');
     if (!ctx) return;
     ctx.setTransform(2, 0, 0, 2, 0, 0);
     ctx.clearRect(0, 0, 64, 70);
-    drawChar(ctx, c, 32, 50, { fx: 0, fy: 1, shirt: MY_SHIRT, tick: 0 }, 1.5);
-  }, [c]);
+    drawChar(ctx, c, 32, 52, { fx: 0, fy: 1, shirt: MY_SHIRT, tick: 4, lv }, 1.5);
+  }, [c, lv]);
   return <canvas ref={ref} width={128} height={140} className="h-[70px] w-16" />;
 }
 
@@ -308,6 +308,18 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="rounded-xl bg-white p-3 shadow">
+          <p className="text-center text-sm font-black">🔥 Thức tỉnh — mỗi bàn thắng và mỗi tuyệt chiêu làm cả đội mạnh lên một cấp</p>
+          <div className="mt-1 grid grid-cols-4 gap-1 text-center text-[11px] font-black">
+            {['Thường', 'Thức tỉnh I', 'Thức tỉnh II', 'Cực hạn'].map((name, lv) => (
+              <div key={name} className="flex flex-col items-center rounded-lg bg-slate-800 py-1 text-white">
+                <CharThumb c={CHARS[picked[0] ?? 0]} lv={lv} />{name}
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-center text-xs font-semibold text-gray-500">Mỗi cấp chạy nhanh hơn 3% và sút mạnh hơn 4%. Đối thủ cũng thức tỉnh được, nên đừng để thủng lưới!</p>
         </div>
 
         <div className="rounded-xl bg-white p-3 text-[12.5px] font-semibold leading-relaxed text-gray-600 shadow">

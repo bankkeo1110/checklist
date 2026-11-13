@@ -1,7 +1,7 @@
 // Headless check for the football sim: `npx tsx scripts/check-football.ts`
 // Two scripted players (a careful one and a clumsy young one) play full matches so the
 // difficulty levels can be checked for real: Dễ has to be winnable, Khó has to bite.
-import { newGame, step, emptyInput, supHeight, supOffset, W, H, CHARS, LEVELS, DIFFICULTIES, SUP_KINDS, FIRST_SUP, CHARGE_FULL, type Game } from '../src/lib/football/sim';
+import { newGame, step, emptyInput, supHeight, supOffset, W, H, CHARS, LEVELS, DIFFICULTIES, SUP_KINDS, FIRST_SUP, MAX_AWAKE, CHARGE_FULL, type Game } from '../src/lib/football/sim';
 
 interface Skill { name: string; react: number; err: number; charge: number; sprintP: number; idleP: number; corner: boolean }
 /** A 10-year-old: reacts a quarter-second late, runs crooked, taps the shoot button. */
@@ -9,6 +9,7 @@ const KID: Skill = { name: 'bé', react: 15, err: 0.75, charge: 10, sprintP: 0.2
 /** Someone who knows the controls: instant, straight, charges every shot and picks a corner. */
 const PRO: Skill = { name: 'giỏi', react: 1, err: 0.03, charge: 44, sprintP: 0.9, idleP: 0, corner: true };
 
+let awakened = false;
 const kinds = new Set<string>();
 /** The opening special of every match, per side, and everything fired after it. */
 const firstSup: [string[], string[]] = [[], []];
@@ -51,6 +52,8 @@ function playMatch(level: number, difficulty: number, skill: Skill) {
     }
     for (const p of g.ps) if (![p.x, p.y, p.vx, p.vy].every(Number.isFinite) || p.x < 0 || p.x > W || p.y < 0 || p.y > H) throw new Error(`player out of bounds at frame ${frames}`);
     if (![b.x, b.y, b.z, b.vx, b.vy].every(Number.isFinite) || b.x < -20 || b.x > W + 20 || b.y < 0 || b.y > H || b.z < 0) throw new Error(`ball out of bounds at frame ${frames}: ${b.x},${b.y},${b.z}`);
+    if (g.awake.some((a) => a < 0 || a > MAX_AWAKE) || g.awake[0] > g.score[0] + g.sups[0] || g.awake[1] > g.score[1] + g.sups[1]) throw new Error('awakening stage out of step with goals and specials');
+    if (g.awake[0] > 0 || g.awake[1] > 0) awakened = true;
     if (g.ki.some((k) => k < 0 || k > 100) || g.stamina < 0 || g.stamina > 100) throw new Error('meter out of range');
   }
   return { score: g.score, seen };
@@ -133,7 +136,8 @@ for (const k of SUP_KINDS) {
 if (kinds.size < SUP_KINDS.length - 1) fail(`only ${kinds.size} of ${SUP_KINDS.length} specials were ever fired in the test matches`);
 console.log(`tuyệt chiêu đã bắn trong lúc test: ${[...kinds].sort().join(', ')}`);
 
-const need = ['goal', 'kick', 'save', 'super', 'tackle', 'whistle', 'fulltime'];
+if (!awakened) fail('no side ever awakened');
+const need = ['awake', 'goal', 'kick', 'save', 'super', 'tackle', 'whistle', 'fulltime'];
 const allSeen = new Set([...kidEasy.seen, ...kidD.seen, ...kidV.seen, ...kidK.seen, ...proBoss.seen]);
 for (const e of need) if (!allSeen.has(e)) fail(`event "${e}" never happened`);
 
