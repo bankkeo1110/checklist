@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/phu-huynh/nhiem-vu", label: "Quản lý nhiệm vụ" },
   { href: "/phu-huynh/checklist", label: "Checklist hằng ngày" },
   { href: "/phu-huynh/games", label: "Trò chơi thưởng" },
+  { href: "/phu-huynh/piano", label: "🎹 Học Piano" },
   { href: "/phu-huynh/lich-su", label: "Lịch sử & Mục tiêu" },
   { href: "/phu-huynh/tong-ket", label: "Tổng kết điểm" },
   { href: "/phu-huynh/ma-pin", label: "Mã PIN" },

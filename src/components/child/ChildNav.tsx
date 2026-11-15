@@ -7,6 +7,7 @@ import MathFunLink from "@/components/MathFunLink";
 const LINKS = [
   { href: "/child", label: "🏠 Trang của con" },
   { href: "/child/games", label: "🎮 Games" },
+  { href: "/child/piano", label: "🎹 Piano" },
 ];
 
 export default function ChildNav() {
