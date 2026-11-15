@@ -15,7 +15,9 @@ import {
 } from "@/lib/piano/songs";
 
 // ─── Layout constants (px) ─────────────────────────────────────────────
-const COL = 58; // width of one time column — staves and key rows share it
+const COL = 58; // minimum width of one time column — staves and key rows share it
+const COL_MAX = 140; // columns stretch to fill the card, up to this width
+const CARD_PAD = 24; // horizontal padding inside a row card (p-3)
 const LEAD = 44; // left space on each staff for the clef / time signature
 const GAP = 6; // half the distance between two staff lines
 const STAFF_H = 100;
@@ -29,14 +31,17 @@ const CLEF = {
   left: { bottomStep: 18, glyph: "𝄢", glyphSize: 38, glyphDy: -10 }, // bottom line G2
 } as const;
 
-const yOf = (step: number, hand: Hand) => STAFF_BASE_Y - (step - CLEF[hand].bottomStep) * GAP;
+const yOf = (step: number, hand: Hand) =>
+  STAFF_BASE_Y - (step - CLEF[hand].bottomStep) * GAP;
 
 // ─── Tiny Web Audio piano ──────────────────────────────────────────────
 let audioCtx: AudioContext | null = null;
 function ctx(): AudioContext {
   if (!audioCtx) {
     const AC =
-      window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
     audioCtx = new AC();
   }
   if (audioCtx.state === "suspended") void audioCtx.resume();
@@ -79,7 +84,8 @@ type Row = { columns: Column[]; start: number };
 
 function buildRows(song: SongDef): Row[] {
   const pickup = song.pickup ?? 0;
-  const isBar = (t: number) => t - pickup > 1e-6 && Math.abs((t - pickup) % song.beatsPerBar) < 1e-6;
+  const isBar = (t: number) =>
+    t - pickup > 1e-6 && Math.abs((t - pickup) % song.beatsPerBar) < 1e-6;
   const rows: Row[] = [];
   let rowStart = 0;
   song.lines.forEach((rh, li) => {
@@ -123,11 +129,14 @@ export default function PianoLesson() {
     return (
       <div className="flex w-full min-w-0 flex-col gap-4">
         <div className="rounded-3xl bg-white p-5 shadow-md">
-          <h1 className="font-display text-xl font-extrabold">🎹 Học Piano 2 tay</h1>
+          <h1 className="font-display text-xl font-extrabold">
+            🎹 Học Piano 2 tay
+          </h1>
           <p className="mt-1 text-sm text-muted">
-            Mỗi bài có <b>khuông Sol</b> cho tay phải và <b>khuông Fa</b> cho tay trái. Ngay dưới mỗi khuông là{" "}
-            <b>phím cần bấm</b>, thẳng cột với từng nốt — nốt nằm cùng một cột thì hai tay bấm cùng lúc. Nên tập từng tay
-            trước, quen rồi mới ghép hai tay.
+            Mỗi bài có <b>khuông Sol</b> cho tay phải và <b>khuông Fa</b> cho
+            tay trái. Ngay dưới mỗi khuông là <b>phím cần bấm</b>, thẳng cột với
+            từng nốt — nốt nằm cùng một cột thì hai tay bấm cùng lúc. Nên tập
+            từng tay trước, quen rồi mới ghép hai tay.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -139,7 +148,9 @@ export default function PianoLesson() {
             >
               <span className="text-3xl">{s.emoji}</span>
               <span className="flex flex-col">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-muted">Bài {i + 1}</span>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                  Bài {i + 1}
+                </span>
                 <span className="font-display font-extrabold">{s.title}</span>
                 <span className="mt-0.5 text-xs text-muted">{s.blurb}</span>
               </span>
@@ -165,6 +176,19 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
   const [pressed, setPressed] = useState<Map<number, Hand>>(new Map());
   const timers = useRef<number[]>([]);
   const colRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [avail, setAvail] = useState(0);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) =>
+      setAvail(e.contentRect.width - CARD_PAD),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const colWidth = (n: number) =>
+    Math.max(COL, Math.min(COL_MAX, Math.floor((avail - LEAD) / n)));
 
   const handOn = (h: Hand) => mode === "both" || mode === h;
 
@@ -193,8 +217,18 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
         for (const h of ["right", "left"] as const) {
           const n = c[h];
           if (!n || n.rest || !handOn(h)) continue;
-          playTone(n.midi, n.beats * beatSec * 0.95, at, h === "left" ? 0.22 : 0.3);
-          held.push({ midi: n.midi, hand: h, from: at, to: at + n.beats * beatSec * 0.9 });
+          playTone(
+            n.midi,
+            n.beats * beatSec * 0.95,
+            at,
+            h === "left" ? 0.22 : 0.3,
+          );
+          held.push({
+            midi: n.midi,
+            hand: h,
+            from: at,
+            to: at + n.beats * beatSec * 0.9,
+          });
         }
         ticks.push({ at, id: colId(fromRow + i, ci) });
         const longest = Math.max(c.right?.beats ?? 0, c.left?.beats ?? 0);
@@ -207,8 +241,18 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
         window.setTimeout(() => {
           setActiveCol(id);
           const now = at + 0.001;
-          setPressed(new Map(held.filter((h) => h.from <= now && h.to > now).map((h) => [h.midi, h.hand])));
-          colRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+          setPressed(
+            new Map(
+              held
+                .filter((h) => h.from <= now && h.to > now)
+                .map((h) => [h.midi, h.hand]),
+            ),
+          );
+          colRefs.current[id]?.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest",
+            inline: "center",
+          });
         }, at * 1000),
       );
     }
@@ -229,8 +273,11 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
   };
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-4 pb-48">
-      <button onClick={onBack} className="self-start text-sm font-bold text-blue-text">
+    <div ref={rootRef} className="flex w-full min-w-0 flex-col gap-4 pb-48">
+      <button
+        onClick={onBack}
+        className="self-start text-sm font-bold text-blue-text"
+      >
         ← Danh sách bài
       </button>
 
@@ -238,7 +285,9 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-3xl">{song.emoji}</span>
           <div className="mr-auto">
-            <h1 className="font-display text-lg font-extrabold">{song.title}</h1>
+            <h1 className="font-display text-lg font-extrabold">
+              {song.title}
+            </h1>
             <p className="text-xs text-muted">
               Nhịp {song.timeSig} · {song.blurb}
             </p>
@@ -278,64 +327,75 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
         <ReadingTips />
       </div>
 
-      {rows.map((row, ri) => (
-        <div key={ri} className="rounded-2xl bg-white p-3 shadow-md">
-          <div className="mb-1 flex items-center justify-between text-[11px] font-bold text-muted">
-            <span>Dòng {ri + 1}</span>
-            <button onClick={() => play(ri)} className="text-blue-text">
-              ▶ Nghe từ dòng này
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <div style={{ width: LEAD + row.columns.length * COL }}>
-              {(["right", "left"] as const).map((hand) => (
-                <div
-                  key={hand}
-                  className={`transition-opacity ${handOn(hand) ? "" : "opacity-30"} ${hand === "left" ? "mt-3" : ""}`}
-                >
-                  <Staff
-                    hand={hand}
-                    row={row}
-                    rowIndex={ri}
-                    song={song}
-                    showSig={ri === 0}
-                    activeCol={activeCol}
-                    onTap={tapColumn}
-                  />
-                  <div className="flex items-stretch">
-                    <div
-                      style={{ width: LEAD }}
-                      className="flex shrink-0 flex-col items-center justify-center text-center text-[9px] font-extrabold leading-tight text-muted"
-                    >
-                      <span className="text-base">{hand === "right" ? "✋" : "🤚"}</span>
-                      {hand === "right" ? "phải" : "trái"}
+      {rows.map((row, ri) => {
+        const cw = colWidth(row.columns.length);
+        return (
+          <div key={ri} className="rounded-2xl bg-white p-3 shadow-md">
+            <div className="mb-1 flex items-center justify-between text-[11px] font-bold text-muted">
+              <span>Dòng {ri + 1}</span>
+              <button onClick={() => play(ri)} className="text-blue-text">
+                ▶ Nghe từ dòng này
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <div style={{ width: LEAD + row.columns.length * cw }}>
+                {(["right", "left"] as const).map((hand) => (
+                  <div
+                    key={hand}
+                    className={`transition-opacity ${handOn(hand) ? "" : "opacity-30"} ${hand === "left" ? "mt-3" : ""}`}
+                  >
+                    <Staff
+                      hand={hand}
+                      row={row}
+                      rowIndex={ri}
+                      colW={cw}
+                      song={song}
+                      showSig={ri === 0}
+                      activeCol={activeCol}
+                      onTap={tapColumn}
+                    />
+                    <div className="flex items-stretch">
+                      <div
+                        style={{ width: LEAD }}
+                        className="flex shrink-0 flex-col items-center justify-center text-center text-[9px] font-extrabold leading-tight text-muted"
+                      >
+                        <span className="text-base">
+                          {hand === "right" ? "✋" : "🤚"}
+                        </span>
+                        {hand === "right" ? "phải" : "trái"}
+                      </div>
+                      {row.columns.map((c, ci) => {
+                        const id = colId(ri, ci);
+                        return (
+                          <div
+                            key={id}
+                            ref={
+                              hand === "right"
+                                ? (el) => {
+                                    colRefs.current[id] = el;
+                                  }
+                                : undefined
+                            }
+                            style={{ width: cw }}
+                            className="shrink-0 px-0.5"
+                          >
+                            <KeyCell
+                              note={c[hand]}
+                              width={cw}
+                              active={activeCol === id}
+                              onTap={() => tapColumn(id, c)}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
-                    {row.columns.map((c, ci) => {
-                      const id = colId(ri, ci);
-                      return (
-                        <div
-                          key={id}
-                          ref={
-                            hand === "right"
-                              ? (el) => {
-                                  colRefs.current[id] = el;
-                                }
-                              : undefined
-                          }
-                          style={{ width: COL }}
-                          className="shrink-0 px-0.5"
-                        >
-                          <KeyCell note={c[hand]} active={activeCol === id} onTap={() => tapColumn(id, c)} />
-                        </div>
-                      );
-                    })}
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       <BigKeyboard
         low={range.low}
@@ -381,6 +441,7 @@ function Staff({
   hand,
   row,
   rowIndex,
+  colW,
   song,
   showSig,
   activeCol,
@@ -389,6 +450,7 @@ function Staff({
   hand: Hand;
   row: Row;
   rowIndex: number;
+  colW: number;
   song: SongDef;
   showSig: boolean;
   activeCol: string | null;
@@ -396,13 +458,21 @@ function Staff({
 }) {
   const clef = CLEF[hand];
   const b = clef.bottomStep;
-  const width = LEAD + row.columns.length * COL;
+  const width = LEAD + row.columns.length * colW;
   const [top, bottom] = song.timeSig.split("/");
   const y = (s: number) => yOf(s, hand);
   return (
     <svg width={width} height={STAFF_H} className="block select-none">
       {[0, 1, 2, 3, 4].map((i) => (
-        <line key={i} x1={2} x2={width - 2} y1={y(b + i * 2)} y2={y(b + i * 2)} stroke="#2d2a32" strokeWidth={1} />
+        <line
+          key={i}
+          x1={2}
+          x2={width - 2}
+          y1={y(b + i * 2)}
+          y2={y(b + i * 2)}
+          stroke="#2d2a32"
+          strokeWidth={1}
+        />
       ))}
       <text
         x={hand === "right" ? 2 : 4}
@@ -414,7 +484,13 @@ function Staff({
         {clef.glyph}
       </text>
       {showSig && (
-        <g fontWeight={800} fontSize={15} fill="#2d2a32" textAnchor="middle" fontFamily="serif">
+        <g
+          fontWeight={800}
+          fontSize={15}
+          fill="#2d2a32"
+          textAnchor="middle"
+          fontFamily="serif"
+        >
           <text x={LEAD - 6} y={y(b + 6) + 5}>
             {top}
           </text>
@@ -424,28 +500,48 @@ function Staff({
         </g>
       )}
       {row.columns.map((c, i) => {
-        const cx = LEAD + i * COL + COL / 2;
-        const barX = LEAD + (i + 1) * COL;
+        const cx = LEAD + i * colW + colW / 2;
+        const barX = LEAD + (i + 1) * colW;
         const id = colId(rowIndex, i);
         const n = c[hand];
         return (
           <g key={id}>
-            {c.barAfter && <line x1={barX} x2={barX} y1={y(b + 8)} y2={y(b)} stroke="#2d2a32" strokeWidth={1} />}
+            {c.barAfter && (
+              <line
+                x1={barX}
+                x2={barX}
+                y1={y(b + 8)}
+                y2={y(b)}
+                stroke="#2d2a32"
+                strokeWidth={1}
+              />
+            )}
             <g onClick={() => onTap(id, c)} className="cursor-pointer">
               <rect
-                x={cx - COL / 2}
+                x={cx - colW / 2}
                 y={0}
-                width={COL}
+                width={colW}
                 height={STAFF_H}
                 fill={activeCol === id ? "#fff3c4" : "transparent"}
               />
               {n &&
-                (n.rest ? <RestGlyph cx={cx} beats={n.beats} hand={hand} /> : <NoteGlyph cx={cx} note={n} hand={hand} />)}
+                (n.rest ? (
+                  <RestGlyph cx={cx} beats={n.beats} hand={hand} />
+                ) : (
+                  <NoteGlyph cx={cx} note={n} hand={hand} />
+                ))}
             </g>
           </g>
         );
       })}
-      <line x1={width - 2} x2={width - 2} y1={y(b + 8)} y2={y(b)} stroke="#2d2a32" strokeWidth={1.5} />
+      <line
+        x1={width - 2}
+        x2={width - 2}
+        y1={y(b + 8)}
+        y2={y(b)}
+        stroke="#2d2a32"
+        strokeWidth={1.5}
+      />
     </svg>
   );
 }
@@ -456,7 +552,15 @@ function durationShape(beats: number) {
   return { dotted, hollow: base >= 2, stem: base < 4, flag: base <= 0.5 };
 }
 
-function NoteGlyph({ cx, note, hand }: { cx: number; note: NoteToken; hand: Hand }) {
+function NoteGlyph({
+  cx,
+  note,
+  hand,
+}: {
+  cx: number;
+  note: NoteToken;
+  hand: Hand;
+}) {
   const b = CLEF[hand].bottomStep;
   const y = (s: number) => yOf(s, hand);
   const step = staffStep(note);
@@ -474,10 +578,24 @@ function NoteGlyph({ cx, note, hand }: { cx: number; note: NoteToken; hand: Hand
   return (
     <g>
       {ledgers.map((s) => (
-        <line key={s} x1={cx - 11} x2={cx + 11} y1={y(s)} y2={y(s)} stroke="#2d2a32" strokeWidth={1} />
+        <line
+          key={s}
+          x1={cx - 11}
+          x2={cx + 11}
+          y1={y(s)}
+          y2={y(s)}
+          stroke="#2d2a32"
+          strokeWidth={1}
+        />
       ))}
       {note.sharp && (
-        <text x={cx - 19} y={cy + 6} fontSize={17} fontWeight={700} fill="#2d2a32">
+        <text
+          x={cx - 19}
+          y={cy + 6}
+          fontSize={17}
+          fontWeight={700}
+          fill="#2d2a32"
+        >
           ♯
         </text>
       )}
@@ -491,21 +609,49 @@ function NoteGlyph({ cx, note, hand }: { cx: number; note: NoteToken; hand: Hand
         stroke={hollow ? color : "#2d2a32"}
         strokeWidth={hollow ? 2.6 : 0.8}
       />
-      {stem && <line x1={stemX} x2={stemX} y1={cy} y2={stemEnd} stroke="#2d2a32" strokeWidth={1.4} />}
+      {stem && (
+        <line
+          x1={stemX}
+          x2={stemX}
+          y1={cy}
+          y2={stemEnd}
+          stroke="#2d2a32"
+          strokeWidth={1.4}
+        />
+      )}
       {stem && flag && (
         <path
-          d={stemDown ? `M${stemX} ${stemEnd} q 9 -6 9 -16` : `M${stemX} ${stemEnd} q 9 6 9 16`}
+          d={
+            stemDown
+              ? `M${stemX} ${stemEnd} q 9 -6 9 -16`
+              : `M${stemX} ${stemEnd} q 9 6 9 16`
+          }
           stroke="#2d2a32"
           strokeWidth={2}
           fill="none"
         />
       )}
-      {dotted && <circle cx={cx + 12} cy={(step - b) % 2 === 0 ? cy - 3 : cy} r={2} fill="#2d2a32" />}
+      {dotted && (
+        <circle
+          cx={cx + 12}
+          cy={(step - b) % 2 === 0 ? cy - 3 : cy}
+          r={2}
+          fill="#2d2a32"
+        />
+      )}
     </g>
   );
 }
 
-function RestGlyph({ cx, beats, hand }: { cx: number; beats: number; hand: Hand }) {
+function RestGlyph({
+  cx,
+  beats,
+  hand,
+}: {
+  cx: number;
+  beats: number;
+  hand: Hand;
+}) {
   const b = CLEF[hand].bottomStep;
   const y = (s: number) => yOf(s, hand);
   if (beats >= 2) {
@@ -514,7 +660,13 @@ function RestGlyph({ cx, beats, hand }: { cx: number; beats: number; hand: Hand 
     return <rect x={cx - 7} y={top} width={14} height={5} fill="#2d2a32" />;
   }
   return (
-    <text x={cx - 6} y={y(b + 4) + 8} fontSize={26} fill="#2d2a32" fontFamily="'Noto Music','Segoe UI Symbol',serif">
+    <text
+      x={cx - 6}
+      y={y(b + 4) + 8}
+      fontSize={26}
+      fill="#2d2a32"
+      fontFamily="'Noto Music','Segoe UI Symbol',serif"
+    >
       {beats <= 0.5 ? "𝄾" : "𝄽"}
     </text>
   );
@@ -532,7 +684,17 @@ function octaveHint(octave: number) {
   return "";
 }
 
-function KeyCell({ note, active, onTap }: { note?: NoteToken; active: boolean; onTap: () => void }) {
+function KeyCell({
+  note,
+  width,
+  active,
+  onTap,
+}: {
+  note?: NoteToken;
+  width: number;
+  active: boolean;
+  onTap: () => void;
+}) {
   if (!note) return <div className="h-[78px]" />;
   if (note.rest) {
     return (
@@ -542,23 +704,27 @@ function KeyCell({ note, active, onTap }: { note?: NoteToken; active: boolean; o
     );
   }
   const color = NOTE_COLOR[note.letter];
-  const kw = 7;
+  const kw = Math.max(7, Math.min(13, Math.floor((width - 14) / 7)));
+  const kh = 24 + (kw - 7) * 2; // mini keyboard grows with the column
+  const bw = Math.round(kw * 0.7);
   return (
     <button
       onClick={onTap}
-      className={`flex h-[78px] w-full flex-col items-center rounded-lg border-2 pb-1 pt-1.5 transition ${
-        active ? "scale-105 border-yellow bg-[#fff3c4]" : "border-transparent bg-canvas"
+      className={`flex min-h-[78px] w-full flex-col items-center rounded-lg border-2 pb-1 pt-1.5 transition ${
+        active
+          ? "scale-105 border-yellow bg-[#fff3c4]"
+          : "border-transparent bg-canvas"
       }`}
       title={`${noteLabel(note)} (${note.letter}${note.sharp ? "#" : ""}${note.octave})`}
     >
-      <svg width={kw * 7} height={24}>
+      <svg width={kw * 7} height={kh}>
         {WHITE_ORDER.map((l, i) => (
           <rect
             key={l}
             x={i * kw + 0.5}
             y={0.5}
             width={kw - 1}
-            height={23}
+            height={kh - 1}
             rx={1.5}
             fill={!note.sharp && note.letter === l ? color : "white"}
             stroke="#c9c4cf"
@@ -570,10 +736,10 @@ function KeyCell({ note, active, onTap }: { note?: NoteToken; active: boolean; o
           return (
             <rect
               key={l}
-              x={(i + 1) * kw - 2.5}
+              x={(i + 1) * kw - bw / 2}
               y={0}
-              width={5}
-              height={14}
+              width={bw}
+              height={Math.round(kh * 0.6)}
               rx={1}
               fill={lit ? color : "#2d2a32"}
               stroke={lit ? "#2d2a32" : "none"}
@@ -581,7 +747,10 @@ function KeyCell({ note, active, onTap }: { note?: NoteToken; active: boolean; o
           );
         })}
       </svg>
-      <span className="mt-1 font-display text-[13px] font-extrabold leading-none" style={{ color }}>
+      <span
+        className="mt-1 font-display text-[13px] font-extrabold leading-none"
+        style={{ color }}
+      >
         {noteLabel(note)}
       </span>
       <span className="mt-0.5 text-[10px] font-bold leading-none text-muted">
@@ -628,7 +797,11 @@ function BigKeyboard({
   const whites: { letter: Letter; octave: number; midi: number }[] = [];
   for (let m = low; m <= high; m++) {
     if (isWhite(m)) {
-      whites.push({ letter: WHITE_ORDER[WHITE_SEMI.indexOf(m % 12)], octave: Math.floor(m / 12) - 1, midi: m });
+      whites.push({
+        letter: WHITE_ORDER[WHITE_SEMI.indexOf(m % 12)],
+        octave: Math.floor(m / 12) - 1,
+        midi: m,
+      });
     }
   }
   const w = 100 / whites.length;
@@ -637,21 +810,29 @@ function BigKeyboard({
     // Start with middle C in view — the keyboard can be wider than a phone.
     const el = scroller.current;
     const i = whites.findIndex((k) => k.midi === 60);
-    if (el && i >= 0) el.scrollLeft = (i / whites.length) * el.scrollWidth - el.clientWidth / 2;
+    if (el && i >= 0)
+      el.scrollLeft = (i / whites.length) * el.scrollWidth - el.clientWidth / 2;
   }, [low, high]); // eslint-disable-line react-hooks/exhaustive-deps
   // Coloured bar on the pressed key: blue = left hand, red = right hand.
   const ring = (h: Hand | undefined) =>
-    h === "left" ? "inset 0 -6px 0 #2d6fe0" : h === "right" ? "inset 0 -6px 0 #e0563f" : undefined;
+    h === "left"
+      ? "inset 0 -6px 0 #2d6fe0"
+      : h === "right"
+        ? "inset 0 -6px 0 #e0563f"
+        : undefined;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-divider bg-white/95 pb-3 pt-2 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] backdrop-blur">
-      <div className="mx-auto max-w-3xl px-2">
+      <div className="mx-auto max-w-[922px] px-2">
         <div className="mb-1 flex justify-between px-1 text-[10px] font-bold text-muted">
           <span>⬅ trầm · 🤚 tay trái (vạch xanh)</span>
           <span>✋ tay phải (vạch đỏ) · bổng ➡</span>
         </div>
         <div ref={scroller} className="overflow-x-auto">
-          <div className="relative h-28 select-none" style={{ minWidth: whites.length * 26 }}>
+          <div
+            className="relative h-28 select-none"
+            style={{ minWidth: whites.length * 26 }}
+          >
             {whites.map((k, i) => {
               const hand = pressed.get(k.midi);
               const lit = hand !== undefined;
@@ -663,18 +844,29 @@ function BigKeyboard({
                   style={{
                     left: `${i * w}%`,
                     width: `${w}%`,
-                    background: lit ? NOTE_COLOR[k.letter] : k.midi === 60 ? "#fff3c4" : "white",
+                    background: lit
+                      ? NOTE_COLOR[k.letter]
+                      : k.midi === 60
+                        ? "#fff3c4"
+                        : "white",
                     boxShadow: ring(hand),
                   }}
                 >
                   <span
                     className="mb-1 h-1.5 w-3/5 rounded-full"
-                    style={{ background: NOTE_COLOR[k.letter], opacity: lit ? 0 : 1 }}
+                    style={{
+                      background: NOTE_COLOR[k.letter],
+                      opacity: lit ? 0 : 1,
+                    }}
                   />
-                  <span className={`text-[10px] font-extrabold leading-none ${lit ? "text-white" : "text-ink"}`}>
+                  <span
+                    className={`text-[10px] font-extrabold leading-none ${lit ? "text-white" : "text-ink"}`}
+                  >
                     {SOLFEGE[k.letter]}
                   </span>
-                  <span className={`text-[8px] font-bold leading-none ${lit ? "text-white" : "text-muted"}`}>
+                  <span
+                    className={`text-[8px] font-bold leading-none ${lit ? "text-white" : "text-muted"}`}
+                  >
                     {k.letter}
                     {k.octave}
                   </span>
@@ -697,7 +889,9 @@ function BigKeyboard({
                     boxShadow: ring(hand),
                   }}
                 >
-                  <span className="text-[7px] font-bold leading-none text-white">{SOLFEGE[k.letter]}#</span>
+                  <span className="text-[7px] font-bold leading-none text-white">
+                    {SOLFEGE[k.letter]}#
+                  </span>
                 </button>
               );
             })}
@@ -712,31 +906,40 @@ function BigKeyboard({
 function ReadingTips() {
   return (
     <details className="mt-3 rounded-xl bg-blue-tint p-3 text-xs text-ink">
-      <summary className="cursor-pointer font-bold text-blue-text">💡 Mẹo đọc nốt cho người mới</summary>
+      <summary className="cursor-pointer font-bold text-blue-text">
+        💡 Mẹo đọc nốt cho người mới
+      </summary>
       <ul className="mt-2 list-disc space-y-1 pl-4">
         <li>
-          <b>Hai khuông:</b> khuông trên (khóa Sol) là <b>tay phải</b>, khuông dưới (khóa Fa) là <b>tay trái</b>. Nốt nằm
-          cùng một cột dọc → hai tay bấm <b>cùng lúc</b>.
+          <b>Hai khuông:</b> khuông trên (khóa Sol) là <b>tay phải</b>, khuông
+          dưới (khóa Fa) là <b>tay trái</b>. Nốt nằm cùng một cột dọc → hai tay
+          bấm <b>cùng lúc</b>.
         </li>
         <li>
-          <b>Cao – thấp:</b> nốt càng cao trên khuông → phím càng về bên <b>phải</b>. Tay trái chơi vùng trầm, bên trái
-          Đô giữa.
+          <b>Cao – thấp:</b> nốt càng cao trên khuông → phím càng về bên{" "}
+          <b>phải</b>. Tay trái chơi vùng trầm, bên trái Đô giữa.
         </li>
         <li>
-          <b>Đô giữa (C4):</b> phím trắng ngay bên trái nhóm <b>2 phím đen</b> ở giữa đàn — được tô vàng nhạt trên bàn
-          phím lớn.
+          <b>Đô giữa (C4):</b> phím trắng ngay bên trái nhóm <b>2 phím đen</b> ở
+          giữa đàn — được tô vàng nhạt trên bàn phím lớn.
         </li>
         <li>
-          <b>Màu:</b> Đô đỏ, Rê cam, Mi vàng, Fa xanh lá, Sol xanh dương, La tím, Si hồng — trùng màu trên bàn phím lớn.
+          <b>Màu:</b> Đô đỏ, Rê cam, Mi vàng, Fa xanh lá, Sol xanh dương, La
+          tím, Si hồng — trùng màu trên bàn phím lớn.
         </li>
         <li>
-          <b>Độ dài:</b> nốt tô màu = 1 phách · có cờ = ½ phách · nốt rỗng có đuôi = 2 phách · nốt rỗng không đuôi = 4
-          phách · có dấu chấm = dài thêm một nửa.
+          <b>Độ dài:</b> nốt tô màu = 1 phách · có cờ = ½ phách · nốt rỗng có
+          đuôi = 2 phách · nốt rỗng không đuôi = 4 phách · có dấu chấm = dài
+          thêm một nửa.
         </li>
         <li>
-          <b>↑ / ↓</b> cạnh tên nốt: cao / thấp hơn một quãng tám so với vùng Đô giữa (C5 ↑, C3 ↓).
+          <b>↑ / ↓</b> cạnh tên nốt: cao / thấp hơn một quãng tám so với vùng Đô
+          giữa (C5 ↑, C3 ↓).
         </li>
-        <li>Tập theo thứ tự: ✋ Tay phải → 🤚 Tay trái → 🙌 Hai tay, luôn bắt đầu ở tốc độ 🐢 Chậm.</li>
+        <li>
+          Tập theo thứ tự: ✋ Tay phải → 🤚 Tay trái → 🙌 Hai tay, luôn bắt đầu
+          ở tốc độ 🐢 Chậm.
+        </li>
       </ul>
     </details>
   );
