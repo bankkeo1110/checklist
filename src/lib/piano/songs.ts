@@ -1,4 +1,5 @@
-// Beginner melodies (right hand only). Every song here is public domain.
+// Beginner two-hand arrangements. Every song here is public domain.
+// Right hand = melody, left hand = simple bass notes (chord roots).
 //
 // Notation: each line is one row on screen. A token is "NOTE/beats", e.g.
 // "G4/1.5" = Sol (G) in octave 4 held 1.5 beats. "/beats" defaults to 1.
@@ -17,7 +18,10 @@ export type SongDef = {
   pickup?: number;
   /** Quarter-note beats per minute at "normal" speed. */
   bpm: number;
+  /** Right hand (treble clef), one string per screen row. */
   lines: string[];
+  /** Left hand (bass clef), same rows and same beat totals as `lines`. */
+  left: string[];
 };
 
 export const SONGS: SongDef[] = [
@@ -37,6 +41,14 @@ export const SONGS: SongDef[] = [
       "C4 C4 G4 G4 A4 A4 G4/2",
       "F4 F4 E4 E4 D4 D4 C4/2",
     ],
+    left: [
+      "C3/4 F3/2 C3/2",
+      "F3/2 C3/2 G2/2 C3/2",
+      "C3/2 F3/2 C3/2 G2/2",
+      "C3/2 F3/2 C3/2 G2/2",
+      "C3/4 F3/2 C3/2",
+      "F3/2 C3/2 G2/2 C3/2",
+    ],
   },
   {
     id: "mary",
@@ -51,6 +63,12 @@ export const SONGS: SongDef[] = [
       "D4 D4 D4/2 E4 G4 G4/2",
       "E4 D4 C4 D4 E4 E4 E4 E4",
       "D4 D4 E4 D4 C4/4",
+    ],
+    left: [
+      "C3/4 C3/4",
+      "G2/4 C3/4",
+      "C3/4 C3/4",
+      "G2/4 C3/4",
     ],
   },
   {
@@ -67,6 +85,12 @@ export const SONGS: SongDef[] = [
       "E4 E4 F4 G4 G4 F4 E4 D4",
       "C4 C4 D4 E4 D4/1.5 C4/0.5 C4/2",
     ],
+    left: [
+      "C3/4 G2/4",
+      "C3/4 G2/4",
+      "C3/4 G2/4",
+      "C3/2 G2/2 C3/4",
+    ],
   },
   {
     id: "oldmacdonald",
@@ -82,6 +106,12 @@ export const SONGS: SongDef[] = [
       "C5 C5 C5 G4 A4 A4 G4/2",
       "E5 E5 D5 D5 C5/4",
     ],
+    left: [
+      "C3/4 F3/2 C3/2",
+      "C3/2 G2/2 C3/4",
+      "C3/4 F3/2 C3/2",
+      "C3/2 G2/2 C3/4",
+    ],
   },
   {
     id: "london",
@@ -96,6 +126,12 @@ export const SONGS: SongDef[] = [
       "D4 E4 F4/2 E4 F4 G4/2",
       "G4/1.5 A4/0.5 G4 F4 E4 F4 G4/2",
       "D4/2 G4/2 E4 C4/3",
+    ],
+    left: [
+      "C3/4 C3/4",
+      "G2/4 C3/4",
+      "C3/4 C3/4",
+      "G2/4 C3/4",
     ],
   },
   {
@@ -116,6 +152,16 @@ export const SONGS: SongDef[] = [
       "F4 F4 F4/1.5 F4/0.5 F4 E4 E4 E4/0.5 E4/0.5",
       "G4 G4 F4 D4 C4/4",
     ],
+    left: [
+      "C3/4 C3/4",
+      "C3/4 C3/4",
+      "F3/4 C3/4",
+      "D3/4 G2/4",
+      "C3/4 C3/4",
+      "C3/4 C3/4",
+      "F3/4 C3/4",
+      "G2/4 C3/4",
+    ],
   },
   {
     id: "wewish",
@@ -131,6 +177,12 @@ export const SONGS: SongDef[] = [
       "A4 D5 D5/0.5 E5/0.5 D5/0.5 C5/0.5 B4 G4",
       "G4 E5 E5/0.5 F5/0.5 E5/0.5 D5/0.5 C5 A4",
       "G4/0.5 G4/0.5 A4 D5 B4 C5/2",
+    ],
+    left: [
+      "R/1 C3/3 F3/2",
+      "F3/1 D3/3 G2/2",
+      "G2/1 C3/3 F3/2",
+      "F3/1 G2/3 C3/2",
     ],
   },
   {
@@ -150,6 +202,15 @@ export const SONGS: SongDef[] = [
       "D5/2 D5 F5/1.5 D5/0.5 B4 C5/3 E5/3",
       "C5/1.5 G4/0.5 E4 G4/1.5 F4/0.5 D4 C4/3",
     ],
+    left: [
+      "C3/3 C3/3",
+      "C3/3 C3/3",
+      "G2/3 G2/3 C3/3 C3/3",
+      "F3/3 F3/3 C3/3 C3/3",
+      "F3/3 F3/3 C3/3 C3/3",
+      "G2/3 G2/3 C3/3 C3/3",
+      "C3/3 G2/3 C3/3",
+    ],
   },
   {
     id: "happybirthday",
@@ -166,21 +227,33 @@ export const SONGS: SongDef[] = [
       "G4/0.5 G4/0.5 G5 E5 C5 B4 A4",
       "F5/0.5 F5/0.5 E5 C5 D5 C5/3",
     ],
+    left: [
+      "R/1 C3/3 G2/2",
+      "G2/1 G2/3 C3/2",
+      "C3/1 C3/3 F3/2",
+      "F3/1 G2/3 C3/3",
+    ],
   },
   {
     id: "furelise",
     title: "Für Elise (Beethoven)",
-    blurb: "Đoạn mở đầu nổi tiếng — có phím đen Rê# và Sol#. Thử thách nhất!",
+    blurb: "Đoạn mở đầu nổi tiếng — hai tay thay nhau đánh rải, có phím đen Rê# và Sol#. Thử thách nhất!",
     emoji: "🎹",
     timeSig: "3/8",
     pickup: 1,
     beatsPerBar: 3,
     bpm: 80,
     lines: [
-      "E5/0.5 D#5/0.5 E5/0.5 D#5/0.5 E5/0.5 B4/0.5 D5/0.5 C5/0.5 A4/1.5",
-      "C4/0.5 E4/0.5 A4/0.5 B4/1.5 E4/0.5 G#4/0.5 B4/0.5 C5/1.5",
-      "E4/0.5 E5/0.5 D#5/0.5 E5/0.5 D#5/0.5 E5/0.5 B4/0.5 D5/0.5 C5/0.5 A4/1.5",
-      "C4/0.5 E4/0.5 A4/0.5 B4/1.5 E4/0.5 C5/0.5 B4/0.5 A4/3",
+      "E5/0.5 D#5/0.5 E5/0.5 D#5/0.5 E5/0.5 B4/0.5 D5/0.5 C5/0.5",
+      "A4/1.5 C4/0.5 E4/0.5 A4/0.5 B4/1.5 E4/0.5 G#4/0.5 B4/0.5 C5/1.5 E4/0.5 E5/0.5 D#5/0.5",
+      "E5/0.5 D#5/0.5 E5/0.5 B4/0.5 D5/0.5 C5/0.5",
+      "A4/1.5 C4/0.5 E4/0.5 A4/0.5 B4/1.5 E4/0.5 C5/0.5 B4/0.5 A4/3",
+    ],
+    left: [
+      "R/4",
+      "A2/0.5 E3/0.5 A3/0.5 R/1.5 E2/0.5 E3/0.5 G#3/0.5 R/1.5 A2/0.5 E3/0.5 A3/0.5 R/1.5",
+      "R/3",
+      "A2/0.5 E3/0.5 A3/0.5 R/1.5 E2/0.5 E3/0.5 G#3/0.5 R/1.5 A2/0.5 E3/0.5 A3/0.5 R/1.5",
     ],
   },
 ];
