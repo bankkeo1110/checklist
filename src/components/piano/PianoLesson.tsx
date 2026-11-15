@@ -166,6 +166,28 @@ export default function PianoLesson() {
 
 const colId = (ri: number, ci: number) => `${ri}-${ci}`;
 
+// ─── Practice mode ─────────────────────────────────────────────────────
+// The learner presses keys on the big keyboard (or a MIDI piano). Each step
+// is one column; all of its notes (for the hands being practised) must be
+// pressed before moving on. Right key → green flash, wrong key → red flash.
+type Step = { id: string; midis: number[] };
+type Practice = {
+  from: number;
+  to: number;
+  steps: Step[];
+  pos: number;
+  remaining: number[];
+  mistakes: number;
+  done: boolean;
+};
+type Feedback = Map<number, "good" | "bad">;
+
+function practiceStars(mistakes: number, steps: number) {
+  if (mistakes === 0) return 3;
+  if (mistakes <= Math.max(2, Math.round(steps * 0.15))) return 2;
+  return 1;
+}
+
 function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
   const rows = useMemo(() => buildRows(song), [song]);
   const range = useMemo(() => keyboardRange(song), [song]);
@@ -202,8 +224,149 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
 
   useEffect(() => stop, [stop]);
 
+  const [practice, setPractice] = useState<Practice | null>(null);
+  const practiceRef = useRef<Practice | null>(null);
+  const [feedback, setFeedback] = useState<Feedback>(new Map());
+  const [showHint, setShowHint] = useState(true);
+  const fbTimers = useRef<number[]>([]);
+
+  const commitPractice = (p: Practice | null) => {
+    practiceRef.current = p;
+    setPractice(p);
+  };
+
+  const flash = (midi: number, kind: "good" | "bad") => {
+    setFeedback((prev) => new Map(prev).set(midi, kind));
+    fbTimers.current.push(
+      window.setTimeout(() => {
+        setFeedback((prev) => {
+          const next = new Map(prev);
+          if (next.get(midi) === kind) next.delete(midi);
+          return next;
+        });
+      }, 450),
+    );
+  };
+
+  const focusStep = (id: string | undefined) => {
+    setActiveCol(id ?? null);
+    if (id) {
+      colRefs.current[id]?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "center",
+      });
+    }
+  };
+
+  const startPractice = (from: number, to: number) => {
+    stop();
+    const steps: Step[] = [];
+    for (let ri = from; ri <= to; ri++) {
+      rows[ri].columns.forEach((c, ci) => {
+        const midis = (["right", "left"] as const)
+          .filter((h) => handOn(h))
+          .map((h) => c[h])
+          .filter((n): n is Placed => !!n && !n.rest)
+          .map((n) => n.midi);
+        if (midis.length) steps.push({ id: colId(ri, ci), midis });
+      });
+    }
+    if (!steps.length) return;
+    commitPractice({
+      from,
+      to,
+      steps,
+      pos: 0,
+      remaining: [...new Set(steps[0].midis)],
+      mistakes: 0,
+      done: false,
+    });
+    focusStep(steps[0].id);
+  };
+
+  const exitPractice = () => {
+    commitPractice(null);
+    setActiveCol(null);
+    setFeedback(new Map());
+  };
+
+  const pressKey = (midi: number) => {
+    playTone(midi, 0.9, 0, midi < 60 ? 0.22 : 0.3);
+    const p = practiceRef.current;
+    if (!p || p.done) {
+      if (playing) stop();
+      setPressed(new Map([[midi, midi < 60 ? "left" : "right"]]));
+      if (!p) setActiveCol(null);
+      return;
+    }
+    const step = p.steps[p.pos];
+    if (step.midis.includes(midi)) {
+      flash(midi, "good");
+      const remaining = p.remaining.filter((m) => m !== midi);
+      if (remaining.length > 0) {
+        commitPractice({ ...p, remaining });
+        return;
+      }
+      const pos = p.pos + 1;
+      if (pos >= p.steps.length) {
+        commitPractice({ ...p, remaining: [], pos, done: true });
+        setActiveCol(null);
+        return;
+      }
+      commitPractice({
+        ...p,
+        pos,
+        remaining: [...new Set(p.steps[pos].midis)],
+      });
+      focusStep(p.steps[pos].id);
+    } else {
+      flash(midi, "bad");
+      commitPractice({ ...p, mistakes: p.mistakes + 1 });
+    }
+  };
+
+  // Real piano over USB/Bluetooth MIDI (Chrome / Edge on desktop & Android).
+  const pressKeyRef = useRef(pressKey);
+  useEffect(() => {
+    pressKeyRef.current = pressKey;
+  });
+  useEffect(() => {
+    const nav = navigator as Navigator & {
+      requestMIDIAccess?: () => Promise<MIDIAccess>;
+    };
+    if (!nav.requestMIDIAccess) return;
+    let access: MIDIAccess | null = null;
+    const onMsg = (e: MIDIMessageEvent) => {
+      const d = e.data;
+      if (d && (d[0] & 0xf0) === 0x90 && d[2] > 0) pressKeyRef.current(d[1]);
+    };
+    nav
+      .requestMIDIAccess()
+      .then((a) => {
+        access = a;
+        a.inputs.forEach((i) => (i.onmidimessage = onMsg));
+      })
+      .catch(() => {});
+    return () => access?.inputs.forEach((i) => (i.onmidimessage = null));
+  }, []);
+
+  useEffect(
+    () => () => fbTimers.current.forEach((t) => window.clearTimeout(t)),
+    [],
+  );
+
+  const hint = useMemo(
+    () =>
+      practice && !practice.done && showHint
+        ? new Set(practice.remaining)
+        : new Set<number>(),
+    [practice, showHint],
+  );
+
   const play = (fromRow = 0) => {
     stop();
+    exitPractice();
     const beatSec = 60 / (song.bpm * speed);
     const origin = rows[fromRow].start;
     const lead = 0.08;
@@ -260,6 +423,7 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
   };
 
   const tapColumn = (id: string, c: Column) => {
+    if (practiceRef.current) return; // in practice the keyboard is the input
     if (playing) stop();
     const next = new Map<number, Hand>();
     for (const h of ["right", "left"] as const) {
@@ -300,12 +464,19 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
           >
             {playing ? "⏹ Dừng" : "▶ Nghe mẫu"}
           </button>
+          <button
+            onClick={() => startPractice(0, rows.length - 1)}
+            className="rounded-xl bg-purple px-4 py-2.5 font-display text-sm font-bold text-white"
+          >
+            🎯 Tập cả bài
+          </button>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Segmented<HandMode>
             value={mode}
             onChange={(v) => {
               stop();
+              exitPractice();
               setMode(v);
             }}
             options={[
@@ -330,12 +501,27 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
       {rows.map((row, ri) => {
         const cw = colWidth(row.columns.length);
         return (
-          <div key={ri} className="rounded-2xl bg-white p-3 shadow-md">
+          <div
+            key={ri}
+            className={`rounded-2xl bg-white p-3 shadow-md ${
+              practice && ri >= practice.from && ri <= practice.to
+                ? "ring-2 ring-purple"
+                : ""
+            }`}
+          >
             <div className="mb-1 flex items-center justify-between text-[11px] font-bold text-muted">
               <span>Dòng {ri + 1}</span>
-              <button onClick={() => play(ri)} className="text-blue-text">
-                ▶ Nghe từ dòng này
-              </button>
+              <span className="flex gap-3">
+                <button onClick={() => play(ri)} className="text-blue-text">
+                  ▶ Nghe từ dòng này
+                </button>
+                <button
+                  onClick={() => startPractice(ri, ri)}
+                  className="text-purple-text"
+                >
+                  🎯 Tập dòng này
+                </button>
+              </span>
             </div>
             <div className="overflow-x-auto">
               <div style={{ width: LEAD + row.columns.length * cw }}>
@@ -400,13 +586,23 @@ function SongView({ song, onBack }: { song: SongDef; onBack: () => void }) {
       <BigKeyboard
         low={range.low}
         high={range.high}
-        pressed={pressed}
-        onPress={(midi) => {
-          if (playing) stop();
-          playTone(midi, 0.9);
-          setPressed(new Map([[midi, midi < 60 ? "left" : "right"]]));
-          setActiveCol(null);
-        }}
+        pressed={practice ? new Map() : pressed}
+        feedback={feedback}
+        hint={hint}
+        onPress={pressKey}
+        banner={
+          practice && (
+            <PracticeBanner
+              practice={practice}
+              rowsCount={rows.length}
+              showHint={showHint}
+              onToggleHint={() => setShowHint((v) => !v)}
+              onRetry={() => startPractice(practice.from, practice.to)}
+              onNext={() => startPractice(practice.to + 1, practice.to + 1)}
+              onExit={exitPractice}
+            />
+          )
+        }
       />
     </div>
   );
@@ -783,16 +979,25 @@ function keyboardRange(song: SongDef) {
   return { low, high };
 }
 
+const GOOD = "#6bcb77";
+const BAD = "#ff6b6b";
+
 function BigKeyboard({
   low,
   high,
   pressed,
+  feedback,
+  hint,
   onPress,
+  banner,
 }: {
   low: number;
   high: number;
   pressed: Map<number, Hand>;
+  feedback: Feedback;
+  hint: Set<number>;
   onPress: (midi: number) => void;
+  banner?: React.ReactNode;
 }) {
   const whites: { letter: Letter; octave: number; midi: number }[] = [];
   for (let m = low; m <= high; m++) {
@@ -813,6 +1018,37 @@ function BigKeyboard({
     if (el && i >= 0)
       el.scrollLeft = (i / whites.length) * el.scrollWidth - el.clientWidth / 2;
   }, [low, high]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the key(s) to press in view while practising on a narrow screen.
+  const hintKey = [...hint].sort().join(",");
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el || !hintKey) return;
+    const midis = hintKey.split(",").map(Number);
+    const idx = midis
+      .map((m) => whites.findIndex((k) => k.midi === m || k.midi === m - 1))
+      .filter((i) => i >= 0);
+    if (!idx.length) return;
+    const kw = el.scrollWidth / whites.length;
+    const left = Math.min(...idx) * kw;
+    const right = (Math.max(...idx) + 1) * kw;
+    if (left < el.scrollLeft || right > el.scrollLeft + el.clientWidth) {
+      el.scrollTo({
+        left: (left + right) / 2 - el.clientWidth / 2,
+        behavior: "smooth",
+      });
+    }
+  }, [hintKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const keyBg = (midi: number, letter: Letter, black: boolean) => {
+    const fb = feedback.get(midi);
+    if (fb) return fb === "good" ? GOOD : BAD;
+    if (pressed.has(midi)) return NOTE_COLOR[letter];
+    if (hint.has(midi))
+      return black ? NOTE_COLOR[letter] : `${NOTE_COLOR[letter]}66`;
+    if (black) return "#2d2a32";
+    return midi === 60 ? "#fff3c4" : "white";
+  };
   // Coloured bar on the pressed key: blue = left hand, red = right hand.
   const ring = (h: Hand | undefined) =>
     h === "left"
@@ -824,6 +1060,7 @@ function BigKeyboard({
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-divider bg-white/95 pb-3 pt-2 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] backdrop-blur">
       <div className="mx-auto max-w-[922px] px-2">
+        {banner}
         <div className="mb-1 flex justify-between px-1 text-[10px] font-bold text-muted">
           <span>⬅ trầm · 🤚 tay trái (vạch xanh)</span>
           <span>✋ tay phải (vạch đỏ) · bổng ➡</span>
@@ -835,7 +1072,7 @@ function BigKeyboard({
           >
             {whites.map((k, i) => {
               const hand = pressed.get(k.midi);
-              const lit = hand !== undefined;
+              const lit = hand !== undefined || feedback.has(k.midi);
               return (
                 <button
                   key={k.midi}
@@ -844,12 +1081,10 @@ function BigKeyboard({
                   style={{
                     left: `${i * w}%`,
                     width: `${w}%`,
-                    background: lit
-                      ? NOTE_COLOR[k.letter]
-                      : k.midi === 60
-                        ? "#fff3c4"
-                        : "white",
-                    boxShadow: ring(hand),
+                    background: keyBg(k.midi, k.letter, false),
+                    boxShadow: hint.has(k.midi)
+                      ? `inset 0 0 0 3px ${NOTE_COLOR[k.letter]}`
+                      : ring(hand),
                   }}
                 >
                   <span
@@ -885,8 +1120,10 @@ function BigKeyboard({
                   style={{
                     left: `${(i + 1) * w - w * 0.3}%`,
                     width: `${w * 0.6}%`,
-                    background: hand ? NOTE_COLOR[k.letter] : "#2d2a32",
-                    boxShadow: ring(hand),
+                    background: keyBg(midi, k.letter, true),
+                    boxShadow: hint.has(midi)
+                      ? "0 0 0 3px #ffc93c"
+                      : ring(hand),
                   }}
                 >
                   <span className="text-[7px] font-bold leading-none text-white">
@@ -898,6 +1135,89 @@ function BigKeyboard({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PracticeBanner({
+  practice,
+  rowsCount,
+  showHint,
+  onToggleHint,
+  onRetry,
+  onNext,
+  onExit,
+}: {
+  practice: Practice;
+  rowsCount: number;
+  showHint: boolean;
+  onToggleHint: () => void;
+  onRetry: () => void;
+  onNext: () => void;
+  onExit: () => void;
+}) {
+  const total = practice.steps.length;
+  const scope =
+    practice.from === practice.to ? `Dòng ${practice.from + 1}` : "Cả bài";
+  const btn = "rounded-lg px-2.5 py-1.5 text-xs font-bold whitespace-nowrap";
+
+  if (practice.done) {
+    const stars = practiceStars(practice.mistakes, total);
+    const hasNext =
+      practice.from === practice.to && practice.to + 1 < rowsCount;
+    return (
+      <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl bg-green-tint px-3 py-2">
+        <span className="mr-auto font-display text-sm font-extrabold text-green-text">
+          🎉 Xong {scope}! {"⭐".repeat(stars)}
+          <span className="ml-1 font-sans text-xs font-bold text-muted">
+            {practice.mistakes === 0
+              ? "Không sai phím nào!"
+              : `Sai ${practice.mistakes} lần`}
+          </span>
+        </span>
+        <button onClick={onRetry} className={`${btn} bg-white`}>
+          🔁 Tập lại
+        </button>
+        {hasNext && (
+          <button onClick={onNext} className={`${btn} bg-purple text-white`}>
+            Dòng {practice.to + 2} ➡
+          </button>
+        )}
+        <button
+          onClick={onExit}
+          className={`${btn} text-muted`}
+          aria-label="Thoát chế độ tập"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl bg-purple-tint px-3 py-2">
+      <span className="font-display text-sm font-extrabold text-purple-text">
+        🎯 Tập {scope}
+      </span>
+      <span className="mr-auto text-xs font-bold text-muted">
+        Nốt {practice.pos + 1}/{total} · sai {practice.mistakes}
+      </span>
+      <div className="order-last h-1.5 basis-full overflow-hidden rounded-full bg-white">
+        <div
+          className="h-full rounded-full bg-purple transition-all"
+          style={{ width: `${(practice.pos / total) * 100}%` }}
+        />
+      </div>
+      <button onClick={onToggleHint} className={`${btn} bg-white`}>
+        {showHint ? "🙈 Ẩn gợi ý" : "💡 Hiện gợi ý"}
+      </button>
+      <button
+        onClick={onExit}
+        className={`${btn} text-muted`}
+        aria-label="Thoát chế độ tập"
+      >
+        ✕
+      </button>
     </div>
   );
 }
