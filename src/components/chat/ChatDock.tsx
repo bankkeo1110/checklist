@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Bell, BellRing, ChevronLeft, MessageCircle, Volume2, VolumeX, X } from "lucide-react";
 import type { InboxRow, UnreadSummary } from "@/lib/chat";
 import ChatInbox from "@/components/chat/ChatInbox";
@@ -51,7 +52,17 @@ function Badge({ count, className = "" }: { count: number; className?: string })
   );
 }
 
+// Pages where the chat would get in the way (the piano lesson keeps a
+// keyboard pinned to the bottom of the screen).
+const HIDDEN_ON = ["/child/piano", "/phu-huynh/piano"];
+
 export default function ChatDock() {
+  const pathname = usePathname();
+  if (HIDDEN_ON.some((p) => pathname.startsWith(p))) return null;
+  return <ChatDockPanel />;
+}
+
+function ChatDockPanel() {
   const [open, setOpen] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [unread, setUnread] = useState(0);
