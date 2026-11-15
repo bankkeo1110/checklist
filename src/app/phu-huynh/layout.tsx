@@ -38,7 +38,7 @@ export default async function PhuHuynhLayout({ children: pageContent }: { childr
   const growthByChild = new Map(latestGrowthRecords.map((r) => [r.childId, r]));
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-4 py-6">
+    <div className="mx-auto flex w-full max-w-[922px] flex-1 flex-col gap-5 px-4 py-6">
       <Header name={session.label} caption="Bảng điều khiển phụ huynh" personName={session.name} />
       <ParentDashboard
         children={kids.map((child) => {

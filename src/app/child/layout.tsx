@@ -19,7 +19,7 @@ export default async function ChildLayout({ children }: { children: React.ReactN
   const avatarTier = getOpenedDragonBallTier(dragonBallUnlocks.map((u) => u.threshold));
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-6">
+    <div className="mx-auto flex w-full max-w-[922px] flex-1 flex-col gap-6 px-4 py-6">
       <Header
         name={session.label}
         caption="Chào mừng trở lại! 🎈"
