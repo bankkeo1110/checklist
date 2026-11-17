@@ -2,6 +2,8 @@ import type { Question } from './questions';
 
 export function shuffle<T>(arr: T[]): T[] { return [...arr].sort(() => Math.random() - 0.5); }
 export function rand(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+/** Two sides of a rectangle, length first (a textbook rectangle never has rộng > dài). */
+export function longFirst(a: number, b: number): [number, number] { return a >= b ? [a, b] : [b, a]; }
 export function pick<T>(arr: T[]): T { return arr[rand(0, arr.length - 1)]; }
 export function gcd(a: number, b: number): number { return b === 0 ? Math.abs(a) : gcd(b, a % b); }
 export function lcm(a: number, b: number): number { return (a * b) / gcd(a, b); }

@@ -14,6 +14,11 @@ export const sessions = pgTable('sessions', {
   topic: varchar('topic', { length: 50 }).notNull(),
   startedAt: timestamp('started_at').defaultNow(),
   finishedAt: timestamp('finished_at'),
+  // Result of the finished fight (null on rows from before these were recorded).
+  correct: integer('correct'),
+  total: integer('total'),
+  // JSON: Record<dạng toán, { correct: number; total: number }>
+  byKind: text('by_kind'),
 });
 
 export const answers = pgTable('answers', {
@@ -26,6 +31,10 @@ export const answers = pgTable('answers', {
   studentAnswer: text('student_answer').notNull(),
   isCorrect: boolean('is_correct').notNull(),
   answeredAt: timestamp('answered_at').defaultNow(),
+  // Dạng toán of the question (null on rows from before kinds were recorded).
+  kind: varchar('kind', { length: 120 }),
+  // A missed question asked again later in the same fight.
+  isRetry: boolean('is_retry'),
 });
 
 // badge: 'bronze' (any score) | 'silver' (≥70%) | 'gold' (≥90%) | 'perfect' (100%)

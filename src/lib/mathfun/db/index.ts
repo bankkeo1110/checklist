@@ -60,6 +60,11 @@ async function bootstrap() {
     )
   `);
   await db.execute(sql`ALTER TABLE students ADD COLUMN IF NOT EXISTS avatar VARCHAR(10)`);
+  await db.execute(sql`ALTER TABLE answers ADD COLUMN IF NOT EXISTS kind VARCHAR(120)`);
+  await db.execute(sql`ALTER TABLE answers ADD COLUMN IF NOT EXISTS is_retry BOOLEAN`);
+  await db.execute(sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS correct INTEGER`);
+  await db.execute(sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS total INTEGER`);
+  await db.execute(sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS by_kind TEXT`);
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS exam_attempts (
       id SERIAL PRIMARY KEY,

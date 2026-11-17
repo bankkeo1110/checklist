@@ -46,5 +46,20 @@ export function rewardMinutes(wrong: number): number {
 /** Extra minutes for beating the mixed challenge, which only opens once all 7 islands are done. */
 export const CHALLENGE_BONUS_MIN = 3;
 
+/** One answered question, as kept for the end-of-fight stats. */
+export interface LogItem { kind: string; question: string; answer: string; chosen: string; correct: boolean; retry: boolean }
+
+/** Right / wrong per dạng toán, most-missed first. */
+export function tallyByKind(log: LogItem[]): { kind: string; correct: number; wrong: number }[] {
+  const m = new Map<string, { correct: number; wrong: number }>();
+  for (const l of log) {
+    const t = m.get(l.kind) ?? { correct: 0, wrong: 0 };
+    if (l.correct) t.correct++; else t.wrong++;
+    m.set(l.kind, t);
+  }
+  return [...m.entries()].map(([kind, t]) => ({ kind, ...t }))
+    .sort((a, b) => b.wrong - a.wrong || (b.correct + b.wrong) - (a.correct + a.wrong));
+}
+
 /** How many questions later a missed question comes back for a second try. */
 export const RETRY_AFTER = 3;

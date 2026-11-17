@@ -1,4 +1,5 @@
-import { type Lesson, fmt, dec, numQ, strQ, fracQ, decQ, pctQ, rand, pick, shuffle, lcm } from './qutil';
+import { pickK } from './kinds';
+import { type Lesson, fmt, dec, numQ, strQ, fracQ, decQ, pctQ, rand, pick, longFirst, shuffle, lcm } from './qutil';
 
 type Gen = ReturnType<Lesson['gen']>;
 
@@ -10,7 +11,7 @@ const cmp = (x: number, y: number) => (x < y ? '<' : x > y ? '>' : '=');
 const HANG = ['chục', 'đơn vị', 'phần mười', 'phần trăm', 'phần nghìn'];
 
 const gen = {
-  onTapPhanSo: (): Gen => pick<() => Gen>([
+  onTapPhanSo: (): Gen => pickK('onTapPhanSo', [
     () => {
       const q1 = pick([2, 3, 4, 5, 6]);
       let q2 = pick([2, 3, 4, 5, 6, 8]);
@@ -41,9 +42,9 @@ const gen = {
       const k = pick([1, 2, 3]), a = rand(1, 10 ** k - 1);
       return decQ(`Viết phân số thập phân ${a}/${10 ** k} dưới dạng số thập phân:`, a, k, `Mẫu số ${10 ** k} nên số thập phân có ${k} chữ số ở phần thập phân: ${dec(a, k)}.`, [a * 10, Math.floor(a / 10) || a + 1, a + 1]);
     },
-  ])(),
+  ]),
 
-  soThapPhan: (): Gen => pick<() => Gen>([
+  soThapPhan: (): Gen => pickK('soThapPhan', [
     () => {
       const d = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]).slice(0, 5), pos = rand(0, 4);
       const n = d[0] * 10000 + d[1] * 1000 + d[2] * 100 + d[3] * 10 + d[4];
@@ -72,9 +73,9 @@ const gen = {
       const a = rand(1, 9), b = rand(1, 9);
       return strQ(`Số nào dưới đây bằng ${a},${b}?`, `${a},${b}0`, [`${a},0${b}`, `${a}${b},0`, `${a},${b}1`, `0,${a}${b}`], 'Viết thêm chữ số 0 vào tận cùng bên phải phần thập phân thì giá trị số thập phân không đổi.');
     },
-  ])(),
+  ]),
 
-  soSanhLamTron: (): Gen => pick<() => Gen>([
+  soSanhLamTron: (): Gen => pickK('soSanhLamTron', [
     () => {
       const p1 = rand(1, 3), X = mkD(p1, 20), equal = Math.random() < 0.2, p2 = equal ? p1 + 1 : rand(1, 3);
       const Y = equal ? X * 10 : Math.random() < 0.5 ? X * 10 ** (p2 - p1) + pick([1, 10, -1, -10]) : mkD(p2, 20);
@@ -105,9 +106,9 @@ const gen = {
       return strQ(`Số nào lớn hơn ${dec(X, 1)} và bé hơn ${dec(X + 1, 1)}?`, dec(lo + d, 2), [dec(lo, 2), dec(hi, 2), dec(lo - d, 2), dec(hi + d, 2)],
         `${dec(X, 1)} = ${dec(lo, 2)} và ${dec(X + 1, 1)} = ${dec(hi, 2)}. Số ${dec(lo + d, 2)} nằm giữa hai số đó.`);
     },
-  ])(),
+  ]),
 
-  congTru: (): Gen => pick<() => Gen>([
+  congTru: (): Gen => pickK('congTru', [
     () => {
       const p1 = rand(1, 2), p2 = rand(1, 2), p = Math.max(p1, p2), X = mkD(p1, 90), Y = mkD(p2, 90), A = X * 10 ** (p - p1), B = Y * 10 ** (p - p2);
       return decQ(`${dec(X, p1)} + ${dec(Y, p2)} = ?`, A + B, p, `Viết các số sao cho dấu phẩy thẳng cột rồi cộng như số tự nhiên: ${dec(A + B, p)}.`, [A + B + 10 ** (p - 1), A + B - 10 ** (p - 1), A + B + 10 ** p, A + B - 1]);
@@ -136,9 +137,9 @@ const gen = {
       const L = mkD(2, 20) + 400, c = rand(100, 399);
       return decQ(`Một sợi dây dài ${dec(L, 2)} m, người ta cắt đi ${dec(c, 2)} m. Sợi dây còn lại dài bao nhiêu mét?`, L - c, 2, `Còn lại = ${dec(L, 2)} − ${dec(c, 2)} = ${dec(L - c, 2)} m.`, [L - c + 10, L - c - 10, L + c]);
     },
-  ])(),
+  ]),
 
-  nhan: (): Gen => pick<() => Gen>([
+  nhan: (): Gen => pickK('nhan', [
     () => {
       const p = rand(1, 2), X = mkD(p, 20), n = rand(2, 9);
       return decQ(`${dec(X, p)} × ${n} = ?`, X * n, p, `Nhân như số tự nhiên rồi đặt dấu phẩy để phần thập phân có ${p} chữ số: ${dec(X * n, p)}.`, [X * n + 10 ** (p - 1), X * n * 10, Math.floor(X * n / 10) || X, X * (n + 1)]);
@@ -163,9 +164,9 @@ const gen = {
       const a = rand(11, 99), b = pick([25, 5, 4, 8]), c = b === 25 ? 4 : b === 5 ? 2 : b === 4 ? 25 : 125;
       return decQ(`Tính nhanh: ${dec(a, 1)} × ${b} × ${c}`, a * b * c, 1, `Nhóm ${b} × ${c} = ${b * c} trước (giao hoán, kết hợp): ${dec(a, 1)} × ${b * c} = ${dec(a * b * c, 1)}.`, [a * b * c * 10, Math.floor(a * b * c / 10), a * b * c + 10]);
     },
-  ])(),
+  ]),
 
-  chia: (): Gen => pick<() => Gen>([
+  chia: (): Gen => pickK('chia', [
     () => {
       const p = rand(1, 2), q = mkD(p, 20), n = rand(2, 9);
       return decQ(`${dec(q * n, p)} : ${n} = ?`, q, p, `Chia như số tự nhiên, khi hết phần nguyên thì đặt dấu phẩy ở thương: ${dec(q * n, p)} : ${n} = ${dec(q, p)}.`, [q * 10, Math.floor(q / 10) || 1, q + 10 ** (p - 1)]);
@@ -190,12 +191,12 @@ const gen = {
       const Y = rand(2, 9), q = rand(3, 20);
       return numQ(`Tìm x: x × ${dec(Y, 1)} = ${dec(Y * q, 1)}`, q, `x = ${dec(Y * q, 1)} : ${dec(Y, 1)} = ${q}.`, [q * 10, q + Y, Y * q]);
     },
-  ])(),
+  ]),
 
   donVi: (): Gen => {
     const u = pick<[string, string, number]>([['m', 'cm', 100], ['km', 'm', 1000], ['kg', 'g', 1000], ['tấn', 'kg', 1000], ['m', 'dm', 10]]);
     const p = String(u[2]).length - 1;
-    return pick<() => Gen>([
+    return pickK('donVi', [
       () => {
         const a = rand(1, 20), b = rand(1, u[2] - 1);
         return decQ(`${a} ${u[0]} ${b} ${u[1]} = ... ${u[0]}`, a * u[2] + b, p, `${b} ${u[1]} = ${dec(b, p)} ${u[0]} nên ${a} ${u[0]} ${b} ${u[1]} = ${dec(a * u[2] + b, p)} ${u[0]}.`, [a * u[2] * 10 + b, a * 10 + b, a * u[2] + b * 10]);
@@ -208,10 +209,10 @@ const gen = {
         const X = rand(1, 9) * u[2] + rand(1, u[2] - 1);
         return numQ(`${dec(X, p)} ${u[0]} = ... ${u[1]}`, X, `1 ${u[0]} = ${fmt(u[2])} ${u[1]} nên ${dec(X, p)} ${u[0]} = ${fmt(X)} ${u[1]}.`, [X * 10, Math.floor(X / 10), X + u[2]]);
       },
-    ])();
+    ]);
   },
 
-  dienTichHa: (): Gen => pick<() => Gen>([
+  dienTichHa: (): Gen => pickK('dienTichHa', [
     () => {
       const k = rand(2, 40);
       return numQ(`${k} ha = ... m²`, k * 10000, `1 ha = 10 000 m² nên ${k} ha = ${fmt(k * 10000)} m².`, [k * 1000, k * 100000, k * 100]);
@@ -229,16 +230,16 @@ const gen = {
       return numQ(`${k} km² = ... ha`, k * 100, `1 km² = 100 ha nên ${k} km² = ${fmt(k * 100)} ha.`, [k * 10, k * 1000, k * 10000]);
     },
     () => {
-      const L = rand(2, 12) * 50, W = rand(2, 12) * 50, S = L * W;
+      const [L, W] = longFirst(rand(2, 12) * 50, rand(2, 12) * 50), S = L * W;
       return decQ(`Một thửa ruộng hình chữ nhật dài ${L} m, rộng ${W} m. Diện tích thửa ruộng là bao nhiêu héc-ta?`, S / 1000, 1, `Diện tích = ${L} × ${W} = ${fmt(S)} m² = ${dec(S / 1000, 1)} ha (1 ha = 10 000 m²).`, [S / 100, S / 10, S / 1000 + 50]);
     },
     () => {
       const a = rand(2, 9), b = rand(1, 9) * 5000, ans = cmp(a * 10000, b);
       return strQ(`Điền dấu thích hợp: ${a} ha ... ${fmt(b)} m²`, ans, ['<', '>', '='], `${a} ha = ${fmt(a * 10000)} m². So sánh với ${fmt(b)} m²: ${ans}.`);
     },
-  ])(),
+  ]),
 
-  tamGiac: (): Gen => pick<() => Gen>([
+  tamGiac: (): Gen => pickK('tamGiac', [
     () => {
       const a = rand(4, 30), h = 2 * rand(2, 15);
       return numQ(`Tam giác có độ dài đáy ${a} cm, chiều cao ${h} cm. Diện tích tam giác là bao nhiêu xăng-ti-mét vuông?`, a * h / 2, `Diện tích tam giác = đáy × chiều cao : 2 = ${a} × ${h} : 2 = ${a * h / 2} cm².`, [a * h, a + h, a * h / 4]);
@@ -262,9 +263,9 @@ const gen = {
       ]);
       return strQ(q[0], q[1], q[2], q[3]);
     },
-  ])(),
+  ]),
 
-  hinhThang: (): Gen => pick<() => Gen>([
+  hinhThang: (): Gen => pickK('hinhThang', [
     () => {
       const a = rand(5, 25), b = rand(3, 20), h = 2 * rand(2, 10);
       return numQ(`Hình thang có đáy lớn ${a} cm, đáy bé ${b} cm, chiều cao ${h} cm. Diện tích hình thang là bao nhiêu xăng-ti-mét vuông?`, (a + b) * h / 2, `Diện tích = (đáy lớn + đáy bé) × chiều cao : 2 = (${a} + ${b}) × ${h} : 2 = ${(a + b) * h / 2} cm².`, [(a + b) * h, a * h / 2, (a + b) / 2 + h]);
@@ -289,9 +290,9 @@ const gen = {
       ]);
       return strQ(q[0], q[1], q[2], q[3]);
     },
-  ])(),
+  ]),
 
-  phanTram: (): Gen => pick<() => Gen>([
+  phanTram: (): Gen => pickK('phanTram', [
     () => {
       const b = rand(1, 10) * 20, pct = rand(1, 19) * 5, a = b * pct / 100;
       return pctQ(`Tìm tỉ số phần trăm của ${a} và ${b}.`, pct, `${a} : ${b} = ${pct / 100} = ${pct}%.`, [pct + 5, pct - 5, pct * 2, 100 - pct]);
@@ -316,9 +317,9 @@ const gen = {
       const n = rand(2, 10) * 20, pct = rand(1, 15) * 5;
       return numQ(`Lớp có ${n} học sinh, trong đó ${pct}% là học sinh giỏi. Lớp có bao nhiêu học sinh giỏi?`, n * pct / 100, `${n} × ${pct} : 100 = ${n * pct / 100} học sinh.`, [n - n * pct / 100, n / pct, pct]);
     },
-  ])(),
+  ]),
 
-  tongHop: (): Gen => pick<() => Gen>([
+  tongHop: (): Gen => pickK('tongHop', [
     () => {
       const price = rand(5, 40) * 1000, w = rand(2, 9) * 10 + 5;
       return numQ(`Giá 1 ki-lô-gam gạo là ${fmt(price)} đồng. Mua ${dec(w, 1)} kg gạo phải trả bao nhiêu đồng?`, price * w / 10, `${fmt(price)} × ${dec(w, 1)} = ${fmt(price * w / 10)} đồng.`, [price * w, price * w / 100, price * (w + 5) / 10]);
@@ -332,7 +333,7 @@ const gen = {
       return decQ(`Hình chữ nhật dài ${dec(L, 1)} m, rộng ${dec(W, 1)} m. Chu vi hình chữ nhật là bao nhiêu mét?`, (L + W) * 2, 1, `Chu vi = (dài + rộng) × 2 = (${dec(L, 1)} + ${dec(W, 1)}) × 2 = ${dec((L + W) * 2, 1)} m.`, [L + W, (L + W) * 2 + 10, (L + W) * 4]);
     },
     () => {
-      const X = rand(20, 90), Y = rand(11, 60);
+      const [X, Y] = longFirst(rand(20, 90), rand(11, 60));
       return decQ(`Hình chữ nhật dài ${dec(X, 1)} m, rộng ${dec(Y, 1)} m. Diện tích hình chữ nhật là bao nhiêu mét vuông?`, X * Y, 2, `Diện tích = dài × rộng = ${dec(X, 1)} × ${dec(Y, 1)} = ${dec(X * Y, 2)} m².`, [X * Y * 10, Math.floor(X * Y / 10), (X + Y) * 2]);
     },
     () => {
@@ -343,7 +344,7 @@ const gen = {
       const m = rand(30, 80), o1 = rand(-6, 6), o2 = rand(-6, 6), v = [m + o1, m + o2, m - o1 - o2];
       return decQ(`Ba bạn cân nặng ${v.map((x) => dec(x, 1)).join(' kg; ')} kg. Trung bình mỗi bạn nặng bao nhiêu ki-lô-gam?`, m, 1, `Tổng ${v.map((x) => dec(x, 1)).join(' + ')} = ${dec(m * 3, 1)}; chia 3 được ${dec(m, 1)} kg.`, [m + 3, m - 3, m * 3]);
     },
-  ])(),
+  ]),
 };
 
 export const LESSONS_HK1: Lesson[] = [

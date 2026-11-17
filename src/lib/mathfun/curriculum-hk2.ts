@@ -1,4 +1,5 @@
-import { type Lesson, fmt, dec, numQ, strQ, fracQ, decQ, pctQ, rand, pick, shuffle, gcd } from './qutil';
+import { pickK } from './kinds';
+import { type Lesson, fmt, dec, numQ, strQ, fracQ, decQ, pctQ, rand, pick, longFirst, shuffle, gcd } from './qutil';
 
 type Gen = ReturnType<Lesson['gen']>;
 
@@ -15,7 +16,7 @@ function coprimePair(maxQ: number): [number, number] {
 }
 
 const gen = {
-  hinhTron: (): Gen => pick<() => Gen>([
+  hinhTron: (): Gen => pickK('hinhTron', [
     () => {
       const d = rand(2, 40);
       return decQ(`Hình tròn có đường kính ${d} cm. Chu vi hình tròn là bao nhiêu xăng-ti-mét? (π = 3,14)`, d * 314, 2, `Chu vi = đường kính × 3,14 = ${d} × 3,14 = ${dec(d * 314, 2)} cm.`, [d * 157, d * 31, d * 3140, d * 314 + 100]);
@@ -56,23 +57,23 @@ const gen = {
     },
     () => strQ('Nếu bán kính hình tròn gấp lên 2 lần thì diện tích hình tròn gấp lên mấy lần?', '4 lần', ['2 lần', '3 lần', '6 lần'],
       'Diện tích = r × r × 3,14. Bán kính gấp 2 lần thì r × r gấp 2 × 2 = 4 lần.'),
-  ])(),
+  ]),
 
-  hopChuNhat: (): Gen => pick<() => Gen>([
+  hopChuNhat: (): Gen => pickK('hopChuNhat', [
     () => {
-      const a = rand(3, 20), b = rand(2, 15), h = rand(2, 12);
+      const [a, b] = longFirst(rand(3, 20), rand(2, 15)), h = rand(2, 12);
       return numQ(`Hình hộp chữ nhật có chiều dài ${a} cm, chiều rộng ${b} cm, chiều cao ${h} cm. Diện tích xung quanh là bao nhiêu xăng-ti-mét vuông?`, (a + b) * 2 * h, `Sxq = chu vi đáy × chiều cao = (${a} + ${b}) × 2 × ${h} = ${(a + b) * 2 * h} cm².`, [a * b * 2 + (a + b) * 2 * h, a * b * h, (a + b) * h]);
     },
     () => {
-      const a = rand(3, 20), b = rand(2, 15), h = rand(2, 12);
+      const [a, b] = longFirst(rand(3, 20), rand(2, 15)), h = rand(2, 12);
       return numQ(`Hình hộp chữ nhật có chiều dài ${a} dm, chiều rộng ${b} dm, chiều cao ${h} dm. Diện tích toàn phần là bao nhiêu đề-xi-mét vuông?`, (a + b) * 2 * h + 2 * a * b, `Sxq = (${a} + ${b}) × 2 × ${h} = ${(a + b) * 2 * h}; diện tích hai đáy = 2 × ${a} × ${b} = ${2 * a * b}; Stp = ${(a + b) * 2 * h + 2 * a * b} dm².`, [(a + b) * 2 * h, a * b * h, (a + b) * 2 * h + a * b]);
     },
     () => {
-      const a = rand(3, 15), b = rand(2, 12), h = rand(2, 10);
+      const [a, b] = longFirst(rand(3, 15), rand(2, 12)), h = rand(2, 10);
       return numQ(`Hình hộp chữ nhật có diện tích xung quanh ${(a + b) * 2 * h} cm², chiều dài ${a} cm, chiều rộng ${b} cm. Chiều cao là bao nhiêu xăng-ti-mét?`, h, `Chiều cao = Sxq : chu vi đáy = ${(a + b) * 2 * h} : ${(a + b) * 2} = ${h} cm.`, [a + b, h + 1, h * 2, (a + b) * h]);
     },
     () => {
-      const a = rand(3, 15), b = rand(2, 12), X = rand(11, 49);
+      const [a, b] = longFirst(rand(3, 15), rand(2, 12)), X = rand(11, 49);
       return decQ(`Hình hộp chữ nhật có chiều dài ${a} m, chiều rộng ${b} m, chiều cao ${dec(X, 1)} m. Diện tích xung quanh là bao nhiêu mét vuông?`, (a + b) * 2 * X, 1, `Sxq = (${a} + ${b}) × 2 × ${dec(X, 1)} = ${dec((a + b) * 2 * X, 1)} m².`, [(a + b) * X, (a + b) * 2 * X * 10, a * b * X]);
     },
     () => {
@@ -84,13 +85,13 @@ const gen = {
       return strQ(q[0], q[1], q[2], q[3]);
     },
     () => {
-      const a = rand(2, 8), b = rand(2, 6), h = rand(2, 6);
+      const [a, b] = longFirst(rand(2, 8), rand(2, 6)), h = rand(2, 6);
       return numQ(`Người ta quét sơn mặt ngoài (cả sáu mặt) của một cái thùng hình hộp chữ nhật không nắp rỗng dài ${a} dm, rộng ${b} dm, cao ${h} dm. Diện tích cần quét sơn là bao nhiêu đề-xi-mét vuông?`, (a + b) * 2 * h + 2 * a * b,
         `Quét cả sáu mặt nên tính diện tích toàn phần: (${a} + ${b}) × 2 × ${h} + 2 × ${a} × ${b} = ${(a + b) * 2 * h + 2 * a * b} dm².`, [(a + b) * 2 * h, (a + b) * 2 * h + a * b, a * b * h]);
     },
-  ])(),
+  ]),
 
-  lapPhuong: (): Gen => pick<() => Gen>([
+  lapPhuong: (): Gen => pickK('lapPhuong', [
     () => {
       const a = rand(2, 20);
       return numQ(`Hình lập phương có cạnh ${a} cm. Diện tích xung quanh là bao nhiêu xăng-ti-mét vuông?`, a * a * 4, `Sxq = cạnh × cạnh × 4 = ${a} × ${a} × 4 = ${a * a * 4} cm².`, [a * a * 6, a * a, a * 4]);
@@ -130,11 +131,11 @@ const gen = {
     },
     () => strQ('Nếu cạnh hình lập phương gấp lên 2 lần thì diện tích toàn phần gấp lên mấy lần?', '4 lần', ['2 lần', '6 lần', '8 lần'],
       'Diện tích một mặt gấp 2 × 2 = 4 lần, sáu mặt đều như vậy nên diện tích toàn phần cũng gấp 4 lần.'),
-  ])(),
+  ]),
 
-  theTich: (): Gen => pick<() => Gen>([
+  theTich: (): Gen => pickK('theTich', [
     () => {
-      const u = pick<[string, string]>([['cm', 'xăng-ti-mét'], ['dm', 'đề-xi-mét'], ['m', 'mét']]), a = rand(3, 20), b = rand(2, 12), c = rand(2, 10);
+      const u = pick<[string, string]>([['cm', 'xăng-ti-mét'], ['dm', 'đề-xi-mét'], ['m', 'mét']]), [a, b] = longFirst(rand(3, 20), rand(2, 12)), c = rand(2, 10);
       return numQ(`Hình hộp chữ nhật có chiều dài ${a} ${u[0]}, rộng ${b} ${u[0]}, cao ${c} ${u[0]}. Thể tích hình hộp là bao nhiêu ${u[1]} khối?`, a * b * c, `V = dài × rộng × cao = ${a} × ${b} × ${c} = ${a * b * c} ${u[0]}³.`, [(a + b + c), (a + b) * 2 * c, a * b * c + a * b]);
     },
     () => {
@@ -153,16 +154,16 @@ const gen = {
       return numQ(`Một chiếc bể có thể tích ${k} dm³. Bể đó chứa được bao nhiêu lít nước? (1 lít = 1 dm³)`, k, `Vì 1 lít = 1 dm³ nên ${k} dm³ = ${k} lít.`, [k * 10, k * 1000, k / 5]);
     },
     () => {
-      const a = rand(3, 12), b = rand(2, 10), c = rand(2, 8);
+      const [a, b] = longFirst(rand(3, 12), rand(2, 10)), c = rand(2, 8);
       return numQ(`Hình hộp chữ nhật có thể tích ${a * b * c} cm³, chiều dài ${a} cm, chiều rộng ${b} cm. Chiều cao là bao nhiêu xăng-ti-mét?`, c, `Chiều cao = thể tích : (dài × rộng) = ${a * b * c} : ${a * b} = ${c} cm.`, [a + b, c + 1, c * 2, a * b]);
     },
     () => {
-      const a = rand(2, 6), b = rand(2, 5), c = rand(1, 4);
+      const [a, b] = longFirst(rand(2, 6), rand(2, 5)), c = rand(1, 4);
       return numQ(`Một bể nước hình hộp chữ nhật dài ${a} m, rộng ${b} m, cao ${c} m. Bể chứa tối đa bao nhiêu lít nước? (1 m³ = 1 000 lít)`, a * b * c * 1000, `V = ${a} × ${b} × ${c} = ${a * b * c} m³ = ${fmt(a * b * c * 1000)} lít.`, [a * b * c * 100, a * b * c, a * b * c * 10000]);
     },
-  ])(),
+  ]),
 
-  thoiGian: (): Gen => pick<() => Gen>([
+  thoiGian: (): Gen => pickK('thoiGian', [
     () => {
       const a = rand(30, 400), b = rand(20, 300);
       return timeQ(`${hm(a)} + ${hm(b)} = ?`, a + b, `Cộng giờ với giờ, phút với phút; nếu số phút từ 60 trở lên thì đổi ra giờ. Kết quả: ${hm(a + b)}.`);
@@ -192,9 +193,9 @@ const gen = {
       const at = (T: number) => `${Math.floor(T / 60)} giờ${T % 60 ? ` ${T % 60} phút` : ''}`;
       return timeQ(`Một chuyến đi bắt đầu lúc ${at(s)} và kết thúc lúc ${at(e)}. Chuyến đi kéo dài bao lâu?`, d, `Thời gian = lúc kết thúc − lúc bắt đầu = ${at(e)} − ${at(s)} = ${hm(d)}.`);
     },
-  ])(),
+  ]),
 
-  vanToc: (): Gen => pick<() => Gen>([
+  vanToc: (): Gen => pickK('vanToc', [
     () => {
       const v = rand(20, 90), t = rand(2, 6);
       return numQ(`Một ô tô đi quãng đường ${v * t} km trong ${t} giờ. Vận tốc của ô tô là bao nhiêu ki-lô-mét trên giờ?`, v, `Vận tốc = quãng đường : thời gian = ${v * t} : ${t} = ${v} km/giờ.`, [v * t, v + t, v - 5 > 0 ? v - 5 : v + 5, v * 2]);
@@ -205,7 +206,7 @@ const gen = {
     },
     () => {
       const v = 2 * rand(10, 40), tt = pick([5, 10, 15, 20, 25, 30, 40]), s = v * tt / 10;
-      return decQ(`Một người đi xe đạp với vận tốc ${v} km/giờ. Hỏi đi quãng đường ${s} km hết bao nhiêu giờ?`, tt, 1, `Thời gian = quãng đường : vận tốc = ${s} : ${v} = ${dec(tt, 1)} giờ.`, [tt * 2, tt + 10, Math.max(5, tt - 5), tt * 10]);
+      return decQ(`Một người đi ${v > 25 ? 'xe máy' : 'xe đạp'} với vận tốc ${v} km/giờ. Hỏi đi quãng đường ${s} km hết bao nhiêu giờ?`, tt, 1, `Thời gian = quãng đường : vận tốc = ${s} : ${v} = ${dec(tt, 1)} giờ.`, [tt * 2, tt + 10, Math.max(5, tt - 5), tt * 10]);
     },
     () => {
       const ms = pick([5, 10, 15, 20, 25]);
@@ -221,9 +222,9 @@ const gen = {
       const v = 2 * rand(10, 40);
       return numQ(`Một xe máy đi với vận tốc ${v} km/giờ. Trong 30 phút xe đi được bao nhiêu ki-lô-mét?`, v / 2, `30 phút = 0,5 giờ nên quãng đường = ${v} × 0,5 = ${v / 2} km.`, [v * 30, v, v / 4, v * 2]);
     },
-  ])(),
+  ]),
 
-  chuyenDong: (): Gen => pick<() => Gen>([
+  chuyenDong: (): Gen => pickK('chuyenDong', [
     () => {
       const v1 = rand(30, 60), v2 = rand(25, 55), t = rand(2, 5);
       return numQ(`Hai ô tô cùng khởi hành một lúc từ hai tỉnh cách nhau ${(v1 + v2) * t} km và đi ngược chiều nhau. Vận tốc lần lượt là ${v1} km/giờ và ${v2} km/giờ. Sau mấy giờ hai ô tô gặp nhau?`, t,
@@ -244,9 +245,9 @@ const gen = {
       return numQ(`Hai thành phố cách nhau ${(v1 + v2) * t} km. Hai xe cùng khởi hành, đi ngược chiều và gặp nhau sau ${t} giờ. Xe thứ nhất đi ${v1} km/giờ. Vận tốc xe thứ hai là bao nhiêu ki-lô-mét trên giờ?`, v2,
         `Tổng vận tốc hai xe = ${(v1 + v2) * t} : ${t} = ${v1 + v2} km/giờ. Vận tốc xe thứ hai = ${v1 + v2} − ${v1} = ${v2} km/giờ.`, [v1 + v2, (v1 + v2) * t - v1, v2 + 5, Math.max(1, v2 - 5)]);
     },
-  ])(),
+  ]),
 
-  phanTramUngDung: (): Gen => pick<() => Gen>([
+  phanTramUngDung: (): Gen => pickK('phanTramUngDung', [
     () => {
       const price = rand(5, 40) * 10000, pct = rand(1, 8) * 5;
       return numQ(`Một chiếc áo giá ${fmt(price)} đồng, được giảm giá ${pct}%. Giá chiếc áo sau khi giảm là bao nhiêu đồng?`, price - price * pct / 100, `Số tiền được giảm = ${fmt(price)} × ${pct} : 100 = ${fmt(price * pct / 100)}. Giá sau giảm = ${fmt(price)} − ${fmt(price * pct / 100)} = ${fmt(price - price * pct / 100)} đồng.`, [price * pct / 100, price + price * pct / 100, price - pct]);
@@ -271,9 +272,9 @@ const gen = {
       const n = rand(2, 10) * 20, pct = rand(2, 14) * 5;
       return numQ(`Lớp có ${n} học sinh, trong đó ${pct}% là học sinh nữ. Hỏi lớp có bao nhiêu học sinh nam?`, n - n * pct / 100, `Số học sinh nữ = ${n} × ${pct} : 100 = ${n * pct / 100}. Số học sinh nam = ${n} − ${n * pct / 100} = ${n - n * pct / 100}.`, [n * pct / 100, n + n * pct / 100, n - pct]);
     },
-  ])(),
+  ]),
 
-  tiLe: (): Gen => pick<() => Gen>([
+  tiLe: (): Gen => pickK('tiLe', [
     () => {
       const per = rand(4, 15), a = rand(3, 8), b = rand(a + 1, 14);
       return numQ(`${a} hộp bánh có ${per * a} cái. Hỏi ${b} hộp bánh như thế có bao nhiêu cái?`, per * b, `Một hộp có ${per * a} : ${a} = ${per} cái. ${b} hộp có ${per} × ${b} = ${per * b} cái.`, [per * a, per + b, per * b + per]);
@@ -299,9 +300,9 @@ const gen = {
       const price = rand(5, 30) * 1000, a = rand(3, 6), b = rand(7, 12);
       return numQ(`Mua ${a} quyển vở hết ${fmt(price * a)} đồng. Hỏi mua ${b} quyển vở như thế hết bao nhiêu tiền?`, price * b, `Giá một quyển: ${fmt(price * a)} : ${a} = ${fmt(price)} đồng. ${b} quyển: ${fmt(price)} × ${b} = ${fmt(price * b)} đồng.`, [price * a, price + b, price * b + price]);
     },
-  ])(),
+  ]),
 
-  thongKe: (): Gen => pick<() => Gen>([
+  thongKe: (): Gen => pickK('thongKe', [
     () => {
       const n = rand(2, 10) * 20, parts = [pick([20, 25, 30]), pick([30, 35, 40])];
       const rest = 100 - parts[0] - parts[1];
@@ -316,7 +317,7 @@ const gen = {
       return fracQ(`Hộp có ${r} viên bi ${cols[0]} và ${x} viên bi ${cols[1]}. Lấy ngẫu nhiên một viên bi. Phân số chỉ khả năng lấy được bi ${cols[0]} là:`, r, r + x, `Có ${r + x} viên bi, trong đó ${r} viên bi ${cols[0]} nên khả năng là ${r}/${r + x}${gcd(r, r + x) > 1 ? ' (rút gọn nếu được)' : ''}.`, [[x, r + x], [r, x], [r + x, r]]);
     },
     () => {
-      const side = pick([[3, 6], [2, 6], [1, 6], [4, 6]]) as [number, number], name = { 3: 'mặt có số chấm chẵn hoặc lẻ (3 trong 6 mặt)', 2: 'mặt có số chấm là 5 hoặc 6', 1: 'mặt 6 chấm', 4: 'mặt có số chấm bé hơn 5' }[side[0]];
+      const side = pick([[3, 6], [2, 6], [1, 6], [4, 6]]) as [number, number], name = { 3: 'mặt có số chấm chẵn', 2: 'mặt có số chấm là 5 hoặc 6', 1: 'mặt 6 chấm', 4: 'mặt có số chấm bé hơn 5' }[side[0]];
       return fracQ(`Gieo một con xúc xắc. Phân số chỉ khả năng xuất hiện ${name} là:`, side[0], side[1], `Có ${side[0]} kết quả thuận lợi trong tổng ${side[1]} kết quả: ${side[0]}/${side[1]}, rút gọn nếu được.`, [[side[1], side[0]], [side[0] + 1, side[1]]]);
     },
     () => {
@@ -328,11 +329,11 @@ const gen = {
       const table = days.map((d, i) => `${d}: ${s[i]}`).join('; '), big = Math.random() < 0.5, best = big ? Math.max(...s) : Math.min(...s);
       return strQ(`Số bạn đến thư viện: ${table}. Ngày nào có ${big ? 'nhiều' : 'ít'} bạn đến nhất?`, days[s.indexOf(best)], days, `So sánh các số liệu: ${best} là số ${big ? 'lớn' : 'bé'} nhất, ứng với ${days[s.indexOf(best)]}.`);
     },
-  ])(),
+  ]),
 
-  onTapHinh: (): Gen => pick<() => Gen>([
+  onTapHinh: (): Gen => pickK('onTapHinh', [
     () => {
-      const a = 2 * rand(2, 10), b = rand(3, 12), h = rand(2, 8);
+      const [a, b] = longFirst(2 * rand(2, 10), rand(3, 12)), h = rand(2, 8);
       return numQ(`Một mảnh bìa gồm hình chữ nhật dài ${a} cm, rộng ${b} cm ghép với một hình tam giác có đáy ${a} cm, chiều cao ${h} cm. Diện tích cả mảnh bìa là bao nhiêu xăng-ti-mét vuông?`, a * b + a * h / 2, `Diện tích chữ nhật = ${a} × ${b} = ${a * b}; diện tích tam giác = ${a} × ${h} : 2 = ${a * h / 2}. Tổng = ${a * b + a * h / 2} cm².`, [a * b, a * b + a * h, a * b - a * h / 2]);
     },
     () => {
@@ -356,9 +357,9 @@ const gen = {
       ]);
       return strQ(q[0], q[1], q[2], q[3]);
     },
-  ])(),
+  ]),
 
-  tongHop: (): Gen => pick<() => Gen>([
+  tongHop: (): Gen => pickK('tongHop2', [
     () => {
       const v = rand(30, 60), t = rand(2, 5), sh = rand(6, 10);
       const e = sh * 60 + 30 + t * 60;
@@ -366,7 +367,7 @@ const gen = {
         [e + 30, e - 30, e + 60, sh * 60 + 30 + t * 60 + 10].map(hm), `Thời gian đi = ${v * t} : ${v} = ${t} giờ. Đến nơi lúc ${sh} giờ 30 phút + ${t} giờ = ${hm(e)}.`);
     },
     () => {
-      const a = rand(2, 6), b = rand(2, 5), c = rand(1, 4), pct = pick([40, 50, 60, 75, 80]);
+      const [a, b] = longFirst(rand(2, 6), rand(2, 5)), c = rand(1, 4), pct = pick([40, 50, 60, 75, 80]);
       return numQ(`Một bể hình hộp chữ nhật dài ${a} m, rộng ${b} m, cao ${c} m đang chứa nước đầy ${pct}% thể tích. Bể đang chứa bao nhiêu lít nước? (1 m³ = 1 000 lít)`, a * b * c * 10 * pct, `Thể tích bể = ${a} × ${b} × ${c} = ${a * b * c} m³ = ${fmt(a * b * c * 1000)} lít. Lượng nước = ${fmt(a * b * c * 1000)} × ${pct} : 100 = ${fmt(a * b * c * 10 * pct)} lít.`, [a * b * c * 1000, a * b * c * pct, a * b * c * 100 * pct]);
     },
     () => {
@@ -375,21 +376,21 @@ const gen = {
     },
     () => {
       const [p, q] = coprimePair(6), k = rand(3, 12);
-      return numQ(`Một thửa ruộng hình chữ nhật có chiều dài gấp ${q}/${p} lần chiều rộng và nửa chu vi là ${(p + q) * k} m. Chiều dài thửa ruộng là bao nhiêu mét?`, q * k, `Chiều rộng ứng với ${p} phần, chiều dài ứng với ${q} phần; tổng ${p + q} phần = ${(p + q) * k} m nên mỗi phần ${k} m. Chiều dài = ${k} × ${q} = ${q * k} m.`, [p * k, k, (p + q) * k - k]);
+      return numQ(`Một thửa ruộng hình chữ nhật có chiều dài ${p === 1 ? `gấp ${q} lần` : `bằng ${q}/${p}`} chiều rộng và nửa chu vi là ${(p + q) * k} m. Chiều dài thửa ruộng là bao nhiêu mét?`, q * k, `Chiều rộng ứng với ${p} phần, chiều dài ứng với ${q} phần; tổng ${p + q} phần = ${(p + q) * k} m nên mỗi phần ${k} m. Chiều dài = ${k} × ${q} = ${q * k} m.`, [p * k, k, (p + q) * k - k]);
     },
     () => {
-      const a = rand(3, 9), b = rand(2, 7), c = rand(2, 6);
+      const [a, b] = longFirst(rand(3, 9), rand(2, 7)), c = rand(2, 6);
       return numQ(`Một hộp gỗ hình hộp chữ nhật có dài ${a} dm, rộng ${b} dm, cao ${c} dm. Hộp chứa được bao nhiêu lít nước? (1 lít = 1 dm³)`, a * b * c, `V = ${a} × ${b} × ${c} = ${a * b * c} dm³ = ${a * b * c} lít.`, [a + b + c, a * b * c + a * b, (a + b) * 2 * c]);
     },
     () => {
-      // Scores are out of 10, so every value has to land in 1…10 — otherwise draw again.
+      // Scores are out of 10, so every score has to land in 1…10 — otherwise draw again.
       const m = rand(5, 9), n = rand(3, 5), off = Array.from({ length: n - 1 }, () => rand(-2, 2));
       const last = -off.reduce((s, x) => s + x, 0);
-      if (m + last < 1 || m + last > 10) return gen.tongHop();
+      if ([...off, last].some((x) => m + x < 1 || m + x > 10)) return gen.tongHop();
       const v = [...off, last].map((x) => m + x);
       return numQ(`Điểm kiểm tra của ${n} bạn lần lượt là ${v.join('; ')}. Điểm trung bình của ${n} bạn là bao nhiêu?`, m, `Tổng = ${v.join(' + ')} = ${m * n}; chia ${n} được ${m}.`, [m + 1, m - 1, m * n]);
     },
-  ])(),
+  ]),
 };
 
 export const LESSONS_HK2: Lesson[] = [

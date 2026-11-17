@@ -65,6 +65,7 @@ export default function Nav({ backHref }: { backHref: string }) {
         {link("/mathfun/grow", "🌱 Grow")}
         {link("/mathfun/members", "Members")}
         {link("/mathfun/report", "Progress")}
+        {link("/mathfun/phan-tich", "📈 Phân tích")}
         {link("/mathfun/dictionary", "📖 Từ điển")}
       </div>
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { db } from "@/lib/mathfun/db";
+import { db, ready } from "@/lib/mathfun/db";
 import { sessions, studentBadges } from "@/lib/mathfun/db/schema";
 import { getMathfunUser } from "@/lib/mathfun/auth";
 
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   const user = await getMathfunUser();
   if (!user) return NextResponse.json({ error: "Chưa đăng nhập." }, { status: 401 });
 
-  const { topic, correct, total } = await req.json().catch(() => ({}));
+  const { topic, correct, total, byKind } = await req.json().catch(() => ({}));
   if (!topic || correct == null || !total) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
@@ -28,7 +28,11 @@ export async function POST(req: NextRequest) {
 
   // One row per finished exercise (reaching the 100-point target), so the
   // checklist dashboards can show a "N bài tuần này" count beside the stars.
-  await db.insert(sessions).values({ studentId: user.studentId, topic, finishedAt: new Date() });
+  await ready;
+  await db.insert(sessions).values({
+    studentId: user.studentId, topic, finishedAt: new Date(), correct, total,
+    byKind: byKind && typeof byKind === "object" ? JSON.stringify(byKind).slice(0, 8000) : null,
+  });
 
   const existing = await db
     .select()

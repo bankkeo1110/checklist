@@ -36,6 +36,8 @@ export interface Question {
   answer: string;
   choices: string[];
   explanation: string;
+  /** Dạng toán — what skill this question tests, used to report strengths and weaknesses. */
+  kind?: string;
 }
 
 export interface TopicMeta {

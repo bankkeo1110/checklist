@@ -12,7 +12,7 @@ import MathText from '@/components/mathfun/MathText';
 import Battle from '@/components/mathfun/Battle';
 import {
   TARGET_POINTS, CHALLENGE_TOPIC, RETRY_AFTER, calcScore, isSessionComplete,
-  calcAccuracy, getPointsDelta, starsForAccuracy, rewardMinutes, CHALLENGE_BONUS_MIN,
+  calcAccuracy, getPointsDelta, starsForAccuracy, rewardMinutes, CHALLENGE_BONUS_MIN, tallyByKind, type LogItem,
 } from '@/lib/mathfun/practice-logic';
 
 const LEGACY_ORDER: Category[] = ['numbers', 'fractions', 'measurement-geometry', 'problem-solving'];
@@ -49,6 +49,10 @@ interface SavedProgress extends Stats {
   asked: number;
   /** Question texts already asked this session, so a resumed fight doesn't repeat them either. */
   seen?: string[];
+  /** Every answer so far, for the end-of-fight stats by dạng toán. */
+  log?: LogItem[];
+  /** The question on screen is a second try at a missed one. */
+  questionIsRetry?: boolean;
   savedAt: number;
 }
 
@@ -182,6 +186,8 @@ function PracticeApp() {
   const retryRef = useRef<{ q: Question; due: number }[]>([]);
   const askedRef = useRef(0);
   const seenRef = useRef<Set<string>>(new Set());
+  const logRef = useRef<LogItem[]>([]);
+  const [resultLog, setResultLog] = useState<LogItem[]>([]);
   const [retryLeft, setRetryLeft] = useState(0);
 
   const [savedList, setSavedList] = useState<SavedProgress[]>([]);
@@ -245,7 +251,7 @@ function PracticeApp() {
     setIsCorrect(null);
     pendingRef.current = null;
     // Remember the question on screen, so coming back shows this very question again.
-    saveProgress({ topic, ...statsRef.current, question: q, retry: retryRef.current, asked: askedRef.current, seen: [...seenRef.current] });
+    saveProgress({ topic, ...statsRef.current, question: q, questionIsRetry: due >= 0, retry: retryRef.current, asked: askedRef.current, seen: [...seenRef.current], log: logRef.current });
   }, [selectedTopic]);
 
   const startGame = useCallback((topic: Topic, forceNew = false) => {
@@ -267,6 +273,7 @@ function PracticeApp() {
     retryRef.current = saved?.retry ?? [];
     askedRef.current = saved?.asked ?? 0;
     seenRef.current = new Set(saved?.seen ?? []);
+    logRef.current = saved?.log ?? [];
     setRetryLeft(retryRef.current.length);
     const resumed = !!saved && saved.totalAnswered > 0;
     const hasTheory = LESSONS.some((l) => l.id === topic);
@@ -275,7 +282,7 @@ function PracticeApp() {
     try { localStorage.setItem('mathapp_last_topic', String(topic)); } catch { /* ignore */ }
     if (saved?.question) {
       setQuestion(saved.question);
-      setIsRetry(false);
+      setIsRetry(!!saved.questionIsRetry);
       setChosen(null);
       setIsCorrect(null);
       pendingRef.current = null;
@@ -332,7 +339,11 @@ function PracticeApp() {
       bestStreak: Math.max(statsRef.current.bestStreak, newStreak),
     };
     // Answered: saved without a question, so a return moves on instead of re-asking this one for free points.
-    saveProgress({ topic: selectedTopic, ...statsRef.current, question: null, retry: retryRef.current, asked: askedRef.current, seen: [...seenRef.current] });
+    logRef.current = [...logRef.current, {
+      kind: question.kind ?? metaOf(selectedTopic).label, question: question.question,
+      answer: question.answer, chosen: choice, correct, retry: isRetry,
+    }];
+    saveProgress({ topic: selectedTopic, ...statsRef.current, question: null, retry: retryRef.current, asked: askedRef.current, seen: [...seenRef.current], log: logRef.current });
     pendingRef.current = { points: newPoints, correct: newCorrect, total: newTotal, streak: newStreak };
 
     if (correct) {
@@ -351,6 +362,8 @@ function PracticeApp() {
           correctAnswer: question.answer,
           studentAnswer: choice,
           isCorrect: correct,
+          kind: question.kind ?? metaOf(selectedTopic).label,
+          isRetry,
         }),
       }).catch(() => { /* logging an answer must never interrupt the exercise */ });
     }
@@ -363,6 +376,7 @@ function PracticeApp() {
     // Everything missed has to be answered again before the guard goes down.
     if (isSessionComplete(pending.points) && retryRef.current.length === 0) {
       clearProgress(selectedTopic);
+      setResultLog(logRef.current);
       const alreadyCleared = hasClearedBefore(String(selectedTopic));
       const minutes = alreadyCleared ? 0
         : rewardMinutes(pending.total - pending.correct) + (selectedTopic === CHALLENGE_TOPIC ? CHALLENGE_BONUS_MIN : 0);
@@ -375,7 +389,10 @@ function PracticeApp() {
           const res = await fetch('/api/mathfun/sessions/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentId: user.studentId, topic: selectedTopic, correct: pending.correct, total: pending.total }),
+            body: JSON.stringify({
+              studentId: user.studentId, topic: selectedTopic, correct: pending.correct, total: pending.total,
+              byKind: Object.fromEntries(tallyByKind(logRef.current).map((k) => [k.kind, { correct: k.correct, total: k.correct + k.wrong }])),
+            }),
           });
           setEarnedBadge(await res.json());
         } catch { /* silent */ }
@@ -600,7 +617,9 @@ function PracticeApp() {
             </div>
           </div>
 
-          <p className="text-sm text-gray-400 font-semibold mb-6">{totalAnswered} câu · đúng {accuracy}%</p>
+          <p className="text-sm text-gray-400 font-semibold mb-4">{totalAnswered} câu · đúng {accuracy}%</p>
+
+          <SessionStats log={resultLog} />
 
           <div className="flex flex-wrap gap-3 justify-center">
             {nextLesson && (
@@ -615,6 +634,9 @@ function PracticeApp() {
             </button>
             <Link href="/mathfun" className="card-comic-sm bg-white text-[#1a1a1a] font-black py-3 px-5 rounded-xl hover:bg-gray-50 transition">
               🗺️ Về bản đồ
+            </Link>
+            <Link href="/mathfun/phan-tich" className="card-comic-sm bg-purple-100 border-purple-500 text-purple-800 font-black py-3 px-5 rounded-xl hover:bg-purple-200 transition">
+              📈 Phân tích
             </Link>
           </div>
         </div>
@@ -708,6 +730,57 @@ function PracticeApp() {
           ? `🔁 Còn ${retryLeft} câu sai phải làm lại mới hạ được quái!`
           : points >= 60 ? `Sắp hạ được rồi! Còn ${TARGET_POINTS - points} HP 🔥` : `✅ ${correctCount} · ❌ ${totalAnswered - correctCount}`}
       </div>
+    </div>
+  );
+}
+
+/** End-of-fight breakdown: right / wrong per dạng toán, and every missed question with its answer. */
+function SessionStats({ log }: { log: LogItem[] }) {
+  if (!log.length) return null;
+  const kinds = tallyByKind(log);
+  const wrong = log.filter((l) => !l.correct);
+  const thinking = log.filter((l) => l.kind.startsWith('Tư duy'));
+  return (
+    <div className="text-left mb-6">
+      <h2 className="font-black text-lg mb-2">📊 Thống kê theo dạng toán</h2>
+      {thinking.length > 0 && (
+        <p className="text-sm font-bold text-purple-700 mb-2">
+          🧠 Câu tư duy nhiều bước: đúng {thinking.filter((l) => l.correct).length}/{thinking.length}
+        </p>
+      )}
+      <div className="flex flex-col gap-1.5 mb-4">
+        {kinds.map((k) => {
+          const total = k.correct + k.wrong, ok = Math.round((k.correct / total) * 100);
+          return (
+            <div key={k.kind} className="card-comic-sm rounded-xl bg-white px-3 py-2">
+              <div className="flex items-center gap-2 text-sm font-black">
+                <span className="flex-1 min-w-0">{k.kind}</span>
+                <span className="text-green-600 shrink-0">✓ {k.correct}</span>
+                <span className={`shrink-0 ${k.wrong ? 'text-red-500' : 'text-gray-300'}`}>✗ {k.wrong}</span>
+              </div>
+              <div className="h-1.5 mt-1 bg-red-100 rounded-full overflow-hidden">
+                <div className={`h-full ${ok >= 85 ? 'bg-green-500' : ok >= 60 ? 'bg-yellow-400' : 'bg-red-400'}`} style={{ width: `${ok}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {wrong.length > 0 && (
+        <details className="card-comic-sm rounded-xl bg-red-50 border-red-300 p-3">
+          <summary className="font-black text-sm cursor-pointer">❌ Xem lại {wrong.length} câu làm sai</summary>
+          <ol className="mt-2 flex flex-col gap-2 text-sm">
+            {wrong.map((l, i) => (
+              <li key={i} className="bg-white rounded-lg p-2 border border-red-200">
+                <div className="text-[11px] font-black text-gray-400">{l.kind}{l.retry ? ' · lần làm lại' : ''}</div>
+                <div className="font-semibold text-gray-800">{l.question}</div>
+                <div className="font-black mt-0.5">
+                  <span className="text-red-500">Bé chọn: {l.chosen}</span> · <span className="text-green-600">Đúng: {l.answer}</span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
     </div>
   );
 }
