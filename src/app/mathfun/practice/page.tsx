@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { generateQuestion, TOPICS, TOPIC_CATEGORIES, type Topic, type Question, type Category } from '@/lib/mathfun/questions';
 import { shuffle } from '@/lib/mathfun/qutil';
-import { addCredit, BONUS_SECONDS, PLAY_SECONDS } from '@/lib/mathfun/footballCredit';
+import { addCredit, BONUS_SECONDS, PLAY_SECONDS, hasClearedBefore, markCleared } from '@/lib/mathfun/footballCredit';
 import { LESSONS } from '@/lib/mathfun/curriculum';
 import { ISLANDS, islandOfLesson, nextLessonId } from '@/lib/mathfun/islands';
 import MathText from '@/components/mathfun/MathText';
@@ -26,19 +26,31 @@ const BADGE_LABEL: Record<string, string> = {
   bronze: 'Huy hiệu Đồng', silver: 'Huy hiệu Bạc', gold: 'Huy hiệu Vàng', perfect: 'Vương miện Hoàn hảo!',
 };
 
-// v2: the saved shape gained a streak, so old saves are ignored rather than half-loaded.
-const PROGRESS_KEY = 'mathapp_session_progress_v2';
+// v3: one save per exercise, including the question on screen and the retry queue, so leaving
+// mid-fight and coming back picks up exactly where the kid was. Older saves are ignored.
+const PROGRESS_KEY = 'mathapp_session_progress_v3';
+const PROGRESS_TTL = 14 * 24 * 60 * 60 * 1000;
 
 type Phase = 'setup' | 'theory' | 'playing' | 'result';
 
-interface SavedProgress {
-  topic: Topic;
+interface Stats {
   points: number;
   correctCount: number;
   totalAnswered: number;
   streak: number;
+  bestStreak: number;
+}
+
+interface SavedProgress extends Stats {
+  topic: Topic;
+  /** The question on screen, not yet answered — null between an answer and the next question. */
+  question: Question | null;
+  retry: { q: Question; due: number }[];
+  asked: number;
   savedAt: number;
 }
+
+const ZERO: Stats = { points: 0, correctCount: 0, totalAnswered: 0, streak: 0, bestStreak: 0 };
 
 const CHALLENGE_META = { emoji: '🐲', label: 'Thử thách tổng hợp', color: 'bg-purple-100 border-purple-400 text-purple-800' };
 
@@ -94,24 +106,39 @@ function playSound(correct: boolean) {
 
 // ── Session progress persistence ──────────────────────────────────────────────
 
-function saveProgress(p: Omit<SavedProgress, 'savedAt'>) {
-  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify({ ...p, savedAt: Date.now() })); } catch { /* ignore */ }
-}
-
-function loadProgress(topic?: Topic): SavedProgress | null {
+function readAll(): Record<string, SavedProgress> {
   try {
-    const raw = localStorage.getItem(PROGRESS_KEY);
-    if (!raw) return null;
-    const data: SavedProgress = JSON.parse(raw);
-    if (topic !== undefined && data.topic !== topic) return null;
-    if (Date.now() - data.savedAt > 24 * 60 * 60 * 1000) return null;
-    if (isSessionComplete(data.points)) return null;
-    return data;
-  } catch { return null; }
+    const all: Record<string, SavedProgress> = JSON.parse(localStorage.getItem(PROGRESS_KEY) ?? '{}');
+    for (const [k, v] of Object.entries(all)) {
+      if (!v || Date.now() - v.savedAt > PROGRESS_TTL) delete all[k];
+    }
+    return all;
+  } catch { return {}; }
 }
 
-function clearProgress() {
-  try { localStorage.removeItem(PROGRESS_KEY); } catch { /* ignore */ }
+function writeAll(all: Record<string, SavedProgress>) {
+  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(all)); } catch { /* ignore */ }
+}
+
+function saveProgress(p: Omit<SavedProgress, 'savedAt'>) {
+  const all = readAll();
+  all[String(p.topic)] = { ...p, savedAt: Date.now() };
+  writeAll(all);
+}
+
+function loadProgress(topic: Topic): SavedProgress | null {
+  return readAll()[String(topic)] ?? null;
+}
+
+/** Exercises left half-done (at least one answer given), most recent first. */
+function listProgress(): SavedProgress[] {
+  return Object.values(readAll()).filter((p) => p.totalAnswered > 0).sort((a, b) => b.savedAt - a.savedAt);
+}
+
+function clearProgress(topic: Topic) {
+  const all = readAll();
+  delete all[String(topic)];
+  writeAll(all);
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -140,6 +167,7 @@ function PracticeApp() {
   const [bestStreak, setBestStreak] = useState(0);
   const [earnedBadge, setEarnedBadge] = useState<BadgeResult | null>(null);
   const [bonusEarned, setBonusEarned] = useState(false);
+  const [creditGranted, setCreditGranted] = useState(true);
 
   const [hitKey, setHitKey] = useState(0);
   const [hurtKey, setHurtKey] = useState(0);
@@ -153,7 +181,9 @@ function PracticeApp() {
   const askedRef = useRef(0);
   const [retryLeft, setRetryLeft] = useState(0);
 
-  const [savedProgress, setSavedProgress] = useState<SavedProgress | null>(null);
+  const [savedList, setSavedList] = useState<SavedProgress[]>([]);
+  // Latest numbers, readable from callbacks so every save writes the current state.
+  const statsRef = useRef<Stats>(ZERO);
 
   useEffect(() => {
     fetch('/api/mathfun/me').then((r) => r.json()).then((d) => {
@@ -161,7 +191,13 @@ function PracticeApp() {
       setUser(u);
       if (u) {
         fetch(`/api/mathfun/students/${u.studentId}`).then((r) => r.json())
-          .then((data) => setBadges(data.badges ?? []))
+          .then((data) => {
+            const bs: Badge[] = data.badges ?? [];
+            setBadges(bs);
+            // Any topic the server already has a badge for is cleared — sync it in so a
+            // first "Đánh lại" on this device doesn't look like a fresh clear.
+            bs.forEach((b) => markCleared(b.topic));
+          })
           .catch(() => { /* badges are decoration; the exercise works without them */ });
       }
     }).catch(() => { /* not signed in / offline: practice still works, nothing is recorded */ });
@@ -169,8 +205,8 @@ function PracticeApp() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after mount
-    setSavedProgress(loadProgress());
-  }, []);
+    if (phase === 'setup') setSavedList(listProgress());
+  }, [phase]);
 
   useEffect(() => () => { if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current); }, []);
 
@@ -191,28 +227,43 @@ function PracticeApp() {
     setChosen(null);
     setIsCorrect(null);
     pendingRef.current = null;
+    // Remember the question on screen, so coming back shows this very question again.
+    saveProgress({ topic, ...statsRef.current, question: q, retry: retryRef.current, asked: askedRef.current });
   }, [selectedTopic]);
 
   const startGame = useCallback((topic: Topic, forceNew = false) => {
+    if (forceNew) clearProgress(topic);
     const saved = forceNew ? null : loadProgress(topic);
+    const stats: Stats = saved
+      ? { points: saved.points, correctCount: saved.correctCount, totalAnswered: saved.totalAnswered, streak: saved.streak, bestStreak: saved.bestStreak ?? saved.streak }
+      : ZERO;
+    statsRef.current = stats;
     setSelectedTopic(topic);
-    setPoints(saved?.points ?? 0);
-    setCorrectCount(saved?.correctCount ?? 0);
-    setTotalAnswered(saved?.totalAnswered ?? 0);
-    setStreak(saved?.streak ?? 0);
-    setBestStreak(saved?.streak ?? 0);
-    if (!saved) clearProgress();
+    setPoints(stats.points);
+    setCorrectCount(stats.correctCount);
+    setTotalAnswered(stats.totalAnswered);
+    setStreak(stats.streak);
+    setBestStreak(stats.bestStreak);
     setEarnedBadge(null);
     setBonusEarned(false);
     setFlash(null);
-    retryRef.current = [];
-    askedRef.current = 0;
-    setRetryLeft(0);
+    retryRef.current = saved?.retry ?? [];
+    askedRef.current = saved?.asked ?? 0;
+    setRetryLeft(retryRef.current.length);
+    const resumed = !!saved && saved.totalAnswered > 0;
     const hasTheory = LESSONS.some((l) => l.id === topic);
     // A lesson opens on its rule + examples; resuming jumps straight back into the fight.
-    setPhase(hasTheory && !saved ? 'theory' : 'playing');
+    setPhase(hasTheory && !resumed ? 'theory' : 'playing');
     try { localStorage.setItem('mathapp_last_topic', String(topic)); } catch { /* ignore */ }
-    nextQuestion(topic);
+    if (saved?.question) {
+      setQuestion(saved.question);
+      setIsRetry(false);
+      setChosen(null);
+      setIsCorrect(null);
+      pendingRef.current = null;
+    } else {
+      nextQuestion(topic);
+    }
   }, [nextQuestion]);
 
   // ?topic=… in the URL goes straight into that exercise.
@@ -253,7 +304,12 @@ function PracticeApp() {
       setRetryLeft(retryRef.current.length);
     }
 
-    saveProgress({ topic: selectedTopic, points: newPoints, correctCount: newCorrect, totalAnswered: newTotal, streak: newStreak });
+    statsRef.current = {
+      points: newPoints, correctCount: newCorrect, totalAnswered: newTotal, streak: newStreak,
+      bestStreak: Math.max(statsRef.current.bestStreak, newStreak),
+    };
+    // Answered: saved without a question, so a return moves on instead of re-asking this one for free points.
+    saveProgress({ topic: selectedTopic, ...statsRef.current, question: null, retry: retryRef.current, asked: askedRef.current });
     pendingRef.current = { points: newPoints, correct: newCorrect, total: newTotal, streak: newStreak };
 
     if (correct) {
@@ -283,11 +339,17 @@ function PracticeApp() {
 
     // Everything missed has to be answered again before the guard goes down.
     if (isSessionComplete(pending.points) && retryRef.current.length === 0) {
-      clearProgress();
-      setSavedProgress(null);
+      clearProgress(selectedTopic);
       const flawless = pending.correct === pending.total;
-      setBonusEarned(flawless);
-      addCredit(PLAY_SECONDS + (flawless ? BONUS_SECONDS : 0));
+      const alreadyCleared = hasClearedBefore(String(selectedTopic));
+      setCreditGranted(!alreadyCleared);
+      if (alreadyCleared) {
+        setBonusEarned(false);
+      } else {
+        setBonusEarned(flawless);
+        addCredit(PLAY_SECONDS + (flawless ? BONUS_SECONDS : 0));
+      }
+      markCleared(String(selectedTopic));
       if (user) {
         try {
           const res = await fetch('/api/mathfun/sessions/complete', {
@@ -367,17 +429,18 @@ function PracticeApp() {
           Mỗi câu đúng là một đòn đánh. Hạ đủ 100 HP của quái vật để thắng và nhận 5 phút đá bóng.
         </p>
 
-        {savedProgress && (
-          <div className="card-comic-sm bg-amber-50 border-amber-400 rounded-2xl p-4 mb-5 flex items-center gap-3 flex-wrap">
+        {savedList.map((sp) => (
+          <div key={String(sp.topic)} className="card-comic-sm bg-amber-50 border-amber-400 rounded-2xl p-4 mb-3 flex items-center gap-3 flex-wrap">
             <span className="text-sm font-bold text-amber-800">
-              💾 Trận dở: <strong>{metaOf(savedProgress.topic).label}</strong> · còn {TARGET_POINTS - savedProgress.points} HP
+              💾 Trận dở: <strong>{metaOf(sp.topic).emoji} {metaOf(sp.topic).label}</strong> · đã làm {sp.totalAnswered} câu · quái còn {TARGET_POINTS - sp.points} HP
             </span>
-            <button onClick={() => startGame(savedProgress.topic)}
+            <button onClick={() => startGame(sp.topic)}
               className="card-comic-sm bg-[#FFD015] font-black text-sm px-4 py-2 rounded-xl hover:bg-yellow-300 transition ml-auto">
               ▶ Đánh tiếp
             </button>
           </div>
-        )}
+        ))}
+        {savedList.length > 0 && <div className="mb-5" />}
 
         <div className="flex flex-col gap-4 mb-5">
           {ISLANDS.map((island) => (
@@ -394,12 +457,13 @@ function PracticeApp() {
                   const l = LESSONS.find((x) => x.id === id);
                   if (!l) return null;
                   const b = badgeOf(id);
+                  const inProgress = savedList.some((sp) => sp.topic === id);
                   return (
                     <button key={id} onClick={() => startGame(id)}
                       className={`card-comic-sm rounded-xl p-2.5 font-black text-left text-sm flex items-center gap-2 transition hover:-translate-y-0.5 ${l.color}`}>
                       <span>{l.emoji}</span>
                       <span className="flex-1 min-w-0 truncate">{l.label}</span>
-                      <span className="shrink-0">{b ? BADGE_EMOJI[b.badge] : '▶'}</span>
+                      <span className="shrink-0">{inProgress ? '⏸' : b ? BADGE_EMOJI[b.badge] : '▶'}</span>
                     </button>
                   );
                 })}
@@ -471,9 +535,15 @@ function PracticeApp() {
           </div>
           <p className="text-gray-400 font-bold mb-3">{topicInfo.emoji} {topicInfo.label}</p>
 
-          <Link href="/child/games/football" className="card-comic-sm mb-4 inline-block bg-green-100 border-green-500 font-black text-green-800 py-2 px-4 rounded-xl hover:bg-green-200 transition">
-            ⚽ Được chơi đá bóng {5 + (bonusEarned ? 2 : 0)} phút{bonusEarned ? ' (thưởng 2 phút vì không sai câu nào!)' : ''} → Chơi ngay
-          </Link>
+          {creditGranted ? (
+            <Link href="/child/games/football" className="card-comic-sm mb-4 inline-block bg-green-100 border-green-500 font-black text-green-800 py-2 px-4 rounded-xl hover:bg-green-200 transition">
+              ⚽ Được chơi đá bóng {5 + (bonusEarned ? 2 : 0)} phút{bonusEarned ? ' (thưởng 2 phút vì không sai câu nào!)' : ''} → Chơi ngay
+            </Link>
+          ) : (
+            <div className="card-comic-sm mb-4 inline-block bg-gray-100 border-gray-300 font-black text-gray-500 py-2 px-4 rounded-xl">
+              🔁 Bài này đã hạ gục trước rồi nên lần này không được thêm giờ đá bóng — chọn bài khác để nhận thêm giờ nhé!
+            </div>
+          )}
 
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="card-comic-sm bg-green-50 border-green-400 rounded-xl p-3">

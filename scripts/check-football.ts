@@ -1,7 +1,7 @@
 // Headless check for the football sim: `npx tsx scripts/check-football.ts`
 // Two scripted players (a careful one and a clumsy young one) play full matches so the
 // difficulty levels can be checked for real: Dễ has to be winnable, Khó has to bite.
-import { newGame, step, emptyInput, supHeight, supOffset, W, H, CHARS, LEVELS, DIFFICULTIES, SUP_KINDS, FIRST_SUP, MAX_AWAKE, CHARGE_FULL, type Game } from '../src/lib/football/sim';
+import { newGame, step, emptyInput, supHeight, supOffset, W, H, CHARS, LEVELS, DIFFICULTIES, SUP_KINDS, FIRST_SUP, MAX_AWAKE, CHARGE_FULL, MATCH_SECONDS, type Game } from '../src/lib/football/sim';
 
 interface Skill { name: string; react: number; err: number; charge: number; sprintP: number; idleP: number; corner: boolean }
 /** A 10-year-old: reacts a quarter-second late, runs crooked, taps the shoot button. */
@@ -21,7 +21,7 @@ function playMatch(level: number, difficulty: number, skill: Skill) {
   let dx = 0, dy = 0, idle = false, hold = 0, frames = 0, corner = 1;
   const fired: [number, number] = [0, 0];
   while (g.phase !== 'full') {
-    if (++frames > 60 * 60 * 6) throw new Error('match never ended');
+    if (++frames > MATCH_SECONDS * 60 * 3) throw new Error('match never ended');
     const inp = emptyInput(), b = g.ball, me = g.ctl, mine = b.owner === me;
     if (frames % skill.react === 0) {
       const t = mine ? { x: W, y: H / 2 } : (b.owner ?? b);
@@ -88,18 +88,20 @@ const kidK = run(`${DIFFICULTIES[2].name} · ${LEVELS[1].name} · bé`, 1, 2, KI
 const proBoss = run(`${DIFFICULTIES[2].name} · ${LEVELS[4].name} · giỏi`, 4, 2, PRO, N_BOSS);
 
 const diff = (r: { gf: number; ga: number; n: number }) => (r.gf - r.ga) / r.n;
+// Goal bounds were set for a 2-minute match; a longer match scales them in proportion.
+const K = MATCH_SECONDS / 120;
 
 // A child on the default setting wins comfortably, scores plenty and is not buried…
 if (kidEasy.winRate < 0.8) fail(`Dễ: a kid wins only ${(kidEasy.winRate * 100).toFixed(0)}% of matches — still too hard`);
-if (kidEasy.gf / kidEasy.n < 2) fail(`Dễ: a kid scores ${(kidEasy.gf / kidEasy.n).toFixed(1)} goals a match — not rewarding enough`);
-if (kidEasy.ga / kidEasy.n > 1.2) fail(`Dễ: a kid concedes ${(kidEasy.ga / kidEasy.n).toFixed(1)} a match — too punishing`);
-if (kidEasy.gf / kidEasy.n > 11) fail(`Dễ: ${(kidEasy.gf / kidEasy.n).toFixed(1)} goals a match is a walkover, not a game`);
+if (kidEasy.gf / kidEasy.n < 2 * K) fail(`Dễ: a kid scores ${(kidEasy.gf / kidEasy.n).toFixed(1)} goals a match — not rewarding enough`);
+if (kidEasy.ga / kidEasy.n > 1.2 * K) fail(`Dễ: a kid concedes ${(kidEasy.ga / kidEasy.n).toFixed(1)} a match — too punishing`);
+if (kidEasy.gf / kidEasy.n > 11 * K) fail(`Dễ: ${(kidEasy.gf / kidEasy.n).toFixed(1)} goals a match is a walkover, not a game`);
 // …and against one and the same opponent each step up has to bite.
 if (diff(kidD) <= diff(kidV)) fail('Vừa is not harder than Dễ');
 if (diff(kidV) <= diff(kidK)) fail('Khó is not harder than Vừa');
 if (kidK.winRate >= kidD.winRate) fail('a kid should win less often on Khó than on Dễ');
 // The last team on Khó is a boss: an even fight for someone who plays well, decided by a goal or two.
-if (Math.abs(diff(proBoss)) > 1.5) fail(`Khó: the final team ends ${diff(proBoss).toFixed(1)} goals apart on average — not an even fight`);
+if (Math.abs(diff(proBoss)) > 1.5 * K) fail(`Khó: the final team ends ${diff(proBoss).toFixed(1)} goals apart on average — not an even fight`);
 if (proBoss.winRate < 0.2) fail(`Khó: the final team is won ${(proBoss.winRate * 100).toFixed(0)}% of the time even played well`);
 if (proBoss.winRate > 0.8) fail('Khó: the final team is no challenge');
 

@@ -151,11 +151,15 @@ function IslandNode({
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
     >
+      {progress.complete && (
+        <ellipse cx={x} cy={y + 8} rx="100" ry="54" fill="none" stroke="#ffd95a" strokeWidth="5" opacity="0.7" />
+      )}
       <ellipse cx={x} cy={y + 52} rx="92" ry="20" fill="#000" opacity="0.22" />
       <path d={`M ${x - 78} ${y} A 78 34 0 0 0 ${x + 78} ${y} L ${x + 70} ${y + 30} A 70 30 0 0 1 ${x - 70} ${y + 30} Z`}
         fill="url(#mf-side)" />
-      <ellipse cx={x} cy={y} rx="78" ry="34" fill="url(#mf-grass)" stroke="#2f8a3a" strokeWidth="2" />
-      <ellipse cx={x - 4} cy={y + 2} rx="52" ry="20" fill="#78d36a" opacity="0.55" />
+      <ellipse cx={x} cy={y} rx="78" ry="34" fill={progress.complete ? 'url(#mf-grass-done)' : 'url(#mf-grass)'}
+        stroke={progress.complete ? '#b3790f' : '#2f8a3a'} strokeWidth="2" />
+      <ellipse cx={x - 4} cy={y + 2} rx="52" ry="20" fill={progress.complete ? '#fff0b8' : '#78d36a'} opacity="0.55" />
       {[[-48, 8], [-18, 14], [24, 10], [52, 2]].map(([dx, dy], k) => (
         <circle key={k} cx={x + dx} cy={y + dy} r="2.2" fill={['#ff7aa8', '#ffd95a', '#fff'][k % 3]} />
       ))}
@@ -202,6 +206,9 @@ function IslandNode({
           <text y="-8" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="900" fill="#fff">ĐI TIẾP</text>
         </g></g>
       )}
+      {progress.complete && !current && (
+        <text x={x} y={y - 72} textAnchor="middle" fontSize="26" className="mf-bob">👑</text>
+      )}
       {active && <ellipse cx={x} cy={y + 8} rx="96" ry="52" fill="none" stroke="#ffd95a" strokeWidth="4" strokeDasharray="10 8" />}
     </g>
   );
@@ -242,6 +249,10 @@ export default function IslandMap({ badges }: { badges: BadgeLike[] }) {
           </linearGradient>
           <linearGradient id="mf-grass" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#8bdc6f" /><stop offset="100%" stopColor="#4fb55a" />
+          </linearGradient>
+          {/* Victory tint: the island's whole platform turns gold once every lesson on it is cleared. */}
+          <linearGradient id="mf-grass-done" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ffe28a" /><stop offset="100%" stopColor="#f0b429" />
           </linearGradient>
           <linearGradient id="mf-side" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#b57a45" /><stop offset="100%" stopColor="#7a4e2a" />

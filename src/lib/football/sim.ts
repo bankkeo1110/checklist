@@ -7,7 +7,7 @@ export const W = 960, H = 560;            // the whole pitch
 export const GY1 = H / 2 - 62, GY2 = H / 2 + 62;
 const MX = 12, MY = 14;
 export const CHARGE_FULL = 40;
-export const MATCH_SECONDS = 120;
+export const MATCH_SECONDS = 300;
 
 export type SupKind = 'blast' | 'zigzag' | 'arrow' | 'boomerang' | 'sky' | 'leaf' | 'kame' | 'void';
 export const SUP_KINDS: SupKind[] = ['kame', 'blast', 'zigzag', 'arrow', 'boomerang', 'sky', 'leaf', 'void'];

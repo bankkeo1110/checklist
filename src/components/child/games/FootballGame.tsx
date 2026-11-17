@@ -83,18 +83,31 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
 
   useEffect(() => { pausedRef.current = paused; }, [paused]);
 
-  // Spend earned play time only while a match is running; persisted every second so a refresh can't reset it.
+  // Spend earned play time only while a match is running and not paused; persisted every second, so
+  // pausing, leaving the page or a refresh keeps whatever is left. Running out mid-match lets the
+  // match finish (a 5-minute match never fits in exactly 5 minutes of credit) — no new one starts.
   useEffect(() => {
     if (stage !== 'play' || preview || paused) return;
     let left = getCredit();
+    if (left <= 0) return;
     const id = setInterval(() => {
-      left -= 1;
+      left = Math.max(0, left - 1);
       setCredit(left);
       setSecondsLeft(left);
-      if (left <= 0) { clearInterval(id); setStage('over'); }
+      if (left <= 0) clearInterval(id);
     }, 1000);
     return () => clearInterval(id);
   }, [stage, preview, paused]);
+
+  // Switching app, locking the phone or hiding the tab pauses the match, so the clock stops too.
+  useEffect(() => {
+    if (stage !== 'play') return;
+    const hide = () => { if (document.hidden) setPaused(true); };
+    const leave = () => setPaused(true);
+    document.addEventListener('visibilitychange', hide);
+    window.addEventListener('pagehide', leave);
+    return () => { document.removeEventListener('visibilitychange', hide); window.removeEventListener('pagehide', leave); };
+  }, [stage]);
 
   // match loop: fixed 60 Hz simulation, drawn every animation frame
   useEffect(() => {
@@ -189,11 +202,14 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
     try { localStorage.setItem(DIFF_KEY, String(i)); } catch { /* storage blocked */ }
   };
 
-  const startMatch = (lv: number) => { setLevel(lv); setResult(null); setPaused(false); setMatchNo((n) => n + 1); setStage('play'); };
+  const startMatch = (lv: number) => {
+    if (!preview && getCredit() <= 0) { setStage('over'); return; }
+    setLevel(lv); setResult(null); setPaused(false); setMatchNo((n) => n + 1); setStage('play');
+  };
 
   if (secondsLeft === null) return <p className="text-center font-semibold text-gray-500">Đang tải…</p>;
 
-  if (secondsLeft <= 0 || stage === 'over') {
+  if (stage === 'over' || (secondsLeft <= 0 && stage === 'menu')) {
     return (
       <div className="mx-auto max-w-md rounded-2xl bg-white p-10 text-center shadow-xl">
         <h2 className="mb-2 text-2xl font-bold text-green-700">⏱️ Hết giờ chơi rồi!</h2>
@@ -227,7 +243,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
         </p>
         <div className="flex flex-wrap justify-center gap-2">
           <button onClick={() => startMatch(result.champion ? 0 : nextLv)} className="rounded-full bg-green-500 px-6 py-3 font-bold text-white shadow-lg">
-            ▶ {won ? 'Trận tiếp theo' : 'Đá lại'}
+            {!preview && secondsLeft <= 0 ? '⏱️ Hết giờ chơi' : `▶ ${won ? 'Trận tiếp theo' : 'Đá lại'}`}
           </button>
           <button onClick={() => setStage('menu')} className="rounded-full bg-gray-100 px-6 py-3 font-bold text-gray-700">Đổi đội hình</button>
         </div>
@@ -339,7 +355,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
       <div className="flex items-center justify-between rounded-xl bg-white px-4 py-1.5 text-sm font-black shadow">
-        <span>⏱️ Giờ chơi: {clock}{preview && ' (chơi thử)'}</span>
+        <span>⏱️ Giờ chơi: {clock}{preview && ' (chơi thử)'}{!preview && secondsLeft <= 0 && ' · đá nốt trận này'}</span>
         <span className="hidden text-gray-400 sm:inline">Space sút · X chuyền · Z xoạc · Shift chạy</span>
         <button onClick={() => setPaused((p) => !p)} className="rounded-lg bg-gray-100 px-3 py-1">{paused ? '▶ Tiếp tục' : '⏸ Dừng'}</button>
       </div>
@@ -348,8 +364,9 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
         {paused && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-black/60 text-white">
             <p className="text-3xl font-black">⏸ TẠM DỪNG</p>
+            {!preview && <p className="font-bold text-white/80">Đồng hồ đã dừng · giờ chơi còn {clock} được giữ lại</p>}
             <button onClick={() => setPaused(false)} className="rounded-full bg-green-500 px-6 py-2 font-bold shadow-lg">▶ Chơi tiếp</button>
-            <button onClick={() => { setPaused(false); setStage('menu'); }} className="rounded-full bg-white/20 px-6 py-2 font-bold">Thoát trận</button>
+            <button onClick={() => { setPaused(false); setStage('menu'); }} className="rounded-full bg-white/20 px-6 py-2 font-bold">Thoát trận (giữ giờ chơi)</button>
           </div>
         )}
       </div>
