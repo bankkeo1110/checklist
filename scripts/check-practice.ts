@@ -25,7 +25,7 @@ function session(rate: number) {
   return { questions: total, accuracy: calcAccuracy(correct, total) };
 }
 
-for (const [label, rate, min, max] of [['perfect', 1, 8, 13], ['good', 0.8, 10, 20], ['struggling', 0.55, 16, 42]] as const) {
+for (const [label, rate, min, max] of [['perfect', 1, 12, 12], ['good', 0.8, 14, 24], ['struggling', 0.55, 30, 55]] as const) {
   const runs = Array.from({ length: 300 }, () => session(rate));
   if (runs.some((r) => r === null)) { fail(`${label}: some sessions never finish`); continue; }
   const qs = runs.map((r) => r!.questions);
@@ -37,6 +37,9 @@ for (const [label, rate, min, max] of [['perfect', 1, 8, 13], ['good', 0.8, 10, 
 // A flawless run must never be slower than a sloppy one, and points stay inside the bar.
 if (getPointsDelta(0, true) >= getPointsDelta(5, true)) fail('a long streak should hit harder than a fresh one');
 if (getPointsDelta(0, false) >= 0) fail('a wrong answer must cost points');
+// Hits: 6, then 8 from the 3rd in a row, then 10 — never more than 10.
+if ([0, 1, 2, 3, 4, 5, 20].map((k) => getPointsDelta(k, true)).join() !== '6,6,8,8,10,10,10') fail('hits must go 6,6,8,8,10 and cap at 10');
+if (getPointsDelta(0, false) !== -3) fail('a wrong answer heals the guard 3');
 if (calcScore(0, 0, false) !== 0) fail('points must not go negative');
 if (calcScore(TARGET_POINTS, 9, true) !== TARGET_POINTS) fail('points must not exceed the target');
 if (starsForAccuracy(100) !== 3 || starsForAccuracy(75) !== 2 || starsForAccuracy(40) !== 1) fail('star cut-offs wrong');

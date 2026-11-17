@@ -5,12 +5,13 @@ export const CHALLENGE_TOPIC = 'thu-thach-lop5';
 
 /**
  * Damage dealt by one answer. `streak` = correct answers in a row BEFORE this one.
- * A flawless run beats the guard in 10 questions (8,8,10,10,12…); a slip heals it 3 and resets the
- * combo, so a session stays short enough for one sitting while mistakes still have to be worked off.
+ * 6 HP, then 8 from the 3rd answer in a row, then 10 (the cap) from the 5th — a flawless run beats
+ * the guard in 12 questions (6,6,8,8,10,10…). A slip heals it 3 and resets the combo.
  */
+export const MAX_HIT = 10;
 export function getPointsDelta(streak: number, correct: boolean): number {
   if (!correct) return -3;
-  return streak >= 4 ? 12 : streak >= 2 ? 10 : 8;
+  return streak >= 4 ? MAX_HIT : streak >= 2 ? 8 : 6;
 }
 
 export function calcScore(current: number, streak: number, correct: boolean): number {
