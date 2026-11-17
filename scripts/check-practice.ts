@@ -3,7 +3,7 @@ import { LESSONS } from '../src/lib/mathfun/curriculum';
 import { generateQuestion } from '../src/lib/mathfun/questions';
 import {
   TARGET_POINTS, CHALLENGE_TOPIC, RETRY_AFTER, calcScore, isSessionComplete,
-  calcAccuracy, starsForAccuracy, getPointsDelta,
+  calcAccuracy, starsForAccuracy, getPointsDelta, rewardMinutes,
 } from '../src/lib/mathfun/practice-logic';
 
 let bad = 0;
@@ -54,6 +54,11 @@ for (const topic of [...LESSONS.map((l) => l.id), CHALLENGE_TOPIC]) {
     if (!q.explanation.trim()) fail(`${topic}: no explanation`);
   }
 }
+
+// Football minutes by wrong answers: 0 → 7, 1–3 → 5, 4–5 → 4, 6–7 → 3, 8+ → 2.
+const expected = [7, 5, 5, 5, 4, 4, 3, 3, 2, 2, 2];
+expected.forEach((m, wrong) => { if (rewardMinutes(wrong) !== m) fail(`${wrong} sai → ${rewardMinutes(wrong)} phút, phải là ${m}`); });
+if (rewardMinutes(40) !== 2) fail('many wrong answers must still earn 2 minutes');
 
 console.log(bad ? `${bad} problem(s)` : 'all ok');
 process.exit(bad ? 1 : 0);

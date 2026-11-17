@@ -213,7 +213,7 @@ export default function FootballGame({ preview = false }: { preview?: boolean })
     return (
       <div className="mx-auto max-w-md rounded-2xl bg-white p-10 text-center shadow-xl">
         <h2 className="mb-2 text-2xl font-bold text-green-700">⏱️ Hết giờ chơi rồi!</h2>
-        <p className="mb-6 font-semibold text-gray-600">Làm xong một bài toán đạt 100 điểm để được chơi thêm 5 phút nhé. Giải đấu vẫn được lưu lại!</p>
+        <p className="mb-6 font-semibold text-gray-600">Hạ gục một bài toán mới để được chơi thêm (đúng hết: 7 phút, càng ít sai càng nhiều phút) nhé. Giải đấu vẫn được lưu lại!</p>
         <Link href="/mathfun" className="rounded-full bg-green-500 px-8 py-3 text-lg font-bold text-white shadow-lg">
           🗺️ Đi làm toán
         </Link>

@@ -110,7 +110,7 @@ export default function Home() {
       <Link href="/child/games/football" className="card-comic bg-green-500 text-white rounded-2xl p-5 mb-8 flex items-center justify-between gap-4 hover:-translate-y-0.5 transition-all">
         <div>
           <h3 className="font-black text-xl">⚽ Đá bóng thưởng</h3>
-          <p className="text-green-50 font-semibold text-sm">Hạ một con quái vật để được chơi 5 phút (không sai câu nào: 7 phút).</p>
+          <p className="text-green-50 font-semibold text-sm">Hạ một bài mới để được chơi: không sai câu nào 7 phút · sai 1–3 câu 5 phút · 4–5 câu 4 phút · 6–7 câu 3 phút · từ 8 câu 2 phút.</p>
         </div>
         <div className="shrink-0 text-center font-black">
           <div className="text-3xl leading-none">{Math.floor(creditSec / 60)}:{String(creditSec % 60).padStart(2, '0')}</div>

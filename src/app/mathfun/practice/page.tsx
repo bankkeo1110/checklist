@@ -5,14 +5,14 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { generateQuestion, TOPICS, TOPIC_CATEGORIES, type Topic, type Question, type Category } from '@/lib/mathfun/questions';
 import { shuffle } from '@/lib/mathfun/qutil';
-import { addCredit, BONUS_SECONDS, PLAY_SECONDS, hasClearedBefore, markCleared } from '@/lib/mathfun/footballCredit';
+import { addCredit, hasClearedBefore, markCleared } from '@/lib/mathfun/footballCredit';
 import { LESSONS } from '@/lib/mathfun/curriculum';
 import { ISLANDS, islandOfLesson, nextLessonId } from '@/lib/mathfun/islands';
 import MathText from '@/components/mathfun/MathText';
 import Battle from '@/components/mathfun/Battle';
 import {
   TARGET_POINTS, CHALLENGE_TOPIC, RETRY_AFTER, calcScore, isSessionComplete,
-  calcAccuracy, getPointsDelta, starsForAccuracy,
+  calcAccuracy, getPointsDelta, starsForAccuracy, rewardMinutes,
 } from '@/lib/mathfun/practice-logic';
 
 const LEGACY_ORDER: Category[] = ['numbers', 'fractions', 'measurement-geometry', 'problem-solving'];
@@ -166,7 +166,7 @@ function PracticeApp() {
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [earnedBadge, setEarnedBadge] = useState<BadgeResult | null>(null);
-  const [bonusEarned, setBonusEarned] = useState(false);
+  const [rewardMin, setRewardMin] = useState(0);
   const [creditGranted, setCreditGranted] = useState(true);
 
   const [hitKey, setHitKey] = useState(0);
@@ -245,7 +245,7 @@ function PracticeApp() {
     setStreak(stats.streak);
     setBestStreak(stats.bestStreak);
     setEarnedBadge(null);
-    setBonusEarned(false);
+    setRewardMin(0);
     setFlash(null);
     retryRef.current = saved?.retry ?? [];
     askedRef.current = saved?.asked ?? 0;
@@ -340,15 +340,11 @@ function PracticeApp() {
     // Everything missed has to be answered again before the guard goes down.
     if (isSessionComplete(pending.points) && retryRef.current.length === 0) {
       clearProgress(selectedTopic);
-      const flawless = pending.correct === pending.total;
       const alreadyCleared = hasClearedBefore(String(selectedTopic));
+      const minutes = alreadyCleared ? 0 : rewardMinutes(pending.total - pending.correct);
       setCreditGranted(!alreadyCleared);
-      if (alreadyCleared) {
-        setBonusEarned(false);
-      } else {
-        setBonusEarned(flawless);
-        addCredit(PLAY_SECONDS + (flawless ? BONUS_SECONDS : 0));
-      }
+      setRewardMin(minutes);
+      if (minutes > 0) addCredit(minutes * 60);
       markCleared(String(selectedTopic));
       if (user) {
         try {
@@ -426,7 +422,7 @@ function PracticeApp() {
 
         <h1 className="font-black text-3xl text-[#1a1a1a] mb-1 tracking-wide">⚔️ CHỌN TRẬN ĐẤU</h1>
         <p className="font-semibold text-gray-500 mb-5">
-          Mỗi câu đúng là một đòn đánh. Hạ đủ 100 HP của quái vật để thắng và nhận 5 phút đá bóng.
+          Mỗi câu đúng là một đòn đánh. Hạ đủ 100 HP của quái vật để nhận phút đá bóng: không sai câu nào 7 phút, sai 1–3 câu 5 phút, 4–5 câu 4 phút, 6–7 câu 3 phút, từ 8 câu 2 phút.
         </p>
 
         {savedList.map((sp) => (
@@ -537,7 +533,7 @@ function PracticeApp() {
 
           {creditGranted ? (
             <Link href="/child/games/football" className="card-comic-sm mb-4 inline-block bg-green-100 border-green-500 font-black text-green-800 py-2 px-4 rounded-xl hover:bg-green-200 transition">
-              ⚽ Được chơi đá bóng {5 + (bonusEarned ? 2 : 0)} phút{bonusEarned ? ' (thưởng 2 phút vì không sai câu nào!)' : ''} → Chơi ngay
+              ⚽ Được chơi đá bóng {rewardMin} phút{totalAnswered === correctCount ? ' (không sai câu nào!)' : ` (sai ${totalAnswered - correctCount} câu)`} → Chơi ngay
             </Link>
           ) : (
             <div className="card-comic-sm mb-4 inline-block bg-gray-100 border-gray-300 font-black text-gray-500 py-2 px-4 rounded-xl">

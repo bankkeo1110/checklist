@@ -34,5 +34,13 @@ export function starsForBadge(badge: string | undefined): 0 | 1 | 2 | 3 {
   return badge === 'perfect' || badge === 'gold' ? 3 : badge === 'silver' ? 2 : badge === 'bronze' ? 1 : 0;
 }
 
+/**
+ * Football minutes for a first clear, by how many answers were wrong along the way:
+ * 0 → 7, 1–3 → 5, 4–5 → 4, 6–7 → 3, 8 or more → 2.
+ */
+export function rewardMinutes(wrong: number): number {
+  return wrong <= 0 ? 7 : wrong <= 3 ? 5 : wrong <= 5 ? 4 : wrong <= 7 ? 3 : 2;
+}
+
 /** How many questions later a missed question comes back for a second try. */
 export const RETRY_AFTER = 3;
