@@ -42,15 +42,29 @@ export interface BadgeLike { topic: string; badge: string; bestScore: number; at
 
 export interface IslandProgress { done: number; total: number; complete: boolean; started: boolean }
 
-export function islandProgress(island: Island, badges: BadgeLike[]): IslandProgress {
+export function islandProgress(island: Island, badges: { topic: string }[]): IslandProgress {
   const have = new Set(badges.map((b) => b.topic));
   const done = island.lessonIds.filter((id) => have.has(id)).length;
   const total = island.lessonIds.length;
   return { done, total, complete: done === total, started: done > 0 };
 }
 
+/** True once every lesson on every island is cleared — this unlocks the mixed challenge. */
+export function allIslandsComplete(badges: { topic: string }[]): boolean {
+  return ISLANDS.every((i) => islandProgress(i, badges).complete);
+}
+
+/**
+ * Server badges plus topics cleared on this device (a kid playing without signing in has no
+ * badges), so the map, the done marks and the challenge lock all agree with what was played.
+ */
+export function withLocalClears<T extends { topic: string; badge: string }>(badges: T[], cleared: string[]): { topic: string; badge: string }[] {
+  const have = new Set(badges.map((b) => b.topic));
+  return [...badges, ...cleared.filter((t) => !have.has(t)).map((topic) => ({ topic, badge: '' }))];
+}
+
 /** The island the kid should sail to next: the first one not yet completed (or the last if all done). */
-export function currentIslandNumber(badges: BadgeLike[]): number {
+export function currentIslandNumber(badges: { topic: string }[]): number {
   const next = ISLANDS.find((i) => !islandProgress(i, badges).complete);
   return (next ?? ISLANDS[ISLANDS.length - 1]).n;
 }

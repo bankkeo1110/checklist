@@ -24,6 +24,11 @@ function readCleared(): Set<string> {
   } catch { return new Set(); }
 }
 
+/** Every topic cleared on this device. */
+export function clearedTopics(): string[] {
+  return [...readCleared()];
+}
+
 /** Has this exercise/topic already been cleared before (on this device, or synced from a server badge)? */
 export function hasClearedBefore(topic: string): boolean {
   return readCleared().has(topic);

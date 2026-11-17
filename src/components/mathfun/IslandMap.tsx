@@ -5,8 +5,11 @@ import Link from 'next/link';
 import { LESSONS } from '@/lib/mathfun/curriculum';
 import {
   ISLANDS, MAP_H, MAP_W, MAP_TITLE, currentIslandNumber, islandProgress,
-  type BadgeLike, type Island,
+  type Island,
 } from '@/lib/mathfun/islands';
+
+/** A cleared lesson: a server badge, or a clear on this device only (badge '' and no score). */
+type Cleared = { topic: string; badge: string; bestScore?: number };
 
 const BADGE_EMOJI: Record<string, string> = { bronze: '🥉', silver: '🥈', gold: '🥇', perfect: '👑' };
 
@@ -214,7 +217,7 @@ function IslandNode({
   );
 }
 
-export default function IslandMap({ badges }: { badges: BadgeLike[] }) {
+export default function IslandMap({ badges }: { badges: Cleared[] }) {
   const [open, setOpen] = useState<number | null>(null);
   const forest = useMemo(() => buildForest(), []);
   const trail = useMemo(() => pathThrough(ISLANDS), []);
@@ -334,7 +337,7 @@ export default function IslandMap({ badges }: { badges: BadgeLike[] }) {
   );
 }
 
-function LessonSheet({ island, badges, onClose }: { island: Island; badges: BadgeLike[]; onClose: () => void }) {
+function LessonSheet({ island, badges, onClose }: { island: Island; badges: Cleared[]; onClose: () => void }) {
   const lessons = island.lessonIds.map((id) => LESSONS.find((l) => l.id === id)).filter((l) => !!l);
   const prog = islandProgress(island, badges);
   return (
@@ -359,21 +362,27 @@ function LessonSheet({ island, badges, onClose }: { island: Island; badges: Badg
             className="card-comic-sm bg-white rounded-lg w-9 h-9 font-black shrink-0 hover:bg-gray-100">✕</button>
         </div>
         <div className="flex flex-col gap-2">
-          {lessons.map((l) => {
+          {lessons.map((l, i) => {
             const b = badges.find((x) => x.topic === l!.id);
-            const pct = b?.bestScore ?? 0;
+            const pct = b ? (b.bestScore || 100) : 0;
             return (
               <Link key={l!.id} href={`/mathfun/practice?topic=${l!.id}`}
-                className="card-comic-sm bg-white rounded-xl p-3 flex items-center gap-3 hover:-translate-y-0.5 transition-all">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl border-2 border-[#1a1a1a] shrink-0 ${l!.color}`}>{l!.emoji}</div>
+                className={`card-comic-sm rounded-xl p-3 flex items-center gap-3 hover:-translate-y-0.5 transition-all ${b ? 'bg-green-50 border-green-600' : 'bg-white'}`}>
+                <div className={`relative w-10 h-10 rounded-xl flex items-center justify-center text-xl border-2 border-[#1a1a1a] shrink-0 ${l!.color}`}>
+                  {l!.emoji}
+                  {b && <span className="absolute -right-2 -top-2 w-5 h-5 rounded-full bg-green-600 text-white text-xs flex items-center justify-center border-2 border-white">✓</span>}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-black text-sm text-[#1a1a1a]">{l!.label}</div>
+                  <div className={`font-black text-sm ${b ? 'text-green-800' : 'text-[#1a1a1a]'}`}>Phần {i + 1}: {l!.label}</div>
                   <div className="h-2 mt-1 bg-gray-100 rounded-full border border-gray-200 overflow-hidden">
                     <div className={`h-full rounded-full ${pct >= 90 ? 'bg-green-500' : pct >= 70 ? 'bg-yellow-400' : 'bg-blue-400'}`} style={{ width: `${pct}%` }} />
                   </div>
                 </div>
                 <div className="text-right shrink-0 font-black text-xs">
-                  {b ? <><span className="text-base">{BADGE_EMOJI[b.badge]}</span><div className="text-green-600">{pct}%</div></> : <span className="text-gray-400">CHƠI ▶</span>}
+                  {b
+                    ? <><span className="inline-block bg-green-600 text-white px-2 py-0.5 rounded-full">✓ XONG</span>
+                      <div className="text-green-700 mt-0.5">{b.badge ? `${BADGE_EMOJI[b.badge]} ${b.bestScore}%` : ''}</div></>
+                    : <span className="text-gray-400">CHƠI ▶</span>}
                 </div>
               </Link>
             );

@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getCredit } from '@/lib/mathfun/footballCredit';
+import { clearedTopics, getCredit } from '@/lib/mathfun/footballCredit';
 import { LESSONS } from '@/lib/mathfun/curriculum';
-import { CHALLENGE_TOPIC } from '@/lib/mathfun/practice-logic';
-import { currentIslandNumber, ISLANDS, islandOfLesson } from '@/lib/mathfun/islands';
+import { CHALLENGE_BONUS_MIN, CHALLENGE_TOPIC } from '@/lib/mathfun/practice-logic';
+import { allIslandsComplete, currentIslandNumber, ISLANDS, islandOfLesson, islandProgress, withLocalClears } from '@/lib/mathfun/islands';
 import IslandMap from '@/components/mathfun/IslandMap';
 
 interface Badge { topic: string; badge: string; bestScore: number; attempts: number; }
@@ -18,12 +18,14 @@ export default function Home() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [lastTopic, setLastTopic] = useState<string | null>(null);
   const [creditSec, setCreditSec] = useState(0);
+  const [localCleared, setLocalCleared] = useState<string[]>([]);
 
   useEffect(() => {
     const topic = localStorage.getItem('mathapp_last_topic');
     /* eslint-disable react-hooks/set-state-in-effect -- localStorage is only readable after mount */
     setLastTopic(topic);
     setCreditSec(getCredit());
+    setLocalCleared(clearedTopics());
     /* eslint-enable react-hooks/set-state-in-effect */
     fetch('/api/mathfun/me')
       .then(r => r.json())
@@ -43,11 +45,15 @@ export default function Home() {
   }, []);
 
   const lessonIds = new Set(LESSONS.map(l => l.id));
-  const doneCount = badges.filter(b => lessonIds.has(b.topic)).length;
+  // Lessons cleared on this device count as done too, even without a signed-in badge.
+  const done = withLocalClears(badges, localCleared);
+  const doneCount = done.filter(b => lessonIds.has(b.topic)).length;
+  const islandsDone = ISLANDS.filter(i => islandProgress(i, done).complete).length;
+  const challengeOpen = allIslandsComplete(done);
   const lastLesson = LESSONS.find(l => l.id === lastTopic);
   // Nothing played yet: point the kid at the first lesson of the island they are on.
-  const island = ISLANDS.find(i => i.n === currentIslandNumber(badges))!;
-  const suggested = lastLesson ?? LESSONS.find(l => l.id === island.lessonIds.find(id => !badges.some(b => b.topic === id))) ?? LESSONS[0];
+  const island = ISLANDS.find(i => i.n === currentIslandNumber(done))!;
+  const suggested = lastLesson ?? LESSONS.find(l => l.id === island.lessonIds.find(id => !done.some(b => b.topic === id))) ?? LESSONS[0];
   const suggestedIsland = islandOfLesson(suggested.id);
   const suggestedBadge = badges.find(b => b.topic === suggested.id);
 
@@ -73,7 +79,7 @@ export default function Home() {
         <span>🗺️</span><span>HÀNH TRÌNH TOÁN LỚP 5</span>
         <span className="text-gray-400 font-bold">(chạm vào đảo để chọn bài)</span>
       </h2>
-      <div className="mb-6"><IslandMap badges={badges} /></div>
+      <div className="mb-6"><IslandMap badges={done.map(d => badges.find(b => b.topic === d.topic) ?? d)} /></div>
 
       {/* Row 2 — continue + mixed challenge */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
@@ -85,7 +91,7 @@ export default function Home() {
             <h3 className="font-black text-2xl mt-3 mb-1">{suggested.emoji} {suggested.label}</h3>
             <p className="text-blue-200 text-sm font-semibold">
               {suggestedIsland ? `Đảo ${suggestedIsland.n} · ${suggestedIsland.guard} ${suggestedIsland.guardName}` : ''}
-              {suggestedBadge ? ` · tốt nhất ${suggestedBadge.bestScore}% ${BADGE_EMOJI[suggestedBadge.badge]}` : ' · chưa đánh bại'}
+              {suggestedBadge ? ` · tốt nhất ${suggestedBadge.bestScore}% ${BADGE_EMOJI[suggestedBadge.badge]}` : done.some(d => d.topic === suggested.id) ? ' · ✓ đã xong' : ' · chưa đánh bại'}
             </p>
           </div>
           <Link href={`/mathfun/practice?topic=${suggested.id}`}
@@ -94,16 +100,31 @@ export default function Home() {
           </Link>
         </div>
 
-        <div className="card-comic bg-[#E85555] text-white rounded-2xl p-6 flex flex-col justify-between min-h-[170px]">
-          <div>
-            <h3 className="font-black text-2xl mb-2 tracking-wide">🐲 THỬ THÁCH TỔNG HỢP</h3>
-            <p className="text-red-100 font-semibold">Câu hỏi trộn từ tất cả các bài đã học — xem hôm nay trụ được bao lâu!</p>
+        {challengeOpen ? (
+          <div className="card-comic bg-[#E85555] text-white rounded-2xl p-6 flex flex-col justify-between min-h-[170px]">
+            <div>
+              <h3 className="font-black text-2xl mb-2 tracking-wide">🐲 THỬ THÁCH TỔNG HỢP</h3>
+              <p className="text-red-100 font-semibold">Câu hỏi trộn từ tất cả các bài đã học. Hạ được rồng: thưởng thêm {CHALLENGE_BONUS_MIN} phút đá bóng!</p>
+            </div>
+            <Link href={`/mathfun/practice?topic=${CHALLENGE_TOPIC}`}
+              className="mt-4 border-2 border-white text-white font-black px-5 py-2.5 rounded-xl inline-flex items-center gap-2 hover:bg-white hover:text-[#E85555] transition w-fit">
+              VÀO THỬ →
+            </Link>
           </div>
-          <Link href={`/mathfun/practice?topic=${CHALLENGE_TOPIC}`}
-            className="mt-4 border-2 border-white text-white font-black px-5 py-2.5 rounded-xl inline-flex items-center gap-2 hover:bg-white hover:text-[#E85555] transition w-fit">
-            VÀO THỬ →
-          </Link>
-        </div>
+        ) : (
+          <div className="card-comic bg-gray-200 text-gray-600 rounded-2xl p-6 flex flex-col justify-between min-h-[170px]">
+            <div>
+              <h3 className="font-black text-2xl mb-2 tracking-wide">🔒 THỬ THÁCH TỔNG HỢP</h3>
+              <p className="font-semibold">Vượt qua cả 7 đảo để mở rồng thử thách — hạ được rồng thưởng thêm {CHALLENGE_BONUS_MIN} phút đá bóng.</p>
+            </div>
+            <div className="mt-4">
+              <div className="h-3 bg-white rounded-full border-2 border-gray-400 overflow-hidden">
+                <div className="h-full bg-green-500" style={{ width: `${(islandsDone / ISLANDS.length) * 100}%` }} />
+              </div>
+              <p className="text-sm font-black mt-1">Đã vượt qua {islandsDone}/{ISLANDS.length} đảo</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Reward: football */}

@@ -1,6 +1,6 @@
 // Every curriculum lesson must sit on exactly one island: `npx tsx scripts/check-islands.ts`
 import { LESSONS } from '../src/lib/mathfun/curriculum';
-import { ISLANDS, JOURNEY, MAP_W, MAP_H, islandProgress, currentIslandNumber, nextLessonId } from '../src/lib/mathfun/islands';
+import { ISLANDS, JOURNEY, MAP_W, MAP_H, islandProgress, currentIslandNumber, nextLessonId, allIslandsComplete, withLocalClears } from '../src/lib/mathfun/islands';
 
 let bad = 0;
 const fail = (m: string) => { bad++; console.log('FAIL', m); };
@@ -25,13 +25,21 @@ if (currentIslandNumber([]) !== 1) fail('fresh student should be on island 1');
 if (currentIslandNumber(all) !== 7) fail('finished student should be on island 7');
 const first = ISLANDS[0].lessonIds.map((id) => ({ topic: id, badge: 'bronze', bestScore: 70, attempts: 1 }));
 if (currentIslandNumber(first) !== 2) fail('after island 1 the next island is 2');
-const p = islandProgress(ISLANDS[1], [{ topic: ISLANDS[1].lessonIds[0], badge: 'gold', bestScore: 100, attempts: 1 }]);
+const p = islandProgress(ISLANDS[1], [{ topic: ISLANDS[1].lessonIds[0] }]);
 if (p.done !== 1 || p.total !== 6 || p.complete || !p.started) fail('partial progress wrong');
 
 if (new Set(ISLANDS.map((i) => i.guardName)).size !== ISLANDS.length) fail('two islands share a guard name');
 if (JOURNEY.length !== LESSONS.length) fail('the journey must cover every lesson exactly once');
 if (nextLessonId(JOURNEY[JOURNEY.length - 1]) !== undefined) fail('the last lesson must have no next');
 if (nextLessonId(JOURNEY[0]) !== JOURNEY[1]) fail('journey order broken');
+
+// the mixed challenge unlocks only when every island is cleared; local clears count too
+if (allIslandsComplete(first)) fail('challenge must stay locked after island 1 only');
+if (!allIslandsComplete(all)) fail('challenge must open once all islands are cleared');
+const almost = JOURNEY.slice(0, -1).map((topic) => ({ topic, badge: 'gold' }));
+if (allIslandsComplete(almost)) fail('one lesson short must still be locked');
+if (!allIslandsComplete(withLocalClears(almost, [JOURNEY[JOURNEY.length - 1]]))) fail('a lesson cleared on this device must count');
+if (withLocalClears(almost, [JOURNEY[0]]).length !== almost.length) fail('a local clear already badged must not be duplicated');
 
 console.log(`${LESSONS.length} lessons across ${ISLANDS.length} islands`);
 console.log(bad ? `${bad} problem(s)` : 'all ok');

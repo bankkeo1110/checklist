@@ -5,14 +5,14 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { generateQuestion, TOPICS, TOPIC_CATEGORIES, type Topic, type Question, type Category } from '@/lib/mathfun/questions';
 import { shuffle } from '@/lib/mathfun/qutil';
-import { addCredit, hasClearedBefore, markCleared } from '@/lib/mathfun/footballCredit';
+import { addCredit, clearedTopics, hasClearedBefore, markCleared } from '@/lib/mathfun/footballCredit';
 import { LESSONS } from '@/lib/mathfun/curriculum';
-import { ISLANDS, islandOfLesson, nextLessonId } from '@/lib/mathfun/islands';
+import { ISLANDS, allIslandsComplete, islandOfLesson, islandProgress, nextLessonId, withLocalClears } from '@/lib/mathfun/islands';
 import MathText from '@/components/mathfun/MathText';
 import Battle from '@/components/mathfun/Battle';
 import {
   TARGET_POINTS, CHALLENGE_TOPIC, RETRY_AFTER, calcScore, isSessionComplete,
-  calcAccuracy, getPointsDelta, starsForAccuracy, rewardMinutes,
+  calcAccuracy, getPointsDelta, starsForAccuracy, rewardMinutes, CHALLENGE_BONUS_MIN,
 } from '@/lib/mathfun/practice-logic';
 
 const LEGACY_ORDER: Category[] = ['numbers', 'fractions', 'measurement-geometry', 'problem-solving'];
@@ -182,6 +182,12 @@ function PracticeApp() {
   const [retryLeft, setRetryLeft] = useState(0);
 
   const [savedList, setSavedList] = useState<SavedProgress[]>([]);
+  const [localCleared, setLocalCleared] = useState<string[]>([]);
+  // Badges fetched (or no one signed in) — until then the challenge lock can't be judged.
+  const [loaded, setLoaded] = useState(false);
+  const done = withLocalClears(badges, localCleared);
+  const challengeOpen = allIslandsComplete(done);
+  const isDone = (id: string) => done.some((b) => b.topic === id);
   // Latest numbers, readable from callbacks so every save writes the current state.
   const statsRef = useRef<Stats>(ZERO);
 
@@ -197,15 +203,22 @@ function PracticeApp() {
             // Any topic the server already has a badge for is cleared — sync it in so a
             // first "Đánh lại" on this device doesn't look like a fresh clear.
             bs.forEach((b) => markCleared(b.topic));
+            setLocalCleared(clearedTopics());
           })
-          .catch(() => { /* badges are decoration; the exercise works without them */ });
+          .catch(() => { /* badges are decoration; the exercise works without them */ })
+          .finally(() => setLoaded(true));
+      } else {
+        setLoaded(true);
       }
-    }).catch(() => { /* not signed in / offline: practice still works, nothing is recorded */ });
+    }).catch(() => { setLoaded(true); /* not signed in / offline: practice still works, nothing is recorded */ });
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after mount
-    if (phase === 'setup') setSavedList(listProgress());
+    if (phase !== 'setup') return;
+    /* eslint-disable react-hooks/set-state-in-effect -- localStorage is only readable after mount */
+    setSavedList(listProgress());
+    setLocalCleared(clearedTopics());
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [phase]);
 
   useEffect(() => () => { if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current); }, []);
@@ -270,9 +283,14 @@ function PracticeApp() {
   const autoStarted = useRef(false);
   useEffect(() => {
     if (autoStarted.current || !topicParam) return;
+    // The mixed challenge is the final boss: a link to it only works once every island is cleared
+    // (judged after the badges have loaded); otherwise the kid lands on the menu showing the lock.
+    if (topicParam === CHALLENGE_TOPIC && !loaded) return;
     autoStarted.current = true;
+    if (topicParam === CHALLENGE_TOPIC && !challengeOpen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-off start from the URL once badges are known
     startGame(topicParam);
-  }, [topicParam, startGame]);
+  }, [topicParam, startGame, loaded, challengeOpen]);
 
   const handleAnswer = (choice: string) => {
     if (chosen || !question) return;
@@ -341,7 +359,8 @@ function PracticeApp() {
     if (isSessionComplete(pending.points) && retryRef.current.length === 0) {
       clearProgress(selectedTopic);
       const alreadyCleared = hasClearedBefore(String(selectedTopic));
-      const minutes = alreadyCleared ? 0 : rewardMinutes(pending.total - pending.correct);
+      const minutes = alreadyCleared ? 0
+        : rewardMinutes(pending.total - pending.correct) + (selectedTopic === CHALLENGE_TOPIC ? CHALLENGE_BONUS_MIN : 0);
       setCreditGranted(!alreadyCleared);
       setRewardMin(minutes);
       if (minutes > 0) addCredit(minutes * 60);
@@ -439,39 +458,58 @@ function PracticeApp() {
         {savedList.length > 0 && <div className="mb-5" />}
 
         <div className="flex flex-col gap-4 mb-5">
-          {ISLANDS.map((island) => (
-            <div key={island.n} className="card-comic bg-white rounded-2xl p-4">
+          {ISLANDS.map((island) => {
+            const prog = islandProgress(island, done);
+            return (
+            <div key={island.n} className={`card-comic rounded-2xl p-4 ${prog.complete ? 'bg-amber-50' : 'bg-white'}`}>
               <div className="flex items-center gap-2 mb-2.5">
-                <span className="w-7 h-7 rounded-full bg-[#FFD015] border-2 border-[#1a1a1a] font-black text-sm flex items-center justify-center shrink-0">
-                  {island.n}
+                <span className={`w-7 h-7 rounded-full border-2 border-[#1a1a1a] font-black text-sm flex items-center justify-center shrink-0 ${prog.complete ? 'bg-green-500 text-white' : 'bg-[#FFD015]'}`}>
+                  {prog.complete ? '✓' : island.n}
                 </span>
                 <span className="font-black">{island.title}</span>
                 <span className="text-sm font-bold text-gray-400 truncate">{island.guard} {island.guardName}</span>
+                <span className={`ml-auto shrink-0 text-xs font-black px-2 py-0.5 rounded-full ${prog.complete ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                  {prog.complete ? '👑 ĐÃ VƯỢT QUA' : `${prog.done}/${prog.total} phần`}
+                </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {island.lessonIds.map((id) => {
                   const l = LESSONS.find((x) => x.id === id);
                   if (!l) return null;
                   const b = badgeOf(id);
+                  const finished = isDone(id);
                   const inProgress = savedList.some((sp) => sp.topic === id);
                   return (
                     <button key={id} onClick={() => startGame(id)}
-                      className={`card-comic-sm rounded-xl p-2.5 font-black text-left text-sm flex items-center gap-2 transition hover:-translate-y-0.5 ${l.color}`}>
+                      className={`card-comic-sm rounded-xl p-2.5 font-black text-left text-sm flex items-center gap-2 transition hover:-translate-y-0.5 ${finished ? 'bg-green-100 border-green-600 text-green-900' : l.color}`}>
                       <span>{l.emoji}</span>
                       <span className="flex-1 min-w-0 truncate">{l.label}</span>
-                      <span className="shrink-0">{inProgress ? '⏸' : b ? BADGE_EMOJI[b.badge] : '▶'}</span>
+                      {inProgress && <span className="shrink-0" title="Đang làm dở">⏸</span>}
+                      {finished
+                        ? <span className="shrink-0 bg-green-600 text-white text-[11px] px-2 py-0.5 rounded-full">✓ XONG {b?.badge ? BADGE_EMOJI[b.badge] : ''}</span>
+                        : !inProgress && <span className="shrink-0">▶</span>}
                     </button>
                   );
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
-        <button onClick={() => startGame(CHALLENGE_TOPIC)}
-          className="card-comic w-full bg-purple-500 text-white font-black py-4 rounded-2xl text-lg hover:bg-purple-600 transition mb-5">
-          🐲 Thử thách tổng hợp — câu hỏi trộn từ mọi bài!
-        </button>
+        {challengeOpen ? (
+          <button onClick={() => startGame(CHALLENGE_TOPIC)}
+            className="card-comic w-full bg-purple-500 text-white font-black py-4 rounded-2xl text-lg hover:bg-purple-600 transition mb-5">
+            🐲 Thử thách tổng hợp — câu hỏi trộn từ mọi bài! (+{CHALLENGE_BONUS_MIN} phút thưởng)
+          </button>
+        ) : (
+          <div className="card-comic w-full bg-gray-200 text-gray-500 font-black py-4 px-4 rounded-2xl text-center mb-5">
+            🔒 Thử thách tổng hợp — vượt qua cả 7 đảo để mở
+            <span className="block text-sm font-bold mt-1">
+              Đã vượt qua {ISLANDS.filter((i) => islandProgress(i, done).complete).length}/7 đảo · mở ra được thưởng thêm {CHALLENGE_BONUS_MIN} phút
+            </span>
+          </div>
+        )}
 
         <details className="card-comic bg-white rounded-2xl p-4">
           <summary className="font-black cursor-pointer">🇬🇧 Các chủ đề luyện thêm (tiếng Anh)</summary>
@@ -533,7 +571,8 @@ function PracticeApp() {
 
           {creditGranted ? (
             <Link href="/child/games/football" className="card-comic-sm mb-4 inline-block bg-green-100 border-green-500 font-black text-green-800 py-2 px-4 rounded-xl hover:bg-green-200 transition">
-              ⚽ Được chơi đá bóng {rewardMin} phút{totalAnswered === correctCount ? ' (không sai câu nào!)' : ` (sai ${totalAnswered - correctCount} câu)`} → Chơi ngay
+              ⚽ Được chơi đá bóng {rewardMin} phút{totalAnswered === correctCount ? ' (không sai câu nào!)' : ` (sai ${totalAnswered - correctCount} câu)`}
+              {selectedTopic === CHALLENGE_TOPIC ? ` · gồm +${CHALLENGE_BONUS_MIN} phút thưởng thử thách` : ''} → Chơi ngay
             </Link>
           ) : (
             <div className="card-comic-sm mb-4 inline-block bg-gray-100 border-gray-300 font-black text-gray-500 py-2 px-4 rounded-xl">

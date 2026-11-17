@@ -42,5 +42,8 @@ export function rewardMinutes(wrong: number): number {
   return wrong <= 0 ? 7 : wrong <= 3 ? 5 : wrong <= 5 ? 4 : wrong <= 7 ? 3 : 2;
 }
 
+/** Extra minutes for beating the mixed challenge, which only opens once all 7 islands are done. */
+export const CHALLENGE_BONUS_MIN = 3;
+
 /** How many questions later a missed question comes back for a second try. */
 export const RETRY_AFTER = 3;
