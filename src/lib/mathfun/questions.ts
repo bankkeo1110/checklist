@@ -1054,6 +1054,17 @@ function genWordProblems(): Question {
 
 // ─── DISPATCH ────────────────────────────────────────────────────────────────
 
+/**
+ * A question this session hasn't asked yet: random generators repeat themselves (some geometry
+ * lessons only have a few hundred variants), so draw again — up to `tries` times — on a repeat.
+ * Deliberate retries of missed questions don't go through here.
+ */
+export function freshQuestion(topic: Topic, seen: ReadonlySet<string>, tries = 40): Question {
+  let q = generateQuestion(topic);
+  for (let i = 0; i < tries && seen.has(q.question); i++) q = generateQuestion(topic);
+  return q;
+}
+
 export function generateQuestion(topic: Topic): Question {
   const lesson = LESSONS.find((l) => l.id === topic);
   if (lesson) return lesson.gen();

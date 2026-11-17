@@ -1,6 +1,6 @@
 // Simulates practice sessions to keep the pacing honest: `npx tsx scripts/check-practice.ts`
 import { LESSONS } from '../src/lib/mathfun/curriculum';
-import { generateQuestion } from '../src/lib/mathfun/questions';
+import { generateQuestion, freshQuestion } from '../src/lib/mathfun/questions';
 import {
   TARGET_POINTS, CHALLENGE_TOPIC, RETRY_AFTER, calcScore, isSessionComplete,
   calcAccuracy, starsForAccuracy, getPointsDelta, rewardMinutes,
@@ -62,6 +62,17 @@ for (const topic of [...LESSONS.map((l) => l.id), CHALLENGE_TOPIC]) {
 const expected = [7, 5, 5, 5, 4, 4, 3, 3, 2, 2, 2];
 expected.forEach((m, wrong) => { if (rewardMinutes(wrong) !== m) fail(`${wrong} sai → ${rewardMinutes(wrong)} phút, phải là ${m}`); });
 if (rewardMinutes(40) !== 2) fail('many wrong answers must still earn 2 minutes');
+
+// No exact repeats inside a session, even a long one (a struggling kid can need ~100 questions).
+for (const l of LESSONS) {
+  let worst = 0;
+  for (let s = 0; s < 20; s++) {
+    const seen = new Set<string>(); let d = 0;
+    for (let i = 0; i < 100; i++) { const t = freshQuestion(l.id, seen).question; if (seen.has(t)) d++; seen.add(t); }
+    worst = Math.max(worst, d);
+  }
+  if (worst > 2) fail(`${l.id}: ${worst} repeated questions in a 100-question session`);
+}
 
 console.log(bad ? `${bad} problem(s)` : 'all ok');
 process.exit(bad ? 1 : 0);

@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { generateQuestion, TOPICS, TOPIC_CATEGORIES, type Topic, type Question, type Category } from '@/lib/mathfun/questions';
+import { freshQuestion, TOPICS, TOPIC_CATEGORIES, type Topic, type Question, type Category } from '@/lib/mathfun/questions';
 import { shuffle } from '@/lib/mathfun/qutil';
 import { addCredit, clearedTopics, hasClearedBefore, markCleared } from '@/lib/mathfun/footballCredit';
 import { LESSONS } from '@/lib/mathfun/curriculum';
@@ -47,6 +47,8 @@ interface SavedProgress extends Stats {
   question: Question | null;
   retry: { q: Question; due: number }[];
   asked: number;
+  /** Question texts already asked this session, so a resumed fight doesn't repeat them either. */
+  seen?: string[];
   savedAt: number;
 }
 
@@ -179,6 +181,7 @@ function PracticeApp() {
   // Missed questions come back a few questions later instead of being lost.
   const retryRef = useRef<{ q: Question; due: number }[]>([]);
   const askedRef = useRef(0);
+  const seenRef = useRef<Set<string>>(new Set());
   const [retryLeft, setRetryLeft] = useState(0);
 
   const [savedList, setSavedList] = useState<SavedProgress[]>([]);
@@ -232,7 +235,8 @@ function PracticeApp() {
       q = { ...item.q, choices: shuffle(item.q.choices) }; // same question, answers moved around
       setIsRetry(true);
     } else {
-      q = generateQuestion(topic);
+      q = freshQuestion(topic, seenRef.current);
+      seenRef.current.add(q.question);
       setIsRetry(false);
     }
     askedRef.current++;
@@ -241,7 +245,7 @@ function PracticeApp() {
     setIsCorrect(null);
     pendingRef.current = null;
     // Remember the question on screen, so coming back shows this very question again.
-    saveProgress({ topic, ...statsRef.current, question: q, retry: retryRef.current, asked: askedRef.current });
+    saveProgress({ topic, ...statsRef.current, question: q, retry: retryRef.current, asked: askedRef.current, seen: [...seenRef.current] });
   }, [selectedTopic]);
 
   const startGame = useCallback((topic: Topic, forceNew = false) => {
@@ -262,6 +266,7 @@ function PracticeApp() {
     setFlash(null);
     retryRef.current = saved?.retry ?? [];
     askedRef.current = saved?.asked ?? 0;
+    seenRef.current = new Set(saved?.seen ?? []);
     setRetryLeft(retryRef.current.length);
     const resumed = !!saved && saved.totalAnswered > 0;
     const hasTheory = LESSONS.some((l) => l.id === topic);
@@ -327,7 +332,7 @@ function PracticeApp() {
       bestStreak: Math.max(statsRef.current.bestStreak, newStreak),
     };
     // Answered: saved without a question, so a return moves on instead of re-asking this one for free points.
-    saveProgress({ topic: selectedTopic, ...statsRef.current, question: null, retry: retryRef.current, asked: askedRef.current });
+    saveProgress({ topic: selectedTopic, ...statsRef.current, question: null, retry: retryRef.current, asked: askedRef.current, seen: [...seenRef.current] });
     pendingRef.current = { points: newPoints, correct: newCorrect, total: newTotal, streak: newStreak };
 
     if (correct) {
